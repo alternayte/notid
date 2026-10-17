@@ -1,0 +1,33 @@
+{
+  "name": "notid-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --bun vite dev --port 3000",
+    "build": "bun --bun vite build",
+    "start": "bun .output/server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "gen:api": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
+    "lint": "biome check src vite.config.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1.170.45",
+    "@tanstack/react-start": "^1.169.3",
+    "openapi-fetch": "^0.17.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/bun": "^1.4.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "nitro": "^3.0.260903-beta",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -2,3 +2,6 @@
 /data/
 node_modules/
 .env
+.output/
+.nitro/
+.tanstack/

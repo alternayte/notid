@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/alternayte/auth-all/humaauth"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alternayte/notid/internal/accounts"
@@ -21,6 +25,7 @@ type app struct {
 	log    *slog.Logger
 	pool   *pgxpool.Pool
 	api    http.Handler
+	doc    huma.API
 }
 
 func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) (*app, error) {
@@ -66,5 +71,31 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
 	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(mux)))
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler}, nil
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, doc: api}, nil
+}
+
+// writeOpenAPI prints the API document. It needs no config and opens no database connection.
+func writeOpenAPI(w io.Writer) error {
+	smtp, _ := url.Parse("smtp://localhost:25")
+	web, _ := url.Parse("http://localhost:3000")
+	cfg := platform.Config{
+		AppDomain: "example.org", AppOrigin: "https://example.org", SecretKey: make([]byte, 32),
+		SMTPURL: smtp, EmailFrom: "hello@example.org", WebUpstream: web, Signup: platform.SignupInvite,
+	}
+	// pgxpool connects lazily, so this pool never dials.
+	pool, err := pgxpool.New(context.Background(), "postgres://openapi@localhost:1/none")
+	if err != nil {
+		return fmt.Errorf("openapi pool: %w", err)
+	}
+	defer pool.Close()
+	a, err := wire(cfg, platform.DefaultTuning(), slog.New(slog.DiscardHandler), pool)
+	if err != nil {
+		return fmt.Errorf("openapi wiring: %w", err)
+	}
+	b, err := json.MarshalIndent(a.doc.OpenAPI(), "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal openapi: %w", err)
+	}
+	_, err = w.Write(append(b, '\n'))
+	return err
 }

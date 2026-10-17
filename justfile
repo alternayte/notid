@@ -38,7 +38,20 @@ check: db
     fi
     go vet ./...
     if [ -n "$pkgs" ]; then go test $pkgs; fi
+    go run ./cmd/notid openapi > web/src/api/openapi.json
+    (cd web && bun install --frozen-lockfile --silent && bun run gen:api --silent >/dev/null)
+    if [ -n "${CI:-}" ] && ! git diff --quiet -- web/src/api; then
+      echo "the API client is stale; run just check and commit web/src/api"; git diff --stat -- web/src/api; exit 1
+    fi
+    if [ "${CHECK_ALL:-}" = "1" ] || [ -n "$( { git diff --name-only "${base:-HEAD}"; git ls-files --others --exclude-standard; } | grep '^web/' || true)" ]; then
+      (cd web && bun run --silent typecheck && bun run --silent lint && bun run --silent test)
+    fi
 
-# Full suite with the race detector.
+# Full suite with the race detector, and every web test.
 test: db
     go test -race -count=1 ./...
+    cd web && bun install --frozen-lockfile --silent && bun run test
+
+# Run the web app in dev mode behind nothing; use `notid serve` with WEB_UPSTREAM=http://127.0.0.1:3000 in front.
+web-dev:
+    cd web && bun run dev

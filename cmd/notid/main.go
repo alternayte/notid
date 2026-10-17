@@ -21,6 +21,7 @@ const usage = `usage: notid <command>
 commands:
   serve     run the public and internal listeners
   migrate   apply database migrations
+  openapi   print the OpenAPI document
   version   print the version
 `
 
@@ -39,9 +40,12 @@ func main() {
 }
 
 func run(ctx context.Context, cmd string, log *slog.Logger) error {
-	if cmd == "version" {
+	switch cmd {
+	case "version":
 		fmt.Println(version)
 		return nil
+	case "openapi":
+		return writeOpenAPI(os.Stdout)
 	}
 	cfg, err := platform.LoadConfig(os.Getenv)
 	if err != nil {
