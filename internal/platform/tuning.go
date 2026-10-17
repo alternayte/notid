@@ -10,6 +10,16 @@ type Tuning struct {
 	IdleTimeout       time.Duration
 	ShutdownTimeout   time.Duration
 	MaxHeaderBytes    int
+
+	SessionIdle       time.Duration
+	SessionAbsolute   time.Duration
+	MagicLinkTTL      time.Duration
+	APIKeyMaxTTL      time.Duration
+	SignInPerEmail    int
+	SignInPerIP       int
+	MagicLinkPerEmail int
+	MagicLinkPerIP    int
+	SignUpPerIP       int
 }
 
 func DefaultTuning() Tuning {
@@ -20,5 +30,15 @@ func DefaultTuning() Tuning {
 		IdleTimeout:       120 * time.Second,
 		ShutdownTimeout:   20 * time.Second,
 		MaxHeaderBytes:    64 << 10,
+
+		SessionIdle:       30 * 24 * time.Hour,
+		SessionAbsolute:   90 * 24 * time.Hour,
+		MagicLinkTTL:      15 * time.Minute,
+		APIKeyMaxTTL:      365 * 24 * time.Hour,
+		SignInPerEmail:    5,
+		SignInPerIP:       20,
+		MagicLinkPerEmail: 5,
+		MagicLinkPerIP:    30,
+		SignUpPerIP:       10,
 	}
 }

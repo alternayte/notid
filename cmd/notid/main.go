@@ -8,8 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/platform"
 	"github.com/alternayte/notid/internal/platform/edge"
+	"github.com/alternayte/notid/migrations"
 )
 
 var version = "dev"
@@ -18,6 +20,7 @@ const usage = `usage: notid <command>
 
 commands:
   serve     run the public and internal listeners
+  migrate   apply database migrations
   version   print the version
 `
 
@@ -48,6 +51,8 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 	switch cmd {
 	case "serve":
 		return serve(ctx, cfg, tuning, log)
+	case "migrate":
+		return migrate(ctx, cfg, tuning, log)
 	default:
 		return fmt.Errorf("unknown command %q\n%s", cmd, usage)
 	}
@@ -59,4 +64,25 @@ func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slo
 		Web: edge.NewWebProxy(cfg.WebUpstream, log),
 	}, log)
 	return edge.Serve(ctx, cfg, t, hosts, public, edge.InternalHandler(nil), log)
+}
+
+func migrate(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) error {
+	pool, err := platform.OpenPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	mailer, err := platform.NewMailer(cfg.SMTPURL, cfg.EmailFrom)
+	if err != nil {
+		return err
+	}
+	auth, err := accounts.NewAuth(cfg, t, pool, mailer, log)
+	if err != nil {
+		return err
+	}
+	units, err := accounts.MigrationUnits(auth)
+	if err != nil {
+		return err
+	}
+	return platform.Migrate(ctx, pool, units, migrations.FS, log)
 }

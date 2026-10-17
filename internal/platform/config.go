@@ -34,9 +34,11 @@ type S3Config struct {
 type Config struct {
 	DatabaseURL string
 	AppDomain   string
-	SecretKey   []byte
-	SMTPURL     *url.URL
-	EmailFrom   string
+	// AppOrigin is the browser origin of the app domain, e.g. https://example.org.
+	AppOrigin string
+	SecretKey []byte
+	SMTPURL   *url.URL
+	EmailFrom string
 
 	TLS       TLSMode
 	ACMEEmail string
@@ -129,6 +131,19 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		c.Signup = m
 	default:
 		errs = append(errs, fmt.Errorf("SIGNUP must be invite, open or closed, got %q", m))
+	}
+
+	c.AppOrigin = "https://" + c.AppDomain
+	if raw := get("APP_ORIGIN", ""); raw != "" {
+		u, err := url.Parse(raw)
+		switch {
+		case c.TLS != TLSOff:
+			errs = append(errs, errors.New("APP_ORIGIN is allowed only with TLS=off"))
+		case err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() != c.AppDomain || u.Path != "" || u.RawQuery != "" || u.User != nil:
+			errs = append(errs, fmt.Errorf("APP_ORIGIN must be scheme://APP_DOMAIN[:port], got %q", raw))
+		default:
+			c.AppOrigin = raw
+		}
 	}
 
 	switch v := get("FEDERATION_HTTP", ""); v {

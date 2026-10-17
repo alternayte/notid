@@ -31,6 +31,9 @@ func TestConfigDefaults(t *testing.T) {
 	if len(c.SecretKey) != 32 {
 		t.Fatalf("secret key length %d", len(c.SecretKey))
 	}
+	if c.AppOrigin != "https://example.org" {
+		t.Fatalf("app origin %q", c.AppOrigin)
+	}
 	if c.MediaDir == "" {
 		t.Fatal("media dir must default when S3 is not set")
 	}
@@ -53,6 +56,9 @@ func TestConfigRejectsMissingAndUnsafeValues(t *testing.T) {
 		"partial S3":                func(e map[string]string) { e["S3_BUCKET"] = "b" },
 		"MEDIA_DIR and S3":          func(e map[string]string) { setS3(e); e["MEDIA_DIR"] = "/data" },
 		"bad SMTP_URL":              func(e map[string]string) { e["SMTP_URL"] = "localhost:25" },
+		"APP_ORIGIN with ACME":      func(e map[string]string) { e["APP_ORIGIN"] = "http://example.org:8080" },
+		"APP_ORIGIN other host":     func(e map[string]string) { e["TLS"] = "off"; e["APP_ORIGIN"] = "http://other.org" },
+		"APP_ORIGIN with path":      func(e map[string]string) { e["TLS"] = "off"; e["APP_ORIGIN"] = "http://example.org/x" },
 		"bad WEB_UPSTREAM":          func(e map[string]string) { e["WEB_UPSTREAM"] = "web:3000" },
 	}
 	for name, mutate := range cases {
@@ -105,4 +111,17 @@ func setS3(e map[string]string) {
 	e["S3_BUCKET"] = "media"
 	e["S3_ACCESS_KEY"] = "a"
 	e["S3_SECRET_KEY"] = "s"
+}
+
+func TestConfigAppOriginInDev(t *testing.T) {
+	env := validEnv()
+	env["TLS"] = "off"
+	env["APP_ORIGIN"] = "http://example.org:8080"
+	c, err := load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.AppOrigin != "http://example.org:8080" {
+		t.Fatalf("app origin %q", c.AppOrigin)
+	}
 }
