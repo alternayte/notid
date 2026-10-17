@@ -5,6 +5,7 @@ go 1.26.2
 require (
 	github.com/alternayte/auth-all v0.5.1
 	github.com/caddyserver/certmagic v0.25.6
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/riverqueue/river v0.49.0
@@ -14,7 +15,6 @@ require (
 
 require (
 	github.com/caddyserver/zerossl v0.1.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.3 // indirect

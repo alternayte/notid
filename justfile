@@ -32,6 +32,10 @@ check: db
       dirs=$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | grep '\.go$' | xargs -r -n1 dirname | sort -u | while read -r d; do [ -d "$d" ] && echo "./$d"; done || true)
       pkgs=${dirs:-}
     fi
+    sqlc generate
+    if ! git diff --quiet -- internal/*/*db || [ -n "$(git ls-files --others --exclude-standard -- 'internal/*/*db')" ]; then
+      if [ -n "${CI:-}" ]; then echo "sqlc output is stale; run sqlc generate and commit"; git status --short -- internal; exit 1; fi
+    fi
     go vet ./...
     if [ -n "$pkgs" ]; then go test $pkgs; fi
 
