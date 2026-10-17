@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -106,9 +105,15 @@ func mustUser(t *testing.T, e env) uuid.UUID {
 	return uuid.MustParse(u.ID)
 }
 
+// clientIP returns a unique documentation address. auth-all keeps rate-limit buckets in the shared test
+// database, so a fixed address would trip the per-IP sign-up limit on the second run.
+func clientIP() string {
+	return "2001:db8::" + strings.ReplaceAll(uuid.NewString()[:13], "-", "")
+}
+
 func signUp(e env, email, name, invite string) error {
 	return e.svc.SignUp(context.Background(), accounts.SignUpInput{
-		Email: email, Name: name, Invite: invite, ClientIP: "198.51.100." + fmt.Sprint(len(name)+len(email)%200),
+		Email: email, Name: name, Invite: invite, ClientIP: clientIP(),
 	})
 }
 
