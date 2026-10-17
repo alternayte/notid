@@ -1,0 +1,50 @@
+---
+# Self-host and flagship stack. Copy .env.example to .env and fill it in.
+x-db: &db
+  DATABASE_URL: >-
+    postgres://notid:${POSTGRES_PASSWORD}@postgres:5432/notid?sslmode=disable
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: notid
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notid"]
+      interval: 5s
+      retries: 20
+
+  migrate:
+    image: ghcr.io/alternayte/notid-api:${NOTID_VERSION:-latest}
+    build: .
+    env_file: .env
+    environment: *db
+    command: ["migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notid:
+    image: ghcr.io/alternayte/notid-api:${NOTID_VERSION:-latest}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment: *db
+    command: ["all"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  data:

@@ -1,0 +1,5 @@
+.build
+.git
+web/node_modules
+interop
+CLAUDE.local.md
