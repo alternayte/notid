@@ -6,7 +6,7 @@ A community that owns its domain can move to another installation and keep its a
 
 ## Run
 - Self-host or production: copy `.env.example` to `.env`, then `docker compose up -d`.
-- Local: `notid migrate`, then `notid serve` with env from `.env.example`; set TLS=off and APP_ORIGIN for plain HTTP.
+- Local: `notid migrate`, then `notid all` (listeners and job workers) with env from `.env.example`; set TLS=off and APP_ORIGIN for plain HTTP. `notid serve` runs the listeners without workers.
 - Web dev server: `just web-dev`. Point WEB_UPSTREAM at it.
 - `notid openapi` prints the API document without a database.
 
