@@ -70,8 +70,9 @@ func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slo
 	defer a.pool.Close()
 	hosts := edge.Hosts{AppDomain: cfg.AppDomain}
 	public := edge.Handler(hosts, edge.Routes{
-		API: a.api,
-		Web: edge.NewWebProxy(cfg.WebUpstream, log),
+		Federation: a.federation,
+		API:        a.api,
+		Web:        edge.NewWebProxy(cfg.WebUpstream, log),
 	}, log)
 	return edge.Serve(ctx, cfg, t, hosts, public, edge.InternalHandler(a.api), log)
 }

@@ -1,0 +1,58 @@
+package federation
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/alternayte/notid/internal/federation/federationdb"
+)
+
+// writeJSONBody writes a plain JSON document; NodeInfo is not ActivityStreams.
+func writeJSONBody(w http.ResponseWriter, v any) {
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// person serves a local person actor.
+func (s *Server) person(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	a, err := federationdb.New(s.Pool).LocalActorByName(r.Context(), federationdb.LocalActorByNameParams{
+		Kind: "person", Domain: s.AppDomain, Name: name,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.Log.ErrorContext(r.Context(), "person actor", "name", name, "err", err)
+		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, personDoc(actorRow{
+		ApID: a.ApID, Name: a.Name, DisplayName: a.DisplayName, Summary: a.Summary,
+		Inbox: a.Inbox, SharedInbox: a.SharedInbox, PublicKeyPem: a.PublicKeyPem, Bot: a.Bot,
+	}, s.AppOrigin+"/u/"+a.Name))
+}
+
+// group serves a community's group actor on its own host.
+func (s *Server) group(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	c, err := federationdb.New(s.Pool).CommunityByDomainName(r.Context(), federationdb.CommunityByDomainNameParams{
+		Domain: requestHost(r), Name: name,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.Log.ErrorContext(r.Context(), "group actor", "name", name, "err", err)
+		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, groupDoc(groupRow{
+		ApID: c.ApID, Name: c.Name, Title: c.Title, Description: c.Description,
+		Inbox: c.Inbox, PublicKeyPem: c.PublicKeyPem,
+	}, c.ApID))
+}

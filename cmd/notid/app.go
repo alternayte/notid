@@ -15,17 +15,19 @@ import (
 
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/federation"
 	"github.com/alternayte/notid/internal/platform"
 )
 
 // app holds the wired dependencies of one process.
 type app struct {
-	cfg    platform.Config
-	tuning platform.Tuning
-	log    *slog.Logger
-	pool   *pgxpool.Pool
-	api    http.Handler
-	doc    huma.API
+	cfg        platform.Config
+	tuning     platform.Tuning
+	log        *slog.Logger
+	pool       *pgxpool.Pool
+	api        http.Handler
+	federation http.Handler
+	doc        huma.API
 }
 
 func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) (*app, error) {
@@ -33,7 +35,7 @@ func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *sl
 	if err != nil {
 		return nil, err
 	}
-	a, err := wire(cfg, t, log, pool)
+	a, err := wire(cfg, t, log, pool, version)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -41,7 +43,7 @@ func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *sl
 	return a, nil
 }
 
-func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpool.Pool) (*app, error) {
+func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpool.Pool, version string) (*app, error) {
 	mailer, err := platform.NewMailer(cfg.SMTPURL, cfg.EmailFrom)
 	if err != nil {
 		return nil, err
@@ -71,7 +73,15 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
 	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(mux)))
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, doc: api}, nil
+	fed := &federation.Server{
+		Pool:         pool,
+		AppDomain:    cfg.AppDomain,
+		AppOrigin:    cfg.AppOrigin,
+		Version:      version,
+		SignupClosed: cfg.Signup == platform.SignupClosed,
+		Log:          log,
+	}
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.
@@ -88,7 +98,7 @@ func writeOpenAPI(w io.Writer) error {
 		return fmt.Errorf("openapi pool: %w", err)
 	}
 	defer pool.Close()
-	a, err := wire(cfg, platform.DefaultTuning(), slog.New(slog.DiscardHandler), pool)
+	a, err := wire(cfg, platform.DefaultTuning(), slog.New(slog.DiscardHandler), pool, "dev")
 	if err != nil {
 		return fmt.Errorf("openapi wiring: %w", err)
 	}
