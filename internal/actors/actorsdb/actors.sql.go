@@ -11,6 +11,70 @@ import (
 	"github.com/google/uuid"
 )
 
+const actorByApID = `-- name: ActorByApID :one
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+WHERE ap_id = $1
+`
+
+func (q *Queries) ActorByApID(ctx context.Context, apID string) (Actor, error) {
+	row := q.db.QueryRow(ctx, actorByApID, apID)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const actorByID = `-- name: ActorByID :one
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+WHERE id = $1
+`
+
+func (q *Queries) ActorByID(ctx context.Context, id int64) (Actor, error) {
+	row := q.db.QueryRow(ctx, actorByID, id)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const actorByUserID = `-- name: ActorByUserID :one
 SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
 WHERE user_id = $1
@@ -18,6 +82,61 @@ WHERE user_id = $1
 
 func (q *Queries) ActorByUserID(ctx context.Context, userID *uuid.UUID) (Actor, error) {
 	row := q.db.QueryRow(ctx, actorByUserID, userID)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertApplication = `-- name: InsertApplication :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, inbox, shared_inbox, public_key_pem, private_key_enc
+) VALUES (
+    $1, 'application', true, $2, $3, $4, $5, $6, $7
+)
+ON CONFLICT (ap_id) DO NOTHING
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type InsertApplicationParams struct {
+	ApID          string
+	Domain        string
+	Name          string
+	Inbox         string
+	SharedInbox   string
+	PublicKeyPem  string
+	PrivateKeyEnc []byte
+}
+
+func (q *Queries) InsertApplication(ctx context.Context, arg InsertApplicationParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, insertApplication,
+		arg.ApID,
+		arg.Domain,
+		arg.Name,
+		arg.Inbox,
+		arg.SharedInbox,
+		arg.PublicKeyPem,
+		arg.PrivateKeyEnc,
+	)
 	var i Actor
 	err := row.Scan(
 		&i.ID,
@@ -124,4 +243,76 @@ func (q *Queries) LocalNameTaken(ctx context.Context, arg LocalNameTakenParams) 
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const upsertRemoteActor = `-- name: UpsertRemoteActor :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, display_name, summary,
+    inbox, shared_inbox, public_key_pem, bot, fetched_at
+) VALUES (
+    $1, $2, false, $3, $4, $5, $6,
+    $7, $8, $9, $10, now()
+)
+ON CONFLICT (ap_id) DO UPDATE SET
+    name = excluded.name,
+    display_name = excluded.display_name,
+    summary = excluded.summary,
+    inbox = excluded.inbox,
+    shared_inbox = excluded.shared_inbox,
+    public_key_pem = excluded.public_key_pem,
+    bot = excluded.bot,
+    fetched_at = excluded.fetched_at
+WHERE NOT actors.local AND actors.kind = excluded.kind
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type UpsertRemoteActorParams struct {
+	ApID         string
+	Kind         string
+	Domain       string
+	Name         string
+	DisplayName  string
+	Summary      string
+	Inbox        string
+	SharedInbox  string
+	PublicKeyPem string
+	Bot          bool
+}
+
+func (q *Queries) UpsertRemoteActor(ctx context.Context, arg UpsertRemoteActorParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, upsertRemoteActor,
+		arg.ApID,
+		arg.Kind,
+		arg.Domain,
+		arg.Name,
+		arg.DisplayName,
+		arg.Summary,
+		arg.Inbox,
+		arg.SharedInbox,
+		arg.PublicKeyPem,
+		arg.Bot,
+	)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }

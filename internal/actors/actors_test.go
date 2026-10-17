@@ -115,3 +115,51 @@ func uuidStr(u *uuid.UUID) string {
 	}
 	return u.String()
 }
+
+func TestUpsertRemoteRefreshesARemoteActorAndNeverALocalOne(t *testing.T) {
+	ctx := context.Background()
+	tx := pgtest.Tx(t)
+	r := actors.Remote{
+		ApID: "https://lemmy.example/u/bob", Kind: "person", Domain: "lemmy.example", Name: "bob",
+		Inbox: "https://lemmy.example/u/bob/inbox", PublicKeyPem: "old",
+	}
+	first, err := actors.UpsertRemote(ctx, tx, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.PublicKeyPem = "new"
+	second, err := actors.UpsertRemote(ctx, tx, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ID != first.ID || second.PublicKeyPem != "new" || second.Local || second.FetchedAt == nil {
+		t.Fatalf("refresh: %+v", second)
+	}
+
+	l := local(t)
+	mine, err := l.CreatePerson(ctx, tx, insertUser(t, tx), "carol", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = actors.UpsertRemote(ctx, tx, actors.Remote{ApID: mine.ApID, Kind: "person", Domain: "notid.test", Name: "carol", PublicKeyPem: "evil"})
+	if !errors.Is(err, actors.ErrNotRemote) {
+		t.Fatalf("upsert over a local actor: %v", err)
+	}
+}
+
+func TestApplicationActorIsCreatedOnceAndCanSign(t *testing.T) {
+	ctx := context.Background()
+	tx := pgtest.Tx(t)
+	l := local(t)
+	a, err := l.Application(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := l.Application(ctx, tx)
+	if err != nil || b.ID != a.ID || a.Kind != "application" || a.ApID != "https://notid.test/actor" {
+		t.Fatalf("application actor: %+v %+v %v", a, b, err)
+	}
+	if _, err := l.PrivateKey(a); err != nil {
+		t.Fatal(err)
+	}
+}
