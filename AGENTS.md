@@ -5,16 +5,24 @@ notid is a free, AGPL-3.0, Reddit-like community platform: people sign up on one
 A community that owns its domain can move to another installation and keep its address and its members.
 
 ## Run
-No code exists yet.
+- Self-host or production: copy `.env.example` to `.env`, then `docker compose up -d`.
+- Local: `notid migrate`, then `notid serve` with env from `.env.example`; set TLS=off and APP_ORIGIN for plain HTTP.
+- Web dev server: `just web-dev`. Point WEB_UPSTREAM at it.
+- `notid openapi` prints the API document without a database.
 
 ## Test
-No code exists yet.
+- `just check` is the gate. It starts a test Postgres in Docker, runs `checks/`, Go vet and tests for changed packages, sqlc, the API client regeneration, and the web typecheck, lint and tests.
+- `just test` runs every Go test with `-race`, and every web test.
+- DB tests take a rolled-back transaction from `internal/platform/pgtest`. Tests that go through auth-all commit, so they use unique data.
 
 ## Stack rules
 - Deploy is Docker Compose on a VPS, for the flagship and for self-hosters, not Kubernetes.
 - The web app is TanStack Start with React 19. The Go binary is the only public listener and proxies page requests to it.
 - The public API is Huma. Queries go through sqlc, migrations through goose, jobs through River.
+- SQL lives in `queries/`, one file per feature; sqlc writes each into a db package inside its feature under `internal/`.
+- The web app calls the API only through the generated client in `web/src/api`. Never edit its generated files.
 - Auth is auth-all, which belongs to the maintainer. Report a defect as an issue on its repo. Never fork, vendor or replace it.
+- Mark a temporary workaround for an auth-all issue with one comment that names the issue.
 
 ## Domain words
 - actor: an identity notid knows, local or remote, either a person or a group. Avoid: account, profile.
