@@ -162,6 +162,66 @@ func (q *Queries) InsertApplication(ctx context.Context, arg InsertApplicationPa
 	return i, err
 }
 
+const insertLocalGroup = `-- name: InsertLocalGroup :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, display_name, summary,
+    inbox, shared_inbox, public_key_pem, private_key_enc
+) VALUES (
+    $1, 'group', true, $2, $3, $4, $5,
+    $6, $7, $8, $9
+)
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type InsertLocalGroupParams struct {
+	ApID          string
+	Domain        string
+	Name          string
+	DisplayName   string
+	Summary       string
+	Inbox         string
+	SharedInbox   string
+	PublicKeyPem  string
+	PrivateKeyEnc []byte
+}
+
+func (q *Queries) InsertLocalGroup(ctx context.Context, arg InsertLocalGroupParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, insertLocalGroup,
+		arg.ApID,
+		arg.Domain,
+		arg.Name,
+		arg.DisplayName,
+		arg.Summary,
+		arg.Inbox,
+		arg.SharedInbox,
+		arg.PublicKeyPem,
+		arg.PrivateKeyEnc,
+	)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertLocalPerson = `-- name: InsertLocalPerson :one
 INSERT INTO actors (
     ap_id, kind, local, user_id, domain, name, display_name,

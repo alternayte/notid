@@ -58,3 +58,13 @@ INSERT INTO actors (
 )
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING *;
+
+-- name: InsertLocalGroup :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, display_name, summary,
+    inbox, shared_inbox, public_key_pem, private_key_enc
+) VALUES (
+    @ap_id, 'group', true, @domain, @name, @display_name, @summary,
+    @inbox, @shared_inbox, @public_key_pem, @private_key_enc
+)
+RETURNING *;

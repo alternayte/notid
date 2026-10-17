@@ -23,6 +23,8 @@ commands:
   work      run the job workers
   all       run the listeners and the job workers
   migrate   apply database migrations
+  community create <name> [-domain d] [-title t]
+            create a community and its group
   openapi   print the OpenAPI document
   version   print the version
 `
@@ -63,6 +65,8 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 		return serve(ctx, cfg, tuning, log, true, true)
 	case "migrate":
 		return migrate(ctx, cfg, tuning, log)
+	case "community":
+		return community(ctx, cfg, os.Args[2:])
 	default:
 		return fmt.Errorf("unknown command %q\n%s", cmd, usage)
 	}

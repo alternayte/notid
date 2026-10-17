@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/alternayte/notid/internal/actors/actorsdb"
 	"github.com/alternayte/notid/internal/platform"
@@ -117,4 +119,49 @@ func NewKeyPair() (string, []byte, error) {
 	pub := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER})
 	priv := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER})
 	return string(pub), priv, nil
+}
+
+// GroupURL is the AP ID of a community's group on its domain. It is fixed at creation and stored.
+func (l Local) GroupURL(domain, name string) string {
+	return scheme(l.AppOrigin) + "://" + l.host(domain) + "/c/" + name
+}
+
+// host keeps the app origin's port for the app domain, which dev and the harness need.
+func (l Local) host(domain string) string {
+	if domain == l.AppDomain {
+		return strings.TrimPrefix(strings.TrimPrefix(l.AppOrigin, "https://"), "http://")
+	}
+	return domain
+}
+
+func scheme(origin string) string {
+	if strings.HasPrefix(origin, "http://") {
+		return "http"
+	}
+	return "https"
+}
+
+// CreateGroup inserts the group actor of a new community with its own key.
+func (l Local) CreateGroup(ctx context.Context, db actorsdb.DBTX, domain, name, title, summary string) (Actor, error) {
+	if err := ValidName(name); err != nil {
+		return Actor{}, err
+	}
+	pub, priv, err := NewKeyPair()
+	if err != nil {
+		return Actor{}, err
+	}
+	apID := l.GroupURL(domain, name)
+	a, err := actorsdb.New(db).InsertLocalGroup(ctx, actorsdb.InsertLocalGroupParams{
+		ApID: apID, Domain: domain, Name: name, DisplayName: title, Summary: summary,
+		Inbox: apID + "/inbox", SharedInbox: apID + "/inbox",
+		PublicKeyPem: pub, PrivateKeyEnc: l.Sealer.Seal(priv, KeyPurpose),
+	})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return Actor{}, ErrNameTaken
+	}
+	if err != nil {
+		return Actor{}, fmt.Errorf("insert group actor: %w", err)
+	}
+	return a, nil
 }
