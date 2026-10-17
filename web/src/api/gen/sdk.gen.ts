@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, GetSessionData, GetSessionResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses } from './types.gen';
+import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -157,6 +157,18 @@ export const revokeSession = <ThrowOnError extends boolean = false>(options: Opt
  * Revoke the current session
  */
 export const signOut = <ThrowOnError extends boolean = false>(options?: Options<SignOutData, ThrowOnError>): RequestResult<SignOutResponses, SignOutErrors, ThrowOnError> => (options?.client ?? client).post<SignOutResponses, SignOutErrors, ThrowOnError>({ url: '/api/auth/sign-out', ...options });
+
+/**
+ * Join a community on this site or on another server
+ */
+export const followCommunity = <ThrowOnError extends boolean = false>(options: Options<FollowCommunityData, ThrowOnError>): RequestResult<FollowCommunityResponses, FollowCommunityErrors, ThrowOnError> => (options.client ?? client).post<FollowCommunityResponses, FollowCommunityErrors, ThrowOnError>({
+    url: '/api/communities/follow',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Read the signed-in person

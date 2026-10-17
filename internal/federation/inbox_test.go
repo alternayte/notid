@@ -61,6 +61,14 @@ func (p *fakePeer) serve(w http.ResponseWriter, r *http.Request) {
 			"endpoints": map[string]any{"sharedInbox": "http://" + p.host + "/inbox"},
 			"publicKey": map[string]any{"id": p.bob() + "#main-key", "owner": p.bob(), "publicKeyPem": p.pub},
 		})
+	case r.Method == http.MethodGet && r.URL.Path == "/c/wood":
+		w.Header().Set("Content-Type", "application/activity+json")
+		g := "http://" + p.host + "/c/wood"
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": g, "type": "Group", "preferredUsername": "wood", "name": "Woodworking",
+			"inbox":     g + "/inbox",
+			"publicKey": map[string]any{"id": g + "#main-key", "owner": g, "publicKeyPem": p.pub},
+		})
 	case r.Method == http.MethodPost:
 		body, _ := io.ReadAll(r.Body)
 		p.mu.Lock()
@@ -85,13 +93,17 @@ func (p *fakePeer) client() *http.Client {
 
 // signedBy builds an inbox POST signed by bob.
 func (p *fakePeer) signedBy(key *rsa.PrivateKey, path string, activity any) *http.Request {
+	return p.signedAs(p.bob(), key, path, activity)
+}
+
+func (p *fakePeer) signedAs(actor string, key *rsa.PrivateKey, path string, activity any) *http.Request {
 	body, err := json.Marshal(activity)
 	if err != nil {
 		p.t.Fatal(err)
 	}
 	out, _ := http.NewRequest(http.MethodPost, "https://notid.test"+path, bytes.NewReader(body))
 	out.Header.Set("Content-Type", "application/activity+json")
-	if err := signRequest(out, p.bob()+"#main-key", key, body, time.Now()); err != nil {
+	if err := signRequest(out, actor+"#main-key", key, body, time.Now()); err != nil {
 		p.t.Fatal(err)
 	}
 	in := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
@@ -388,5 +400,77 @@ func TestDeliveryRetriesOnServerErrorsAndStopsOnRefusal(t *testing.T) {
 	before := len(peer.received)
 	if err := work(); !errors.As(err, &cancel) || len(peer.received) != before {
 		t.Fatalf("peer failing past the window: %v, %d new posts", err, len(peer.received)-before)
+	}
+}
+
+func TestRemoteGroupAcceptsAFollowFromALocalPerson(t *testing.T) {
+	ctx := context.Background()
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	g, err := s.Resolve(ctx, "http://"+peer.host+"/c/wood")
+	if err != nil || g.Kind != "group" || g.Local {
+		t.Fatalf("resolve: %+v %v", g, err)
+	}
+	pub, priv, err := actors.NewKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := "p" + strings.ReplaceAll(uuid.NewString()[:12], "-", "")
+	var personID int64
+	if err := s.Pool.QueryRow(ctx, `
+		INSERT INTO actors (ap_id, kind, local, domain, name, inbox, public_key_pem, private_key_enc, trust, deleted_at)
+		VALUES ('https://notid.test/u/' || $1, 'person', true, 'notid.test', $1, '', $2, $3, 'new', now()) RETURNING id`,
+		name, pub, s.Local.Sealer.Seal(priv, actors.KeyPurpose)).Scan(&personID); err != nil {
+		t.Fatal(err)
+	}
+	var communityID int64
+	if err := s.Pool.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, 'wood') RETURNING id`,
+		g.ID, peer.host).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	person, err := actors.ByID(ctx, s.Pool, personID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	followID, err := s.SendFollow(ctx, tx, person, g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state, follow_ap_id) VALUES ($1, $2, 'pending', $3)`,
+		communityID, personID, followID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(jobs(t, s, "deliver", "inbox", g.Inbox)); n != 1 {
+		t.Fatalf("queued %d follows", n)
+	}
+
+	accept := map[string]any{
+		"id": "http://" + peer.host + "/activities/accept/" + uuid.NewString(), "type": "Accept", "actor": g.ApID,
+		"object": map[string]any{"id": followID, "type": "Follow", "actor": person.ApID, "object": g.ApID},
+	}
+	forged := map[string]any{
+		"id": "http://" + peer.host + "/activities/accept/" + uuid.NewString(), "type": "Accept", "actor": peer.bob(),
+		"object": followID,
+	}
+	if w := post(s, peer.signedBy(peer.key, "/inbox", forged)); w.Code != http.StatusForbidden {
+		t.Fatalf("accept by another actor: %d %s", w.Code, w.Body)
+	}
+	if w := post(s, peer.signedAs(g.ApID, peer.key, "/inbox", accept)); w.Code != http.StatusAccepted {
+		t.Fatalf("accept: %d %s", w.Code, w.Body)
+	}
+	in := jobs(t, s, "inbox", "activity,id", accept["id"].(string))
+	if err := (&inboxWorker{s: s}).Work(ctx, job[InboxArgs](t, in[0])); err != nil {
+		t.Fatal(err)
+	}
+	var state string
+	if err := s.Pool.QueryRow(ctx, `SELECT state FROM memberships WHERE follow_ap_id = $1`, followID).Scan(&state); err != nil || state != "accepted" {
+		t.Fatalf("membership %q %v", state, err)
 	}
 }

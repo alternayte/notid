@@ -9,6 +9,30 @@ import (
 	"context"
 )
 
+const communityByActorID = `-- name: CommunityByActorID :one
+SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at FROM communities WHERE actor_id = $1
+`
+
+func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Community, error) {
+	row := q.db.QueryRow(ctx, communityByActorID, actorID)
+	var i Community
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertCommunity = `-- name: InsertCommunity :one
 INSERT INTO communities (actor_id, domain, name, title, description)
 VALUES ($1, $2, $3, $4, $5)
@@ -44,6 +68,82 @@ func (q *Queries) InsertCommunity(ctx context.Context, arg InsertCommunityParams
 		&i.State,
 		&i.Nsfw,
 		&i.HoldNewPosts,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const insertRemoteCommunity = `-- name: InsertRemoteCommunity :one
+INSERT INTO communities (actor_id, domain, name, title, description)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description
+RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at
+`
+
+type InsertRemoteCommunityParams struct {
+	ActorID     int64
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+}
+
+func (q *Queries) InsertRemoteCommunity(ctx context.Context, arg InsertRemoteCommunityParams) (Community, error) {
+	row := q.db.QueryRow(ctx, insertRemoteCommunity,
+		arg.ActorID,
+		arg.Domain,
+		arg.Name,
+		arg.Title,
+		arg.Description,
+	)
+	var i Community
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertMembership = `-- name: UpsertMembership :one
+INSERT INTO memberships (community_id, actor_id, state, follow_ap_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (community_id, actor_id) DO UPDATE SET
+    state = CASE WHEN memberships.state = 'accepted' THEN memberships.state ELSE excluded.state END,
+    follow_ap_id = coalesce(excluded.follow_ap_id, memberships.follow_ap_id)
+RETURNING community_id, actor_id, role, state, follow_ap_id, created_at
+`
+
+type UpsertMembershipParams struct {
+	CommunityID int64
+	ActorID     int64
+	State       string
+	FollowApID  *string
+}
+
+func (q *Queries) UpsertMembership(ctx context.Context, arg UpsertMembershipParams) (Membership, error) {
+	row := q.db.QueryRow(ctx, upsertMembership,
+		arg.CommunityID,
+		arg.ActorID,
+		arg.State,
+		arg.FollowApID,
+	)
+	var i Membership
+	err := row.Scan(
+		&i.CommunityID,
+		&i.ActorID,
+		&i.Role,
+		&i.State,
+		&i.FollowApID,
 		&i.CreatedAt,
 	)
 	return i, err

@@ -164,6 +164,12 @@ func TestLemmyAndPieFedFollowACommunityOnA(t *testing.T) {
 			if id == 0 {
 				t.Fatal("peer did not resolve the community")
 			}
+			if peerName == "lemmy" {
+				// Lemmy starts a send worker for a newly seen server within
+				// 5 s, at the newest queued activity; a Follow queued before
+				// that start is never sent.
+				time.Sleep(8 * time.Second)
+			}
 			peer.follow(id)
 			eventually(t, peerName+" shows the follow as accepted", func() bool {
 				return peer.subscribed(id) == "Subscribed"
@@ -174,6 +180,39 @@ func TestLemmyAndPieFedFollowACommunityOnA(t *testing.T) {
 				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM memberships m
 					JOIN actors a ON a.id = m.actor_id JOIN communities c ON c.id = m.community_id
 					WHERE c.name = '%s' AND m.state = 'accepted' AND a.ap_id LIKE 'http://%s/%%'`, name, host)) == "1"
+			})
+		})
+	}
+}
+
+// createCommunity makes a community on the peer as its admin.
+func (a *api) createCommunity(name string) {
+	a.t.Helper()
+	a.call(http.MethodPost, "/community", map[string]any{"name": name, "title": "Interop " + name}, nil)
+}
+
+func TestNotidUserFollowsLemmyAndPieFedCommunities(t *testing.T) {
+	u := signUp(t, "http://a.notid.test:8080")
+	for peerName, c := range map[string]struct {
+		peer *api
+		url  func(string) string
+	}{
+		"lemmy":  {lemmy(t), func(n string) string { return "http://lemmy.test:8536/c/" + n }},
+		"piefed": {piefed(t), func(n string) string { return "http://piefed.test:5000/c/" + n }},
+	} {
+		t.Run(peerName, func(t *testing.T) {
+			c.peer.t, u.t = t, t
+			name := uniqueName("tools")
+			c.peer.createCommunity(name)
+			var m struct{ Community, State string }
+			u.post("/api/communities/follow", map[string]string{"community": c.url(name)}, &m)
+			if m.Community != c.url(name) || m.State != "pending" {
+				t.Fatalf("follow answer %+v", m)
+			}
+			eventually(t, peerName+" accepts the follow", func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT m.state FROM memberships m
+					JOIN actors p ON p.id = m.actor_id JOIN communities c ON c.id = m.community_id JOIN actors g ON g.id = c.actor_id
+					WHERE p.name = '%s' AND g.ap_id = '%s'`, u.name, c.url(name))) == "accepted"
 			})
 		})
 	}

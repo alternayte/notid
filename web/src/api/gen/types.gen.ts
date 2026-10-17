@@ -109,6 +109,17 @@ export type ErrorResponse = {
     };
 };
 
+export type FollowBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Community URL or name@host handle
+     */
+    community: string;
+};
+
 export type MagicLinkVerifyResponse = {
     redirectTo: string;
 };
@@ -123,6 +134,21 @@ export type Me = {
     handle: string;
     name: string;
     trust: 'new' | 'trusted';
+};
+
+export type Membership = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the community
+     */
+    community: string;
+    /**
+     * pending until the community's host accepts the follow
+     */
+    state: 'pending' | 'accepted';
 };
 
 export type MessageResponse = {
@@ -223,12 +249,30 @@ export type ErrorModelWritable = {
     type?: string;
 };
 
+export type FollowBodyWritable = {
+    /**
+     * Community URL or name@host handle
+     */
+    community: string;
+};
+
 export type MeWritable = {
     bot: boolean;
     displayName: string;
     handle: string;
     name: string;
     trust: 'new' | 'trusted';
+};
+
+export type MembershipWritable = {
+    /**
+     * AP ID of the community
+     */
+    community: string;
+    /**
+     * pending until the community's host accepts the follow
+     */
+    state: 'pending' | 'accepted';
 };
 
 export type SignUpBodyWritable = {
@@ -812,6 +856,43 @@ export type SignOutResponses = {
 };
 
 export type SignOutResponse = SignOutResponses[keyof SignOutResponses];
+
+export type FollowCommunityData = {
+    body: FollowBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/communities/follow';
+};
+
+export type FollowCommunityErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type FollowCommunityError = FollowCommunityErrors[keyof FollowCommunityErrors];
+
+export type FollowCommunityResponses = {
+    /**
+     * OK
+     */
+    200: Membership;
+};
+
+export type FollowCommunityResponse = FollowCommunityResponses[keyof FollowCommunityResponses];
 
 export type MeData = {
     body?: never;

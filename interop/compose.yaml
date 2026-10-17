@@ -219,14 +219,13 @@ services:
         ipv4_address: 11.11.0.32
 
   piefed-init:
-    image: ghcr.io/dockur/piefed:1.8.5
+    image: notid-interop-piefed:local
+    build: ./piefed
+    pull_policy: build
     entrypoint: ["/bin/bash", "/app/init-interop.sh"]
-    environment:
-      <<: *piefed-env
-      PYTHONPATH: "/app/interop"
+    environment: *piefed-env
     volumes:
       - ./piefed/init.sh:/app/init-interop.sh:ro
-      - ./piefed/sitecustomize.py:/app/interop/sitecustomize.py:ro
     depends_on:
       piefed-db:
         condition: service_healthy
@@ -236,7 +235,9 @@ services:
         ipv4_address: 11.11.0.33
 
   piefed:
-    image: ghcr.io/dockur/piefed:1.8.5
+    image: notid-interop-piefed:local
+    build: ./piefed
+    pull_policy: build
     restart: unless-stopped
     entrypoint: ["/bin/bash", "/app/run-interop.sh"]
     environment: *piefed-env
@@ -255,7 +256,9 @@ services:
         ipv4_address: 11.11.0.30
 
   piefed-celery:
-    image: ghcr.io/dockur/piefed:1.8.5
+    image: notid-interop-piefed:local
+    build: ./piefed
+    pull_policy: build
     restart: unless-stopped
     entrypoint: ["/bin/bash", "/app/entrypoint_celery.sh"]
     environment: *piefed-env
@@ -270,7 +273,9 @@ services:
         ipv4_address: 11.11.0.34
 
   piefed-notifs:
-    image: ghcr.io/dockur/piefed:1.8.5
+    image: notid-interop-piefed:local
+    build: ./piefed
+    pull_policy: build
     restart: unless-stopped
     entrypoint: ["/bin/bash", "/app/entrypoint_async.sh"]
     environment: *piefed-env

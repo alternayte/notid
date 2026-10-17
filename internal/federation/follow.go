@@ -30,9 +30,29 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 		}
 		_, err = s.activeGroup(ctx, s.Pool, inner.objectRef())
 		return err
+	case "Accept", "Reject":
+		_, err := s.followAnswered(ctx, s.Pool, act)
+		return err
 	default:
 		return reject(http.StatusUnprocessableEntity, "activity type %q is not supported", act.Type)
 	}
+}
+
+// followAnswered finds the Follow that an Accept or Reject answers. Only the
+// followed group may answer it.
+func (s *Server) followAnswered(ctx context.Context, db federationdb.DBTX, act activity) (string, error) {
+	followID := act.objectRef()
+	m, err := federationdb.New(db).MembershipByFollow(ctx, &followID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", reject(http.StatusNotFound, "no pending follow %s", followID)
+	}
+	if err != nil {
+		return "", fmt.Errorf("follow %s: %w", followID, err)
+	}
+	if m.GroupApID != act.Actor.ID {
+		return "", reject(http.StatusForbidden, "%s cannot answer a follow of %s", act.Actor.ID, m.GroupApID)
+	}
+	return followID, nil
 }
 
 // apply acts on a validated activity inside tx.
@@ -54,6 +74,15 @@ func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.Ra
 			return err
 		}
 		return federationdb.New(tx).UndoFollow(ctx, federationdb.UndoFollowParams{CommunityID: g.ID, ActorID: follower.ID})
+	case "Accept", "Reject":
+		followID, err := s.followAnswered(ctx, tx, act)
+		if err != nil {
+			return err
+		}
+		if act.Type == "Accept" {
+			return federationdb.New(tx).SetMembershipAccepted(ctx, &followID)
+		}
+		return federationdb.New(tx).DeleteMembershipByFollow(ctx, &followID)
 	}
 	return fmt.Errorf("no handler for %s", act.Type)
 }

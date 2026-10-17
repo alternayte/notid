@@ -50,3 +50,16 @@ ON CONFLICT (domain) DO UPDATE SET last_ok_at = now(), failing_since = NULL;
 -- name: PeerFailing :exec
 INSERT INTO peers (domain, failing_since) VALUES (@domain, now())
 ON CONFLICT (domain) DO UPDATE SET failing_since = coalesce(peers.failing_since, now());
+
+-- name: MembershipByFollow :one
+SELECT m.community_id, m.actor_id, m.state, g.ap_id AS group_ap_id
+FROM memberships m
+JOIN communities c ON c.id = m.community_id
+JOIN actors g ON g.id = c.actor_id
+WHERE m.follow_ap_id = @follow_ap_id;
+
+-- name: SetMembershipAccepted :exec
+UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = @follow_ap_id;
+
+-- name: DeleteMembershipByFollow :exec
+DELETE FROM memberships WHERE follow_ap_id = @follow_ap_id AND role = 'member';

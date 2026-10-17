@@ -119,6 +119,15 @@ func (q *Queries) CommunityByDomainName(ctx context.Context, arg CommunityByDoma
 	return i, err
 }
 
+const deleteMembershipByFollow = `-- name: DeleteMembershipByFollow :exec
+DELETE FROM memberships WHERE follow_ap_id = $1 AND role = 'member'
+`
+
+func (q *Queries) DeleteMembershipByFollow(ctx context.Context, followApID *string) error {
+	_, err := q.db.Exec(ctx, deleteMembershipByFollow, followApID)
+	return err
+}
+
 const localActorByName = `-- name: LocalActorByName :one
 SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
 WHERE local AND kind = $1 AND domain = $2 AND lower(name) = lower($3)
@@ -194,6 +203,33 @@ func (q *Queries) LocalPersonCount(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const membershipByFollow = `-- name: MembershipByFollow :one
+SELECT m.community_id, m.actor_id, m.state, g.ap_id AS group_ap_id
+FROM memberships m
+JOIN communities c ON c.id = m.community_id
+JOIN actors g ON g.id = c.actor_id
+WHERE m.follow_ap_id = $1
+`
+
+type MembershipByFollowRow struct {
+	CommunityID int64
+	ActorID     int64
+	State       string
+	GroupApID   string
+}
+
+func (q *Queries) MembershipByFollow(ctx context.Context, followApID *string) (MembershipByFollowRow, error) {
+	row := q.db.QueryRow(ctx, membershipByFollow, followApID)
+	var i MembershipByFollowRow
+	err := row.Scan(
+		&i.CommunityID,
+		&i.ActorID,
+		&i.State,
+		&i.GroupApID,
+	)
+	return i, err
+}
+
 const peerByDomain = `-- name: PeerByDomain :one
 SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at FROM peers WHERE domain = $1
 `
@@ -245,6 +281,15 @@ func (q *Queries) RecordActivity(ctx context.Context, apID string) (string, erro
 	var ap_id string
 	err := row.Scan(&ap_id)
 	return ap_id, err
+}
+
+const setMembershipAccepted = `-- name: SetMembershipAccepted :exec
+UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = $1
+`
+
+func (q *Queries) SetMembershipAccepted(ctx context.Context, followApID *string) error {
+	_, err := q.db.Exec(ctx, setMembershipAccepted, followApID)
+	return err
 }
 
 const undoFollow = `-- name: UndoFollow :exec

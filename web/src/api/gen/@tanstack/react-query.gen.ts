@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, createApiKey, getSession, listApiKeys, listSessions, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, type Options, revokeAllSessions, revokeApiKey, revokeSession, signOut, signUp, signupMode } from '../sdk.gen';
-import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, GetSessionData, GetSessionResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse } from '../types.gen';
+import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, createApiKey, followCommunity, getSession, listApiKeys, listSessions, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, type Options, revokeAllSessions, revokeApiKey, revokeSession, signOut, signUp, signupMode } from '../sdk.gen';
+import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -329,6 +329,23 @@ export const signOutMutation = (options?: Partial<Options<SignOutData>>): UseMut
     const mutationOptions: UseMutationOptions<SignOutResponse, SignOutError, Options<SignOutData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await signOut({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Join a community on this site or on another server
+ */
+export const followCommunityMutation = (options?: Partial<Options<FollowCommunityData>>): UseMutationOptions<FollowCommunityResponse, FollowCommunityError, Options<FollowCommunityData>> => {
+    const mutationOptions: UseMutationOptions<FollowCommunityResponse, FollowCommunityError, Options<FollowCommunityData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await followCommunity({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

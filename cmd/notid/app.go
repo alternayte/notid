@@ -18,6 +18,7 @@ import (
 
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/communities"
 	"github.com/alternayte/notid/internal/federation"
 	"github.com/alternayte/notid/internal/platform"
 )
@@ -77,6 +78,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("merge auth routes: %w", err)
 	}
 	accountsSvc.Register(api)
+	communitiesSvc := &communities.Service{Pool: pool}
+	communitiesSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
 	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(mux)))
@@ -103,6 +106,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("river client: %w", err)
 	}
 	fed.River = rc
+	communitiesSvc.Resolve = fed.Resolve
+	communitiesSvc.SendFollow = fed.SendFollow
 	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api, river: rc}, nil
 }
 
