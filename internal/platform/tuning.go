@@ -20,6 +20,9 @@ type Tuning struct {
 	MagicLinkPerEmail int
 	MagicLinkPerIP    int
 	SignUpPerIP       int
+
+	FederationTimeout time.Duration
+	MaxFetchBytes     int64
 }
 
 func DefaultTuning() Tuning {
@@ -40,5 +43,8 @@ func DefaultTuning() Tuning {
 		MagicLinkPerEmail: 5,
 		MagicLinkPerIP:    30,
 		SignUpPerIP:       10,
+
+		FederationTimeout: 10 * time.Second,
+		MaxFetchBytes:     2 << 20,
 	}
 }
