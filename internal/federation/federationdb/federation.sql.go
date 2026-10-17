@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+const acceptFollow = `-- name: AcceptFollow :exec
+INSERT INTO memberships (community_id, actor_id, role, state, follow_ap_id)
+VALUES ($1, $2, 'member', 'accepted', $3)
+ON CONFLICT (community_id, actor_id) DO UPDATE SET
+    state = 'accepted',
+    follow_ap_id = excluded.follow_ap_id
+`
+
+type AcceptFollowParams struct {
+	CommunityID int64
+	ActorID     int64
+	FollowApID  *string
+}
+
+func (q *Queries) AcceptFollow(ctx context.Context, arg AcceptFollowParams) error {
+	_, err := q.db.Exec(ctx, acceptFollow, arg.CommunityID, arg.ActorID, arg.FollowApID)
+	return err
+}
+
 const actorByApID = `-- name: ActorByApID :one
 SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
 WHERE ap_id = $1
@@ -138,6 +157,32 @@ func (q *Queries) LocalActorByName(ctx context.Context, arg LocalActorByNamePara
 	return i, err
 }
 
+const localCommunityByApID = `-- name: LocalCommunityByApID :one
+SELECT c.id, c.state, a.id AS actor_id, a.ap_id
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE a.ap_id = $1 AND a.local
+`
+
+type LocalCommunityByApIDRow struct {
+	ID      int64
+	State   string
+	ActorID int64
+	ApID    string
+}
+
+func (q *Queries) LocalCommunityByApID(ctx context.Context, apID string) (LocalCommunityByApIDRow, error) {
+	row := q.db.QueryRow(ctx, localCommunityByApID, apID)
+	var i LocalCommunityByApIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.ActorID,
+		&i.ApID,
+	)
+	return i, err
+}
+
 const localPersonCount = `-- name: LocalPersonCount :one
 SELECT count(*) FROM actors WHERE local AND kind = 'person'
 `
@@ -147,4 +192,72 @@ func (q *Queries) LocalPersonCount(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const peerByDomain = `-- name: PeerByDomain :one
+SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at FROM peers WHERE domain = $1
+`
+
+func (q *Queries) PeerByDomain(ctx context.Context, domain string) (Peer, error) {
+	row := q.db.QueryRow(ctx, peerByDomain, domain)
+	var i Peer
+	err := row.Scan(
+		&i.Domain,
+		&i.Software,
+		&i.Version,
+		&i.Blocked,
+		&i.Reason,
+		&i.LastOkAt,
+		&i.FailingSince,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const peerFailing = `-- name: PeerFailing :exec
+INSERT INTO peers (domain, failing_since) VALUES ($1, now())
+ON CONFLICT (domain) DO UPDATE SET failing_since = coalesce(peers.failing_since, now())
+`
+
+func (q *Queries) PeerFailing(ctx context.Context, domain string) error {
+	_, err := q.db.Exec(ctx, peerFailing, domain)
+	return err
+}
+
+const peerOK = `-- name: PeerOK :exec
+INSERT INTO peers (domain, last_ok_at) VALUES ($1, now())
+ON CONFLICT (domain) DO UPDATE SET last_ok_at = now(), failing_since = NULL
+`
+
+func (q *Queries) PeerOK(ctx context.Context, domain string) error {
+	_, err := q.db.Exec(ctx, peerOK, domain)
+	return err
+}
+
+const recordActivity = `-- name: RecordActivity :one
+INSERT INTO received_activities (ap_id) VALUES ($1)
+ON CONFLICT (ap_id) DO NOTHING
+RETURNING ap_id
+`
+
+func (q *Queries) RecordActivity(ctx context.Context, apID string) (string, error) {
+	row := q.db.QueryRow(ctx, recordActivity, apID)
+	var ap_id string
+	err := row.Scan(&ap_id)
+	return ap_id, err
+}
+
+const undoFollow = `-- name: UndoFollow :exec
+DELETE FROM memberships
+WHERE community_id = $1 AND actor_id = $2 AND role = 'member'
+`
+
+type UndoFollowParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) UndoFollow(ctx context.Context, arg UndoFollowParams) error {
+	_, err := q.db.Exec(ctx, undoFollow, arg.CommunityID, arg.ActorID)
+	return err
 }

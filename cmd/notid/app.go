@@ -11,7 +11,10 @@ import (
 
 	"github.com/alternayte/auth-all/humaauth"
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
@@ -28,14 +31,17 @@ type app struct {
 	api        http.Handler
 	federation http.Handler
 	doc        huma.API
+	river      *river.Client[pgx.Tx]
 }
 
-func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) (*app, error) {
+// newApp wires the process. work starts the job queues; without it the River
+// client only inserts jobs.
+func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger, work bool) (*app, error) {
 	pool, err := platform.OpenPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
-	a, err := wire(cfg, t, log, pool, version)
+	a, err := wire(cfg, t, log, pool, version, work)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -43,7 +49,7 @@ func newApp(ctx context.Context, cfg platform.Config, t platform.Tuning, log *sl
 	return a, nil
 }
 
-func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpool.Pool, version string) (*app, error) {
+func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpool.Pool, version string, work bool) (*app, error) {
 	mailer, err := platform.NewMailer(cfg.SMTPURL, cfg.EmailFrom)
 	if err != nil {
 		return nil, err
@@ -56,11 +62,12 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	if err != nil {
 		return nil, err
 	}
+	local := actors.Local{AppOrigin: cfg.AppOrigin, AppDomain: cfg.AppDomain, Sealer: sealer}
 	accountsSvc := &accounts.Service{
 		Pool:    pool,
 		Auth:    auth,
 		Limiter: limiter,
-		Local:   actors.Local{AppOrigin: cfg.AppOrigin, AppDomain: cfg.AppDomain, Sealer: sealer},
+		Local:   local,
 		Mode:    cfg.Signup,
 	}
 
@@ -80,8 +87,23 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Version:      version,
 		SignupClosed: cfg.Signup == platform.SignupClosed,
 		Log:          log,
+		Local:        local,
+		Tuning:       t,
+		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
+		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
 	}
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api}, nil
+	workers := river.NewWorkers()
+	fed.AddWorkers(workers)
+	rcfg := &river.Config{Workers: workers, Logger: log}
+	if work {
+		rcfg.Queues = fed.Queues()
+	}
+	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
+	if err != nil {
+		return nil, fmt.Errorf("river client: %w", err)
+	}
+	fed.River = rc
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api, river: rc}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.
@@ -98,7 +120,7 @@ func writeOpenAPI(w io.Writer) error {
 		return fmt.Errorf("openapi pool: %w", err)
 	}
 	defer pool.Close()
-	a, err := wire(cfg, platform.DefaultTuning(), slog.New(slog.DiscardHandler), pool, "dev")
+	a, err := wire(cfg, platform.DefaultTuning(), slog.New(slog.DiscardHandler), pool, "dev", false)
 	if err != nil {
 		return fmt.Errorf("openapi wiring: %w", err)
 	}

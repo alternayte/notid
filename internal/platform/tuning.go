@@ -23,6 +23,17 @@ type Tuning struct {
 
 	FederationTimeout time.Duration
 	MaxFetchBytes     int64
+	MaxInboxBytes     int64
+	SignatureMaxSkew  time.Duration
+	ActorRefresh      time.Duration
+	// DeliveryRetryWindow is how long a delivery retries, and how long a peer
+	// may fail before deliveries to it are skipped until it answers again.
+	DeliveryRetryWindow time.Duration
+	DeliveryMaxBackoff  time.Duration
+	PeerInboxPerMinute  int
+	PeerInboxBurst      int
+	DeliveryWorkers     int
+	InboxWorkers        int
 }
 
 func DefaultTuning() Tuning {
@@ -46,5 +57,15 @@ func DefaultTuning() Tuning {
 
 		FederationTimeout: 10 * time.Second,
 		MaxFetchBytes:     2 << 20,
+		MaxInboxBytes:     1 << 20,
+		SignatureMaxSkew:  12 * time.Hour,
+		ActorRefresh:      24 * time.Hour,
+
+		DeliveryRetryWindow: 72 * time.Hour,
+		DeliveryMaxBackoff:  6 * time.Hour,
+		PeerInboxPerMinute:  300,
+		PeerInboxBurst:      100,
+		DeliveryWorkers:     20,
+		InboxWorkers:        10,
 	}
 }

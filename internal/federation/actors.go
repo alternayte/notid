@@ -56,3 +56,28 @@ func (s *Server) group(w http.ResponseWriter, r *http.Request) {
 		Inbox: c.Inbox, PublicKeyPem: c.PublicKeyPem,
 	}, c.ApID))
 }
+
+// application serves the app domain's Application actor, which signs fetches.
+func (s *Server) application(w http.ResponseWriter, r *http.Request) {
+	if requestHost(r) != s.AppDomain {
+		http.NotFound(w, r)
+		return
+	}
+	a, err := s.Local.Application(r.Context(), s.Pool)
+	if err != nil {
+		s.Log.ErrorContext(r.Context(), "application actor", "err", err)
+		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, actorDoc{
+		Context:           activityStreams,
+		ID:                a.ApID,
+		Type:              typeApplication,
+		PreferredUsername: a.Name,
+		Inbox:             a.Inbox,
+		Outbox:            a.ApID + "/outbox",
+		Followers:         a.ApID + "/followers",
+		Endpoints:         &endpoints{SharedInbox: a.SharedInbox},
+		PublicKey:         publicKey{ID: a.ApID + "#main-key", Owner: a.ApID, PublicKeyPem: a.PublicKeyPem},
+	})
+}

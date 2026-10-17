@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment: *db
-    command: ["serve"]
+    command: ["all"]
     ports:
       - "80:80"
       - "443:443"

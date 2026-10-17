@@ -20,6 +20,8 @@ const usage = `usage: notid <command>
 
 commands:
   serve     run the public and internal listeners
+  work      run the job workers
+  all       run the listeners and the job workers
   migrate   apply database migrations
   openapi   print the OpenAPI document
   version   print the version
@@ -54,7 +56,11 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 	tuning := platform.DefaultTuning()
 	switch cmd {
 	case "serve":
-		return serve(ctx, cfg, tuning, log)
+		return serve(ctx, cfg, tuning, log, false, true)
+	case "work":
+		return serve(ctx, cfg, tuning, log, true, false)
+	case "all":
+		return serve(ctx, cfg, tuning, log, true, true)
 	case "migrate":
 		return migrate(ctx, cfg, tuning, log)
 	default:
@@ -62,12 +68,29 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 	}
 }
 
-func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) error {
-	a, err := newApp(ctx, cfg, t, log)
+// serve runs the job workers, the listeners, or both, until ctx ends.
+func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger, work, listen bool) error {
+	a, err := newApp(ctx, cfg, t, log, work)
 	if err != nil {
 		return err
 	}
 	defer a.pool.Close()
+	if work {
+		if err := a.river.Start(ctx); err != nil {
+			return fmt.Errorf("start workers: %w", err)
+		}
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), t.ShutdownTimeout)
+			defer cancel()
+			if err := a.river.Stop(stopCtx); err != nil {
+				log.Error("stop workers", "err", err)
+			}
+		}()
+	}
+	if !listen {
+		<-ctx.Done()
+		return nil
+	}
 	hosts := edge.Hosts{AppDomain: cfg.AppDomain}
 	public := edge.Handler(hosts, edge.Routes{
 		Federation: a.federation,

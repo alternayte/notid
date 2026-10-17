@@ -7,9 +7,10 @@ var activityStreams = []string{
 }
 
 const (
-	typePerson  = "Person"
-	typeGroup   = "Group"
-	typeService = "Service"
+	typePerson      = "Person"
+	typeGroup       = "Group"
+	typeService     = "Service"
+	typeApplication = "Application"
 )
 
 // endpoints is the actor's shared inbox, which lets a sender deliver one

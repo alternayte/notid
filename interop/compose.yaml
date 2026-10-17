@@ -95,7 +95,7 @@ services:
   notid-a:
     <<: *notid-image
     restart: unless-stopped
-    command: ["serve"]
+    command: ["all"]
     environment:
       <<: *notid-env
       APP_DOMAIN: a.notid.test
@@ -148,7 +148,7 @@ services:
   notid-b:
     <<: *notid-image
     restart: unless-stopped
-    command: ["serve"]
+    command: ["all"]
     environment:
       <<: *notid-env
       APP_DOMAIN: b.notid.test

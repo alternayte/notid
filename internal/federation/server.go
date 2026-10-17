@@ -9,10 +9,16 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+
+	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/platform"
 )
 
-// Server serves the ActivityPub endpoints of one installation.
+// Server serves the ActivityPub endpoints of one installation and runs its
+// inbox and delivery jobs.
 type Server struct {
 	Pool         *pgxpool.Pool
 	AppDomain    string
@@ -20,6 +26,13 @@ type Server struct {
 	Version      string
 	SignupClosed bool
 	Log          *slog.Logger
+	Local        actors.Local
+	Tuning       platform.Tuning
+	// HTTP is the SSRF-guarded client.
+	HTTP  *http.Client
+	River *river.Client[pgx.Tx]
+	// Limits holds the per-peer inbox rate limits.
+	Limits *PeerLimits
 }
 
 // Handler routes the ActivityPub endpoints. The edge sends only ActivityPub
@@ -29,6 +42,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /.well-known/webfinger", s.webFinger)
 	mux.HandleFunc("GET /.well-known/nodeinfo", s.nodeInfoIndex)
 	mux.HandleFunc("GET /nodeinfo/2.1", s.nodeInfo)
+	mux.HandleFunc("GET /actor", s.application)
+	mux.HandleFunc("POST /inbox", s.inbox)
+	mux.HandleFunc("POST /u/{name}/inbox", s.inbox)
+	mux.HandleFunc("POST /c/{name}/inbox", s.inbox)
 	mux.HandleFunc("GET /u/{name}", s.person)
 	mux.HandleFunc("GET /u/{name}/outbox", s.emptyCollection)
 	mux.HandleFunc("GET /u/{name}/followers", s.emptyCollection)

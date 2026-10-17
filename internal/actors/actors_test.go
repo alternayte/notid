@@ -150,13 +150,15 @@ func TestUpsertRemoteRefreshesARemoteActorAndNeverALocalOne(t *testing.T) {
 func TestApplicationActorIsCreatedOnceAndCanSign(t *testing.T) {
 	ctx := context.Background()
 	tx := pgtest.Tx(t)
+	// Other packages commit the notid.test Application actor under another key.
 	l := local(t)
+	l.AppOrigin, l.AppDomain = "https://app.example", "app.example"
 	a, err := l.Application(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	b, err := l.Application(ctx, tx)
-	if err != nil || b.ID != a.ID || a.Kind != "application" || a.ApID != "https://notid.test/actor" {
+	if err != nil || b.ID != a.ID || a.Kind != "application" || a.ApID != "https://app.example/actor" {
 		t.Fatalf("application actor: %+v %+v %v", a, b, err)
 	}
 	if _, err := l.PrivateKey(a); err != nil {
