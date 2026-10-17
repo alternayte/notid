@@ -119,6 +119,11 @@ func TestWebFingerAndPersonActor(t *testing.T) {
 		t.Fatalf("webfinger href %v, want %s", href, apID)
 	}
 
+	w = get(t, h, "notid.test:8080", "/.well-known/webfinger?resource=acct:"+name+"@notid.test:8080")
+	if w.Code != http.StatusOK || decode(t, w)["subject"] != "acct:"+name+"@notid.test:8080" {
+		t.Fatalf("webfinger with a port: %d %s", w.Code, w.Body)
+	}
+
 	w = get(t, h, "notid.test", "/u/"+name)
 	if w.Code != http.StatusOK {
 		t.Fatalf("person: %d %s", w.Code, w.Body)

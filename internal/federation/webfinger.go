@@ -3,8 +3,10 @@ package federation
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -14,7 +16,8 @@ import (
 
 // webFinger answers acct: and actor-URL lookups for local persons and groups.
 func (s *Server) webFinger(w http.ResponseWriter, r *http.Request) {
-	name, host, ok := parseResource(r.URL.Query().Get("resource"))
+	resource := r.URL.Query().Get("resource")
+	name, host, ok := parseResource(resource)
 	if !ok {
 		http.Error(w, "resource must be acct:name@host or an actor URL", http.StatusBadRequest)
 		return
@@ -30,7 +33,7 @@ func (s *Server) webFinger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"subject": "acct:" + name + "@" + host,
+		"subject": subject(resource, actorID),
 		"aliases": []string{actorID},
 		"links": []any{
 			map[string]string{"rel": "self", "type": "application/activity+json", "href": actorID},
@@ -61,6 +64,18 @@ func (s *Server) lookupActor(ctx context.Context, host, name string) (string, er
 	return c.ApID, nil
 }
 
+// subject echoes an acct: resource as asked, and turns an actor URL into the acct: handle.
+func subject(resource, actorID string) string {
+	if strings.HasPrefix(resource, "acct:") {
+		return strings.ToLower(resource)
+	}
+	u, err := url.Parse(actorID)
+	if err != nil {
+		return resource
+	}
+	return "acct:" + path.Base(u.Path) + "@" + u.Host
+}
+
 // parseResource accepts acct:name@host, https://host/u/name and https://host/c/name.
 func parseResource(resource string) (name, host string, ok bool) {
 	resource = strings.TrimSpace(resource)
@@ -68,6 +83,10 @@ func parseResource(resource string) (name, host string, ok bool) {
 		name, host, ok = strings.Cut(acct, "@")
 		if !ok || name == "" || host == "" {
 			return "", "", false
+		}
+		// Dev and the harness put a port in handles; actors are stored by host name.
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
 		}
 		return strings.ToLower(name), strings.ToLower(host), true
 	}
