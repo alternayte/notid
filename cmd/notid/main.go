@@ -59,11 +59,17 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 }
 
 func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) error {
+	a, err := newApp(ctx, cfg, t, log)
+	if err != nil {
+		return err
+	}
+	defer a.pool.Close()
 	hosts := edge.Hosts{AppDomain: cfg.AppDomain}
 	public := edge.Handler(hosts, edge.Routes{
+		API: a.api,
 		Web: edge.NewWebProxy(cfg.WebUpstream, log),
 	}, log)
-	return edge.Serve(ctx, cfg, t, hosts, public, edge.InternalHandler(nil), log)
+	return edge.Serve(ctx, cfg, t, hosts, public, edge.InternalHandler(a.api), log)
 }
 
 func migrate(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slog.Logger) error {
@@ -76,7 +82,7 @@ func migrate(ctx context.Context, cfg platform.Config, t platform.Tuning, log *s
 	if err != nil {
 		return err
 	}
-	auth, err := accounts.NewAuth(cfg, t, pool, mailer, log)
+	auth, _, err := accounts.NewAuth(cfg, t, pool, mailer, log)
 	if err != nil {
 		return err
 	}

@@ -65,7 +65,7 @@ func setup() (*pgxpool.Pool, error) {
 		return nil, err
 	}
 	defer conn.Exec(ctx, "SELECT pg_advisory_unlock(7303)") //nolint:errcheck
-	auth, err := accounts.NewAuth(TestConfig(), platform.DefaultTuning(), p, nil, slog.New(slog.DiscardHandler))
+	auth, _, err := accounts.NewAuth(TestConfig(), platform.DefaultTuning(), p, nil, slog.New(slog.DiscardHandler))
 	if err != nil {
 		return nil, err
 	}

@@ -37,14 +37,14 @@ type Mailer interface {
 }
 
 // NewAuth builds auth-all with the plugins notid uses. The same construction serves requests and migrations.
-func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer Mailer, log *slog.Logger) (*authall.Auth, error) {
+func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer Mailer, log *slog.Logger) (*authall.Auth, *storelimit.Limiter, error) {
 	st, err := postgres.NewPool(pool, postgres.AllowStatementCache())
 	if err != nil {
-		return nil, fmt.Errorf("auth store: %w", err)
+		return nil, nil, fmt.Errorf("auth store: %w", err)
 	}
 	limiter, err := storelimit.New(st, rateLimitRules(t))
 	if err != nil {
-		return nil, fmt.Errorf("auth rate limiter: %w", err)
+		return nil, nil, fmt.Errorf("auth rate limiter: %w", err)
 	}
 	secure := cfg.AppOrigin[:len("https:")] == "https:"
 	auth, err := authall.New(
@@ -68,13 +68,15 @@ func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer 
 				magiclink.WithTTL(t.MagicLinkTTL),
 				magiclink.WithCreateUser(false),
 				magiclink.WithCallbackURL("/"),
+				// The link opens a web page that confirms with a JSON POST from the app origin.
+				magiclink.WithVerifyURL(cfg.AppOrigin+"/login/verify"),
 			),
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("auth: %w", err)
+		return nil, nil, fmt.Errorf("auth: %w", err)
 	}
-	return auth, nil
+	return auth, limiter, nil
 }
 
 // MigrationUnits returns auth-all's goose units for the enabled plugins.
