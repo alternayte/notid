@@ -5,3 +5,4 @@ node_modules/
 .output/
 .nitro/
 .tanstack/
+openapi-ts-error-*.log

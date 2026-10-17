@@ -51,14 +51,18 @@ func (s *Service) Register(api huma.API) {
 		switch {
 		case err == nil:
 			return nil, nil
-		case errors.Is(err, ErrSignupClosed), errors.Is(err, ErrInviteInvalid):
-			return nil, huma.Error403Forbidden(err.Error())
+		case errors.Is(err, ErrSignupClosed):
+			return nil, huma.Error403Forbidden("Sign-up is closed on this site.")
+		case errors.Is(err, ErrInviteInvalid):
+			return nil, huma.Error403Forbidden("That invite code is not valid or was already used.")
 		case errors.Is(err, actors.ErrNameTaken):
-			return nil, huma.Error409Conflict(err.Error())
-		case errors.Is(err, actors.ErrNameInvalid), errors.Is(err, ErrEmailInvalid):
-			return nil, huma.Error422UnprocessableEntity(err.Error())
+			return nil, huma.Error409Conflict("That name is taken. Choose another.")
+		case errors.Is(err, actors.ErrNameInvalid):
+			return nil, huma.Error422UnprocessableEntity("A name has 3 to 20 characters: lowercase letters, digits and underscores, starting with a letter.")
+		case errors.Is(err, ErrEmailInvalid):
+			return nil, huma.Error422UnprocessableEntity("That email address is not valid.")
 		case errors.Is(err, ErrRateLimited):
-			return nil, huma.Error429TooManyRequests(err.Error())
+			return nil, huma.Error429TooManyRequests("Too many attempts. Try again later.")
 		default:
 			return nil, err
 		}

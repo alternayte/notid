@@ -1,6 +1,7 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
-import { api, errorMessage } from '~/api/client'
+import { errorMessage } from '~/api/errors'
+import { magicLinkVerifyMutation, meQueryKey } from '~/api/gen/@tanstack/react-query.gen'
 
 export const Route = createFileRoute('/login_/verify')({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -15,17 +16,14 @@ export const Route = createFileRoute('/login_/verify')({
 function Verify() {
   const { token, callbackURL } = Route.useSearch()
   const navigate = useNavigate()
-  const [state, setState] = useState<{ busy: boolean; error?: string }>({ busy: false })
-
-  async function confirm() {
-    setState({ busy: true })
-    const { data, error } = await api().POST('/api/auth/magic-link/verify', { body: { token, callbackURL } })
-    if (error || !data) {
-      setState({ busy: false, error: errorMessage(error, 'This link does not work any more. Ask for a new one.') })
-      return
-    }
-    await navigate({ href: data.redirectTo.startsWith('/') ? data.redirectTo : '/', replace: true })
-  }
+  const queryClient = useQueryClient()
+  const verify = useMutation({
+    ...magicLinkVerifyMutation(),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: meQueryKey() })
+      await navigate({ href: data.redirectTo.startsWith('/') ? data.redirectTo : '/', replace: true })
+    },
+  })
 
   if (!token) {
     return (
@@ -38,12 +36,12 @@ function Verify() {
   return (
     <main>
       <h1>Sign in to Open Communities</h1>
-      <button type="button" onClick={confirm} disabled={state.busy}>
-        {state.busy ? 'Signing in…' : 'Sign in'}
+      <button type="button" onClick={() => verify.mutate({ body: { token, callbackURL } })} disabled={verify.isPending}>
+        {verify.isPending ? 'Signing in…' : 'Sign in'}
       </button>
-      {state.error && (
+      {verify.isError && (
         <p role="alert">
-          {state.error} <a href="/login">Ask for a new link</a>
+          {errorMessage(verify.error, 'This link does not work any more.')} <a href="/login">Ask for a new link</a>
         </p>
       )}
     </main>

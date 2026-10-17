@@ -1,25 +1,25 @@
+import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
-import { api, errorMessage } from '~/api/client'
+import { errorMessage } from '~/api/errors'
+import { magicLinkSendMutation, signUpMutation, signupModeOptions } from '~/api/gen/@tanstack/react-query.gen'
 
 export const Route = createFileRoute('/login')({
-  loader: async () => {
-    const { data } = await api().GET('/api/signup')
-    return { mode: data?.mode ?? 'closed' }
-  },
+  loader: ({ context }) => context.queryClient.ensureQueryData(signupModeOptions()),
   component: Login,
 })
 
 type Status = { kind: 'idle' } | { kind: 'busy' } | { kind: 'sent'; email: string } | { kind: 'error'; message: string }
 
 function Login() {
-  const { mode } = Route.useLoaderData()
+  const { mode } = useSuspenseQuery(signupModeOptions()).data
   const [tab, setTab] = useState<'signin' | 'signup'>('signin')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
+  const sendLinkMutation = useMutation(magicLinkSendMutation())
+  const signUp = useMutation(signUpMutation())
 
   async function sendLink(email: string) {
-    const { error } = await api().POST('/api/auth/magic-link/send', { body: { email } })
-    if (error) throw error
+    await sendLinkMutation.mutateAsync({ body: { email } })
     setStatus({ kind: 'sent', email })
   }
 
@@ -39,15 +39,16 @@ function Login() {
     const form = new FormData(e.currentTarget)
     const email = String(form.get('email') ?? '')
     setStatus({ kind: 'busy' })
-    const { error } = await api().POST('/api/signup', {
-      body: {
-        email,
-        name: String(form.get('name') ?? ''),
-        invite: String(form.get('invite') ?? '') || undefined,
-      },
-    })
-    if (error) {
-      setStatus({ kind: 'error', message: errorMessage(error, 'The account could not be created. Try again.') })
+    try {
+      await signUp.mutateAsync({
+        body: {
+          email,
+          name: String(form.get('name') ?? ''),
+          invite: String(form.get('invite') ?? '') || undefined,
+        },
+      })
+    } catch (err) {
+      setStatus({ kind: 'error', message: errorMessage(err, 'The account could not be created. Try again.') })
       return
     }
     try {

@@ -1,16 +1,15 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { api } from '~/api/client'
+import { meOptions } from '~/api/gen/@tanstack/react-query.gen'
 
 export const Route = createFileRoute('/')({
-  loader: async () => {
-    const { data } = await api().GET('/api/me')
-    return { me: data ?? null }
-  },
+  // A signed-out visitor gets 401; the page then shows the sign-in link.
+  loader: ({ context }) => context.queryClient.prefetchQuery({ ...meOptions(), retry: false }),
   component: Home,
 })
 
 function Home() {
-  const { me } = Route.useLoaderData()
+  const { data: me } = useQuery({ ...meOptions(), retry: false })
   return (
     <main>
       <h1>Open Communities</h1>
