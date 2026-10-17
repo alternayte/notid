@@ -1,0 +1,29 @@
+---
+name: interop
+"on":
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  interop:
+    runs-on: ubuntu-latest
+    # Lemmy is built from source in debug mode, which dominates the runtime.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6
+        with:
+          just-version: "1.58.0"
+      - run: just interop

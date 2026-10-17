@@ -1,0 +1,7 @@
+# Copied to interop/.run/hosts before the harness starts. The move test rewrites
+# the copy to switch woodwork.club from A to B; CoreDNS reloads it within 5 s.
+11.11.0.10 a.notid.test
+11.11.0.11 b.notid.test
+11.11.0.20 lemmy.test
+11.11.0.30 piefed.test
+11.11.0.10 woodwork.club

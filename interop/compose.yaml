@@ -1,0 +1,291 @@
+---
+# Interop harness: two notid installations, a Lemmy, a PieFed, CoreDNS and a
+# mail catcher.
+#
+# Federation runs on plain HTTP. Lemmy release builds refuse http URLs and
+# private addresses at compile time, so the harness builds Lemmy from source
+# in debug mode. PieFed follows HTTP_PROTOCOL. Every host gets a globally
+# scoped address on a local bridge network because both peers refuse to
+# federate with private addresses.
+name: notid-interop
+
+x-notid-image: &notid-image
+  image: notid-interop:local
+  build:
+    context: ..
+    dockerfile: Dockerfile
+
+x-notid-env: &notid-env
+  TLS: "off"
+  HTTP_ADDR: ":8080"
+  INTERNAL_ADDR: ":8081"
+  WEB_UPSTREAM: "http://127.0.0.1:9"
+  FEDERATION_HTTP: "1"
+  SIGNUP: "open"
+  SMTP_URL: "smtp://mailpit:1025"
+  SECRET_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  MEDIA_DIR: "/data/media"
+
+x-piefed-env: &piefed-env
+  SECRET_KEY: "interop-piefed-secret-key-0123456789abcdef"
+  SERVER_NAME: "piefed.test:5000"
+  HTTP_PROTOCOL: "http"
+  SESSION_COOKIE_SECURE: "0"
+  DATABASE_URL: "postgresql+psycopg2://piefed:piefed@piefed-db:5432/piefed"
+  CACHE_TYPE: "RedisCache"
+  CACHE_REDIS_URL: "redis://piefed-redis:6379/0"
+  CELERY_BROKER_URL: "redis://piefed-redis:6379/1"
+  ENABLE_ALPHA_API: "true"
+  RATELIMIT_ENABLED: "0"
+  MAIL_FROM: "piefed@piefed.test"
+
+services:
+  coredns:
+    image: coredns/coredns:1.12.4
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - ./coredns/Corefile:/etc/coredns/Corefile:ro
+      - ./.run/hosts:/etc/coredns/hosts:ro
+    networks:
+      harness:
+        ipv4_address: 11.11.0.53
+
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:28025:8025"
+    networks:
+      harness:
+        ipv4_address: 11.11.0.40
+
+  notid-a-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notid
+      POSTGRES_PASSWORD: notid
+      POSTGRES_DB: notid
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notid -d notid"]
+      interval: 2s
+      retries: 30
+    networks:
+      harness:
+        ipv4_address: 11.11.0.2
+
+  notid-a-migrate:
+    <<: *notid-image
+    command: ["migrate"]
+    environment:
+      <<: *notid-env
+      APP_DOMAIN: a.notid.test
+      APP_ORIGIN: http://a.notid.test:8080
+      EMAIL_FROM: "A <a@notid.test>"
+      DATABASE_URL: >-
+        postgres://notid:notid@notid-a-db:5432/notid?sslmode=disable
+    depends_on:
+      notid-a-db:
+        condition: service_healthy
+    networks:
+      harness:
+        ipv4_address: 11.11.0.3
+
+  notid-a:
+    <<: *notid-image
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      <<: *notid-env
+      APP_DOMAIN: a.notid.test
+      APP_ORIGIN: http://a.notid.test:8080
+      EMAIL_FROM: "A <a@notid.test>"
+      DATABASE_URL: >-
+        postgres://notid:notid@notid-a-db:5432/notid?sslmode=disable
+    ports:
+      - "127.0.0.1:28080:8080"
+    depends_on:
+      notid-a-migrate:
+        condition: service_completed_successfully
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.10
+
+  notid-b-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notid
+      POSTGRES_PASSWORD: notid
+      POSTGRES_DB: notid
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notid -d notid"]
+      interval: 2s
+      retries: 30
+    networks:
+      harness:
+        ipv4_address: 11.11.0.4
+
+  notid-b-migrate:
+    <<: *notid-image
+    command: ["migrate"]
+    environment:
+      <<: *notid-env
+      APP_DOMAIN: b.notid.test
+      APP_ORIGIN: http://b.notid.test:8080
+      EMAIL_FROM: "B <b@notid.test>"
+      DATABASE_URL: >-
+        postgres://notid:notid@notid-b-db:5432/notid?sslmode=disable
+    depends_on:
+      notid-b-db:
+        condition: service_healthy
+    networks:
+      harness:
+        ipv4_address: 11.11.0.5
+
+  notid-b:
+    <<: *notid-image
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      <<: *notid-env
+      APP_DOMAIN: b.notid.test
+      APP_ORIGIN: http://b.notid.test:8080
+      EMAIL_FROM: "B <b@notid.test>"
+      DATABASE_URL: >-
+        postgres://notid:notid@notid-b-db:5432/notid?sslmode=disable
+    ports:
+      - "127.0.0.1:28081:8080"
+    depends_on:
+      notid-b-migrate:
+        condition: service_completed_successfully
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.11
+
+  lemmy-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lemmy
+      POSTGRES_PASSWORD: lemmylemmy
+      POSTGRES_DB: lemmy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lemmy -d lemmy"]
+      interval: 2s
+      retries: 30
+    networks:
+      harness:
+        ipv4_address: 11.11.0.21
+
+  lemmy:
+    image: notid-interop-lemmy:0.19.20
+    restart: unless-stopped
+    volumes:
+      - ./lemmy/lemmy.hjson:/config/config.hjson:ro
+    ports:
+      - "127.0.0.1:28536:8536"
+    depends_on:
+      lemmy-db:
+        condition: service_healthy
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.20
+
+  piefed-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: piefed
+      POSTGRES_PASSWORD: piefed
+      POSTGRES_DB: piefed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U piefed -d piefed"]
+      interval: 2s
+      retries: 30
+    networks:
+      harness:
+        ipv4_address: 11.11.0.31
+
+  piefed-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      harness:
+        ipv4_address: 11.11.0.32
+
+  piefed-init:
+    image: ghcr.io/dockur/piefed:1.8.5
+    entrypoint: ["/bin/bash", "/app/init-interop.sh"]
+    environment:
+      <<: *piefed-env
+      PYTHONPATH: "/app/interop"
+    volumes:
+      - ./piefed/init.sh:/app/init-interop.sh:ro
+      - ./piefed/sitecustomize.py:/app/interop/sitecustomize.py:ro
+    depends_on:
+      piefed-db:
+        condition: service_healthy
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.33
+
+  piefed:
+    image: ghcr.io/dockur/piefed:1.8.5
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/app/run-interop.sh"]
+    environment: *piefed-env
+    volumes:
+      - ./piefed/run.sh:/app/run-interop.sh:ro
+    ports:
+      - "127.0.0.1:25000:5000"
+    depends_on:
+      piefed-init:
+        condition: service_completed_successfully
+      piefed-redis:
+        condition: service_started
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.30
+
+  piefed-celery:
+    image: ghcr.io/dockur/piefed:1.8.5
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/app/entrypoint_celery.sh"]
+    environment: *piefed-env
+    depends_on:
+      piefed-init:
+        condition: service_completed_successfully
+      piefed-redis:
+        condition: service_started
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.34
+
+  piefed-notifs:
+    image: ghcr.io/dockur/piefed:1.8.5
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/app/entrypoint_async.sh"]
+    environment: *piefed-env
+    depends_on:
+      piefed-init:
+        condition: service_completed_successfully
+      piefed-redis:
+        condition: service_started
+    dns: [11.11.0.53]
+    networks:
+      harness:
+        ipv4_address: 11.11.0.35
+
+networks:
+  harness:
+    ipam:
+      config:
+        - subnet: 11.11.0.0/24

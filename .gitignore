@@ -6,3 +6,5 @@ node_modules/
 .nitro/
 .tanstack/
 openapi-ts-error-*.log
+interop/.run/
+interop/lemmy/.src/

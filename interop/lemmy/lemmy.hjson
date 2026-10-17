@@ -1,0 +1,19 @@
+{
+  hostname: "lemmy.test:8536"
+  port: 8536
+  tls_enabled: false
+  setup: {
+    admin_username: "admin"
+    admin_password: "lemmylemmy"
+    site_name: "Interop Lemmy"
+  }
+  database: {
+    host: "lemmy-db"
+    user: "lemmy"
+    password: "lemmylemmy"
+    database: "lemmy"
+  }
+  federation: {
+    enabled: true
+  }
+}

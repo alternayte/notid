@@ -1,0 +1,4 @@
+.:53 {
+    hosts /etc/coredns/hosts
+    errors
+}

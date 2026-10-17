@@ -23,13 +23,13 @@ check: db
     #!/usr/bin/env bash
     set -euo pipefail
     for c in checks/*.sh; do bash "$c" || { echo "FAIL: $c"; exit 1; }; done
-    unformatted=$(gofmt -l cmd internal migrations 2>/dev/null || true)
+    unformatted=$(gofmt -l cmd internal migrations interop 2>/dev/null || true)
     if [ -n "$unformatted" ]; then echo "gofmt needed:"; echo "$unformatted"; exit 1; fi
     if [ "${CHECK_ALL:-}" = "1" ]; then
       pkgs=./...
     else
       base=$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)
-      dirs=$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | grep '\.go$' | xargs -r -n1 dirname | sort -u | while read -r d; do [ -d "$d" ] && echo "./$d"; done || true)
+      dirs=$( { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | grep '\.go$' | xargs -r -n1 dirname | sort -u | while read -r d; do [ -d "$d" ] && [ "$d" != "interop" ] && echo "./$d"; done || true)
       pkgs=${dirs:-}
     fi
     sqlc generate
@@ -37,6 +37,7 @@ check: db
       if [ -n "${CI:-}" ]; then echo "sqlc output is stale; run sqlc generate and commit"; git status --short -- internal; exit 1; fi
     fi
     go vet ./...
+    go vet -tags interop ./interop/...
     if [ -n "$pkgs" ]; then go test $pkgs; fi
     go run ./cmd/notid openapi > web/src/api/openapi.json
     (cd web && bun install --frozen-lockfile --silent && bun run --silent gen:api >/dev/null)
@@ -55,3 +56,21 @@ test: db
 # Run the web app in dev mode behind nothing; use `notid serve` with WEB_UPSTREAM=http://127.0.0.1:3000 in front.
 web-dev:
     cd web && bun run dev
+
+# Interop harness. The first run builds Lemmy from source in debug mode.
+interop:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash interop/lemmy/build.sh
+    docker compose -f interop/compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
+    mkdir -p interop/.run
+    cp interop/coredns/hosts interop/.run/hosts
+    docker compose -f interop/compose.yaml up -d --build
+    bash interop/wait.sh
+    go test -tags interop -count=1 ./interop/...
+
+interop-down:
+    docker compose -f interop/compose.yaml down
+
+interop-clean:
+    docker compose -f interop/compose.yaml down -v --remove-orphans
