@@ -38,6 +38,7 @@ type PostView struct {
 	CommunityTitle string    `json:"communityTitle"`
 	Title          string    `json:"title"`
 	BodyHTML       string    `json:"bodyHtml" doc:"Sanitized HTML from the Markdown body"`
+	Excerpt        string    `json:"excerpt" doc:"Plain text from the start of the body, for lists"`
 	URL            string    `json:"url"`
 	NSFW           bool      `json:"nsfw"`
 	Author         Author    `json:"author"`
@@ -85,6 +86,8 @@ type SavedPage struct {
 	Next  string      `json:"next" doc:"Cursor for the next page; empty on the last page"`
 }
 
+const excerptBytes = 280
+
 var ErrBadCursor = errors.New("the page cursor is not valid")
 
 func viewerID(v *actors.Actor) *int64 {
@@ -112,7 +115,7 @@ type postRow struct {
 func (s *Service) postView(r postRow) PostView {
 	return PostView{
 		ApID: r.ApID, Ref: r.Ref, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
-		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), URL: r.URL, NSFW: r.NSFW,
+		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, NSFW: r.NSFW,
 		Author:    s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
 		Published: r.Published, Score: r.Score, Comments: r.CommentCount,
 		Viewer: Viewer{Vote: r.MyVote, VoteCounted: r.MyVoteCounted, Saved: r.Saved},

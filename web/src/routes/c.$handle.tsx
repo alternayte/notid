@@ -1,26 +1,37 @@
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
-import { communityOptions, meOptions } from '~/api/gen/@tanstack/react-query.gen'
+import { communityOptions, communityPostsInfiniteOptions, meOptions } from '~/api/gen/@tanstack/react-query.gen'
 import type { Detail } from '~/api/gen/types.gen'
 import { accentAttr } from '~/communities/accents'
 import { membersLabel } from '~/communities/CommunityCard'
 import { Join } from '~/communities/Join'
+import { PostItem } from '~/discussions/PostItem'
 import { Kicker } from '~/ui/Kicker'
+import { Button } from '~/ui/primitives/button'
 import { fromRenderer, Rendered } from '~/ui/RenderedHtml'
 import { Page } from './__root'
 
 export const Route = createFileRoute('/c/$handle')({
   loader: async ({ context, params }) => {
+    let c: Detail
     try {
-      return await context.queryClient.ensureQueryData(communityOptions({ path: { handle: params.handle } }))
+      c = await context.queryClient.ensureQueryData(communityOptions({ path: { handle: params.handle } }))
     } catch {
       throw notFound()
     }
+    await context.queryClient.ensureInfiniteQueryData(postsOptions(params.handle))
+    return c
   },
   head: ({ loaderData }) => ({
     meta: [{ title: `${loaderData?.title || loaderData?.name || 'Community'} · Open Communities` }],
   }),
   component: CommunityPage,
+})
+
+const postsOptions = (handle: string) => ({
+  ...communityPostsInfiniteOptions({ path: { handle } }),
+  initialPageParam: '',
+  getNextPageParam: (last: { next: string }) => last.next || undefined,
 })
 
 function CommunityPage() {
@@ -66,14 +77,65 @@ function CommunityPage() {
             >
               Posts · New
             </h2>
-            <div className="flex flex-col gap-2 rounded-sm bg-paper-sunk p-4">
-              <h3 className="font-display text-lg tracking-tight">No posts yet</h3>
-              <p className="font-serif text-sm text-ink-soft">The first post here starts the conversation.</p>
-            </div>
+            {me && (c.state === 'active' || !c.local) && (
+              <Link
+                to="/submit"
+                search={{ community: handle }}
+                className="flex items-center gap-3 rounded-sm border border-rule bg-paper-raised px-4 py-3 font-serif text-lg text-ink-faint no-underline hover:text-ink-soft"
+              >
+                <span className="grid size-7 place-items-center rounded-pill bg-mark font-sans text-base text-mark-ink">
+                  +
+                </span>
+                Start a post in {c.title || c.name}
+              </Link>
+            )}
+            <Posts handle={handle} />
           </section>
           <About community={c} />
         </div>
       </Page>
+    </div>
+  )
+}
+
+function Posts({ handle }: { handle: string }) {
+  // The loader fills this query, so data is present on the first render.
+  const { data, isError, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery(
+    postsOptions(handle),
+  )
+  if (isError && !data) {
+    return (
+      <p role="alert" className="font-sans text-sm text-danger">
+        Posts did not load. Reload the page to try again.
+      </p>
+    )
+  }
+  const posts = data?.pages.flatMap((p) => p.posts) ?? []
+  if (data && posts.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 rounded-sm bg-paper-sunk p-4">
+        <h3 className="font-display text-lg tracking-tight">No posts yet</h3>
+        <p className="font-serif text-sm text-ink-soft">The first post here starts the conversation.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col">
+      {posts.map((p) => (
+        <PostItem key={p.apId} post={p} showCommunity={false} />
+      ))}
+      {hasNextPage && (
+        <div className="flex items-center gap-3 border-t border-rule pt-4">
+          <Button variant="outline" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
+            {isFetchingNextPage ? 'Loading…' : 'Older posts'}
+          </Button>
+          {isFetchNextPageError && (
+            <span role="alert" className="font-sans text-sm text-danger">
+              Older posts did not load. Try again.
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

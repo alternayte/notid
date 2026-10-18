@@ -28,3 +28,14 @@ func TestInvariant8ScriptAndStyleNeverReachTheHTML(t *testing.T) {
 		t.Errorf("markdown: %q", got)
 	}
 }
+
+func TestTextIsPlainAndCutAtAWord(t *testing.T) {
+	m := NewMarkdown()
+	got := m.Text("# Planes\n\nA **sharp** iron & a <script>alert(1)</script> flat sole.\n\n- one\n- two", 200)
+	if got != "Planes A sharp iron & a alert(1) flat sole. one two" {
+		t.Fatalf("text %q", got)
+	}
+	if got := m.Text("alpha beta gamma delta", 14); got != "alpha beta…" {
+		t.Fatalf("cut %q", got)
+	}
+}

@@ -3,6 +3,9 @@ package platform
 import (
 	"bytes"
 	"fmt"
+	"html"
+	"strings"
+	"unicode/utf8"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/microcosm-cc/bluemonday"
@@ -15,6 +18,7 @@ import (
 type Markdown struct {
 	md     goldmark.Markdown
 	policy *bluemonday.Policy
+	strict *bluemonday.Policy
 }
 
 func NewMarkdown() *Markdown {
@@ -24,7 +28,31 @@ func NewMarkdown() *Markdown {
 	return &Markdown{
 		md:     goldmark.New(goldmark.WithExtensions(extension.GFM)),
 		policy: policy,
+		strict: bluemonday.StrictPolicy(),
 	}
+}
+
+// Text renders Markdown to plain text of at most max bytes, cut at a word, for
+// excerpts. It holds no markup; the web app escapes it like any other text.
+func (m *Markdown) Text(source string, max int) string {
+	var buf bytes.Buffer
+	if err := m.md.Convert([]byte(source), &buf); err != nil {
+		panic(fmt.Sprintf("render markdown: %v", err))
+	}
+	// Block ends become spaces so words in adjacent paragraphs stay apart.
+	spaced := strings.NewReplacer("</p>", " </p>", "<br>", " ", "</li>", " </li>", "</h", " </h").Replace(buf.String())
+	text := strings.Join(strings.Fields(html.UnescapeString(m.strict.Sanitize(spaced))), " ")
+	if len(text) <= max {
+		return text
+	}
+	cut := text[:max]
+	for !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+	if i := strings.LastIndexByte(cut, ' '); i > max/2 {
+		cut = cut[:i]
+	}
+	return strings.TrimRight(cut, " .,;:") + "…"
 }
 
 // HTML renders Markdown to sanitized HTML.

@@ -132,7 +132,7 @@ function Specimen() {
             <div id="comments" className="border-t border-rule pt-6">
               <Thread
                 comments={comments}
-                renderVotes={(c) => <VoteControl score={c.score} label={`${c.author}'s comment`} send={send} />}
+                renderActions={(c) => <VoteControl score={c.score} label={`${c.author}'s comment`} send={send} />}
               />
             </div>
           </section>
@@ -294,7 +294,9 @@ function Engraving() {
   )
 }
 
-const comments: CommentNode[] = [
+type SpecimenComment = CommentNode & { score: number; replies: SpecimenComment[] }
+
+const comments: SpecimenComment[] = [
   {
     id: '1',
     author: 'grain',

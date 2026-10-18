@@ -25,6 +25,12 @@ export function Masthead() {
         <div className="ml-auto flex items-baseline gap-5">
           {me ? (
             <>
+              <Link to="/submit" className={navLink}>
+                New post
+              </Link>
+              <Link to="/saved" className={navLink}>
+                Saved
+              </Link>
               <Link to="/communities/new" className={navLink}>
                 Start a community
               </Link>

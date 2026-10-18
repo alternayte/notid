@@ -844,6 +844,10 @@
           "communityTitle": {
             "type": "string"
           },
+          "excerpt": {
+            "description": "Plain text from the start of the body, for lists",
+            "type": "string"
+          },
           "nsfw": {
             "type": "boolean"
           },
@@ -875,6 +879,7 @@
           "communityTitle",
           "title",
           "bodyHtml",
+          "excerpt",
           "url",
           "nsfw",
           "author",

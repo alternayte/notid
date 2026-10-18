@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SavedRouteImport } from './routes/saved'
 import { Route as SpecimenRouteImport } from './routes/specimen'
+import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as CHandleRouteImport } from './routes/c.$handle'
 import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 import { Route as CHandleManageRouteImport } from './routes/c.$handle_.manage'
+import { Route as CHandlePRefRouteImport } from './routes/c.$handle_.p.$ref'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,9 +36,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SavedRoute = SavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SpecimenRoute = SpecimenRouteImport.update({
   id: '/specimen',
   path: '/specimen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubmitRoute = SubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CHandleRoute = CHandleRouteImport.update({
@@ -58,37 +71,51 @@ const CHandleManageRoute = CHandleManageRouteImport.update({
   path: '/c/$handle/manage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CHandlePRefRoute = CHandlePRefRouteImport.update({
+  id: '/c/$handle_/p/$ref',
+  path: '/c/$handle/p/$ref',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/specimen': typeof SpecimenRoute
+  '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
   '/c/$handle/manage': typeof CHandleManageRoute
+  '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/specimen': typeof SpecimenRoute
+  '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
   '/c/$handle/manage': typeof CHandleManageRoute
+  '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
+  '/saved': typeof SavedRoute
   '/specimen': typeof SpecimenRoute
+  '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login_/verify': typeof LoginVerifyRoute
   '/c/$handle_/manage': typeof CHandleManageRoute
+  '/c/$handle_/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,42 +123,54 @@ export interface FileRouteTypes {
     | '/'
     | '/discover'
     | '/login'
+    | '/saved'
     | '/specimen'
+    | '/submit'
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
     | '/c/$handle/manage'
+    | '/c/$handle/p/$ref'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/discover'
     | '/login'
+    | '/saved'
     | '/specimen'
+    | '/submit'
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
     | '/c/$handle/manage'
+    | '/c/$handle/p/$ref'
   id:
     | '__root__'
     | '/'
     | '/discover'
     | '/login'
+    | '/saved'
     | '/specimen'
+    | '/submit'
     | '/c/$handle'
     | '/communities/new'
     | '/login_/verify'
     | '/c/$handle_/manage'
+    | '/c/$handle_/p/$ref'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiscoverRoute: typeof DiscoverRoute
   LoginRoute: typeof LoginRoute
+  SavedRoute: typeof SavedRoute
   SpecimenRoute: typeof SpecimenRoute
+  SubmitRoute: typeof SubmitRoute
   CHandleRoute: typeof CHandleRoute
   CommunitiesNewRoute: typeof CommunitiesNewRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
   CHandleManageRoute: typeof CHandleManageRoute
+  CHandlePRefRoute: typeof CHandlePRefRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -157,11 +196,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/saved': {
+      id: '/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/specimen': {
       id: '/specimen'
       path: '/specimen'
       fullPath: '/specimen'
       preLoaderRoute: typeof SpecimenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/submit': {
+      id: '/submit'
+      path: '/submit'
+      fullPath: '/submit'
+      preLoaderRoute: typeof SubmitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/c/$handle': {
@@ -192,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CHandleManageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$handle_/p/$ref': {
+      id: '/c/$handle_/p/$ref'
+      path: '/c/$handle/p/$ref'
+      fullPath: '/c/$handle/p/$ref'
+      preLoaderRoute: typeof CHandlePRefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -199,11 +259,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiscoverRoute: DiscoverRoute,
   LoginRoute: LoginRoute,
+  SavedRoute: SavedRoute,
   SpecimenRoute: SpecimenRoute,
+  SubmitRoute: SubmitRoute,
   CHandleRoute: CHandleRoute,
   CommunitiesNewRoute: CommunitiesNewRoute,
   LoginVerifyRoute: LoginVerifyRoute,
   CHandleManageRoute: CHandleManageRoute,
+  CHandlePRefRoute: CHandlePRefRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

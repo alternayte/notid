@@ -334,6 +334,10 @@ export type PostView = {
      */
     community: string;
     communityTitle: string;
+    /**
+     * Plain text from the start of the body, for lists
+     */
+    excerpt: string;
     nsfw: boolean;
     published: string;
     ref: string;

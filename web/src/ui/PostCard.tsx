@@ -8,13 +8,24 @@ type Props = {
   author: string
   authorHost?: string
   bot?: boolean
-  age: string
+  age: ReactNode
   comments: number
   standfirst?: string
   link?: string
   image?: ReactNode
   votes: ReactNode
+  actions?: ReactNode
+  // Renders the links to the thread; the default is a plain anchor to href.
+  linkTo?: (p: { className: string; hash?: string; children: ReactNode }) => ReactNode
 }
+
+const anchor =
+  (href: string) =>
+  ({ className, hash, children }: { className: string; hash?: string; children: ReactNode }) => (
+    <a href={hash ? `${href}#${hash}` : href} className={className}>
+      {children}
+    </a>
+  )
 
 // One entry in a feed, set like an article in a news column: kicker,
 // headline, standfirst, byline. Rules between entries replace card boxes.
@@ -31,15 +42,16 @@ export function PostCard({
   link,
   image,
   votes,
+  actions,
+  linkTo,
 }: Props) {
+  const ThreadLink = linkTo ?? anchor(href)
   return (
     <article className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 sm:gap-x-6 border-t border-rule py-6 first:border-t-0">
       <div className="flex flex-col gap-2">
-        <Kicker>{community}</Kicker>
+        {community && <Kicker>{community}</Kicker>}
         <h2 className="font-display text-xl tracking-tight text-balance">
-          <a href={href} className="no-underline decoration-mark decoration-2 hover:underline">
-            {title}
-          </a>
+          <ThreadLink className="no-underline decoration-mark decoration-2 hover:underline">{title}</ThreadLink>
         </h2>
         {link && (
           <a href={link} className="w-fit font-sans text-xs text-ink-soft hover:text-mark" rel="nofollow noopener">
@@ -63,9 +75,10 @@ export function PostCard({
         <span aria-hidden="true" className="hidden sm:inline">
           ·
         </span>
-        <a href={`${href}#comments`} className="hover:text-mark">
+        <ThreadLink className="hover:text-mark" hash="comments">
           {comments} {comments === 1 ? 'reply' : 'replies'}
-        </a>
+        </ThreadLink>
+        {actions}
       </footer>
     </article>
   )

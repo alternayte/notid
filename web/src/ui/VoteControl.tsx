@@ -7,15 +7,17 @@ type Props = {
   score: number
   initial?: Vote
   label: string
+  // false when the reader's vote is kept but is not part of the score.
+  counts?: boolean
   // Sends the vote; a rejected promise shows the failure and restores the previous vote.
   send: (value: Vote) => Promise<void>
 }
 
-export function VoteControl({ score, initial = 0, label, send }: Props) {
+export function VoteControl({ score, initial = 0, label, counts = true, send }: Props) {
   const [vote, setVote] = useState<Vote>(initial)
   const [failed, setFailed] = useState<Vote | null>(null)
   const [bump, setBump] = useState(0)
-  const shown = score - initial + vote
+  const shown = counts ? score - initial + vote : score
 
   async function cast(next: Vote) {
     const previous = vote
@@ -49,6 +51,9 @@ export function VoteControl({ score, initial = 0, label, send }: Props) {
         </output>
         <VoteButton direction="down" active={vote === -1} onClick={() => cast(-1)} />
       </fieldset>
+      {!counts && vote !== 0 && failed === null && (
+        <span className="text-xs text-ink-faint">Your votes count once your account is established.</span>
+      )}
       {failed !== null && (
         <span role="alert" className="flex items-center gap-2 text-xs text-danger">
           Vote not saved.
