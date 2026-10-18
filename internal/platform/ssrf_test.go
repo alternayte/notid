@@ -44,6 +44,13 @@ func TestInvariant6OutboundRequestsPassTheSSRFGuard(t *testing.T) {
 		"https://[::ffff:127.0.0.1]/",
 		"https://localhost/",
 		"https:///nohost",
+		"https://[64:ff9b::a00:1]/",
+		"https://[64:ff9b:1::a00:1]/",
+		"https://[2002:a00:1::1]/",
+		"https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/",
+		"https://[::a00:1]/",
+		"https://93.184.216.34:22/",
+		"https://93.184.216.34:6379/",
 	}
 	for _, raw := range refused {
 		if _, err := g.CheckURL(context.Background(), raw); err == nil {
@@ -51,7 +58,7 @@ func TestInvariant6OutboundRequestsPassTheSSRFGuard(t *testing.T) {
 		}
 	}
 
-	for _, raw := range []string{"https://93.184.216.34/", "https://11.11.0.10:8080/c/x"} {
+	for _, raw := range []string{"https://93.184.216.34/", "https://93.184.216.34:443/c/x", "https://[2a01:4f8::1]/"} {
 		if _, err := g.CheckURL(context.Background(), raw); err != nil {
 			t.Errorf("%s was refused: %v", raw, err)
 		}

@@ -163,7 +163,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.MediaURL = mediaSvc.URL
 	communitiesSvc.MediaURL = mediaSvc.URL
 	proxyGuard := platform.NewGuard(cfg.FederationHTTP, t)
-	proxyGuard.MaxBytes = t.ProxyMaxBytes
+	// One byte over the cap, so the proxy sees an oversized image and aborts it.
+	proxyGuard.MaxBytes = t.ProxyMaxBytes + 1
 	proxy := media.NewProxy(cfg.SecretKey, proxyGuard.Client(), cfg.AppOrigin, t.ProxyMaxBytes, t.ProxyMaxAge, log)
 	discussionsSvc.ProxyURL = proxy.URL
 	mediaMux := http.NewServeMux()

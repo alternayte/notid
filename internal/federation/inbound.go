@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -330,11 +331,21 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	return s.planContent(ctx, db, inner, &g)
 }
 
+// webLink reports whether a peer's link is an http or https URL; anything
+// else, such as javascript:, never becomes a link here.
+func webLink(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
 // remotePost is the stored form of a Page's text and link.
 func remotePost(o objectDoc, body string) discussions.NewPost {
 	link, isImage := linkOf(o)
+	if !webLink(link) {
+		link, isImage = "", false
+	}
 	np := discussions.NewPost{ApID: o.ID, Title: o.Name, Body: body, URL: link, URLImage: isImage, NSFW: o.Sensitive}
-	if o.Image != nil && link != "" && !isImage {
+	if o.Image != nil && link != "" && !isImage && webLink(string(o.Image.URL)) {
 		np.PreviewImage = string(o.Image.URL)
 	}
 	return np

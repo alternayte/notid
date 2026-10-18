@@ -46,10 +46,22 @@ func (g *Guard) CheckURL(ctx context.Context, raw string) (*url.URL, error) {
 	if err := g.checkScheme(u); err != nil {
 		return nil, err
 	}
+	if err := g.checkPort(u.Port()); err != nil {
+		return nil, err
+	}
 	if err := g.checkHost(ctx, u.Hostname()); err != nil {
 		return nil, err
 	}
 	return u, nil
+}
+
+// checkPort allows the web ports only, so a federated URL cannot aim notid at
+// another service on a public host. The interop harness uses other ports.
+func (g *Guard) checkPort(port string) error {
+	if port == "" || port == "443" || port == "80" || g.AllowHTTP {
+		return nil
+	}
+	return fmt.Errorf("refused port %s", port)
 }
 
 func (g *Guard) checkScheme(u *url.URL) error {
@@ -129,6 +141,9 @@ func (g *Guard) dial(ctx context.Context, network, addr string) (net.Conn, error
 	if err != nil {
 		return nil, fmt.Errorf("split %q: %w", addr, err)
 	}
+	if err := g.checkPort(port); err != nil {
+		return nil, err
+	}
 	ips, err := g.lookup(ctx, host)
 	if err != nil {
 		return nil, err
@@ -183,6 +198,14 @@ func isReserved(ip netip.Addr) bool {
 	}
 	b := ip.As16()
 	switch {
+	case b[0] == 0 && b[1] == 0x64 && b[2] == 0xff && b[3] == 0x9b: // 64:ff9b::/96 and 64:ff9b:1::/48 NAT64
+		return true
+	case b[0] == 0x20 && b[1] == 0x02: // 2002::/16 6to4
+		return true
+	case b[0] == 0x20 && b[1] == 0x01 && b[2] == 0 && b[3] == 0: // 2001::/32 Teredo
+		return true
+	case [12]byte(b[:12]) == [12]byte{}: // ::/96 IPv4-compatible
+		return true
 	case b[0] == 0x20 && b[1] == 0x01 && b[2] == 0x0d && b[3] == 0xb8: // 2001:db8::/32 documentation
 		return true
 	case b[0] == 0x01 && b[1] == 0x00 && b[2] == 0 && b[3] == 0 &&

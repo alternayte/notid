@@ -37,6 +37,9 @@ func TestARemotePageKeepsItsLinkAndKnowsWhenItIsAnImage(t *testing.T) {
 			image: true,
 		},
 		"text post": {page: `{"attachment":[]}`},
+		"script link": {
+			page: `{"attachment":[{"type":"Link","href":"javascript:alert(1)"}],"image":{"type":"Image","url":"data:image/png;base64,AA"}}`,
+		},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
