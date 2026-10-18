@@ -9,6 +9,7 @@ import {
   threadOptions,
   threadQueryKey,
 } from '~/api/gen/@tanstack/react-query.gen'
+import { About } from '~/communities/About'
 import { accentAttr } from '~/communities/accents'
 import { Age } from '~/discussions/Age'
 import { splitAuthor } from '~/discussions/PostItem'
@@ -66,75 +67,80 @@ function ThreadPage() {
             This community is moving to another site. It is read-only for now.
           </p>
         )}
-        <article className="flex max-w-(--container-measure) flex-col gap-4 border-b border-rule pb-6">
-          <Kicker>
-            <Link to="/c/$handle" params={{ handle }} className="no-underline hover:text-mark">
-              {c.title || c.name}
-            </Link>
-          </Kicker>
-          <h1 className="font-display text-3xl tracking-tight text-balance sm:text-4xl">{p.title}</h1>
-          <p className="font-sans text-xs text-ink-faint">
-            by <span className="font-semibold text-ink-soft">{p.author.displayName || author.name}</span>
-            {author.host && <span>@{author.host}</span>}
-            {p.author.bot && <BotLabel />}
-            <span aria-hidden="true"> · </span>
-            <Age iso={p.published} />
-            {p.nsfw && ' · 18+'}
-          </p>
-          {p.url && (
-            <a
-              href={p.url}
-              rel="nofollow noopener ugc"
-              className="w-fit break-all font-sans text-sm text-ink-soft hover:text-mark"
-            >
-              {p.url} ↗
-            </a>
-          )}
-          {p.bodyHtml && <Rendered html={fromRenderer(p.bodyHtml)} className="prose-news" />}
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />
-            <SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />
-          </div>
-        </article>
-        <section
-          id="comments"
-          aria-labelledby="comments-title"
-          className="flex max-w-(--container-measure) scroll-mt-8 flex-col gap-6"
-        >
-          <h2
-            id="comments-title"
-            className="border-b border-rule-strong pb-1 font-sans text-xs font-bold uppercase tracking-kicker"
-          >
-            {p.comments} {p.comments === 1 ? 'reply' : 'replies'}
-          </h2>
-          {open &&
-            (me ? (
-              <ReplyBox label="Reply to the post" autoFocus={false} send={(text) => reply(p.apId, text)} />
-            ) : (
-              <Link to="/login" className="w-fit font-sans text-sm font-semibold text-mark">
-                Sign in to reply
-              </Link>
-            ))}
-          {comments.length === 0 ? (
-            <p className="font-serif text-sm text-ink-soft">No replies yet.</p>
-          ) : (
-            <Thread
-              comments={comments.map(node)}
-              renderActions={(n) => (
-                <>
-                  <Votes apId={n.apId} score={n.score} viewer={n.viewer} label={`${n.author}'s comment`} />
-                  <SaveButton apId={n.apId} initial={n.viewer.saved} label={`${n.author}'s comment`} />
-                </>
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="flex flex-col gap-6">
+            <article className="flex max-w-(--container-measure) flex-col gap-4 border-b border-rule pb-6">
+              <Kicker>
+                <Link to="/c/$handle" params={{ handle }} className="no-underline hover:text-mark">
+                  {c.title || c.name}
+                </Link>
+              </Kicker>
+              <h1 className="font-display text-3xl tracking-tight text-balance sm:text-4xl">{p.title}</h1>
+              <p className="font-sans text-xs text-ink-faint">
+                by <span className="font-semibold text-ink-soft">{p.author.displayName || author.name}</span>
+                {author.host && <span>@{author.host}</span>}
+                {p.author.bot && <BotLabel />}
+                <span aria-hidden="true"> · </span>
+                <Age iso={p.published} />
+                {p.nsfw && ' · 18+'}
+              </p>
+              {p.url && (
+                <a
+                  href={p.url}
+                  rel="nofollow noopener ugc"
+                  className="w-fit break-all font-sans text-sm text-ink-soft hover:text-mark"
+                >
+                  {p.url} ↗
+                </a>
               )}
-              onReply={open && me ? (n, text) => reply(n.apId, text) : undefined}
-            />
-          )}
-          {t.truncated && (
-            <p className="font-sans text-sm text-ink-faint">
-              This thread is longer than one page. Later replies are not shown.
-            </p>
-          )}
-        </section>
+              {p.bodyHtml && <Rendered html={fromRenderer(p.bodyHtml)} className="prose-news" />}
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                <Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />
+                <SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />
+              </div>
+            </article>
+            <section
+              id="comments"
+              aria-labelledby="comments-title"
+              className="flex max-w-(--container-measure) scroll-mt-8 flex-col gap-6"
+            >
+              <h2
+                id="comments-title"
+                className="border-b border-rule-strong pb-1 font-sans text-xs font-bold uppercase tracking-kicker"
+              >
+                {p.comments} {p.comments === 1 ? 'reply' : 'replies'}
+              </h2>
+              {open &&
+                (me ? (
+                  <ReplyBox label="Reply to the post" autoFocus={false} send={(text) => reply(p.apId, text)} />
+                ) : (
+                  <Link to="/login" className="w-fit font-sans text-sm font-semibold text-mark">
+                    Sign in to reply
+                  </Link>
+                ))}
+              {comments.length === 0 ? (
+                <p className="font-serif text-sm text-ink-soft">No replies yet.</p>
+              ) : (
+                <Thread
+                  comments={comments.map(node)}
+                  renderActions={(n) => (
+                    <>
+                      <Votes apId={n.apId} score={n.score} viewer={n.viewer} label={`${n.author}'s comment`} />
+                      <SaveButton apId={n.apId} initial={n.viewer.saved} label={`${n.author}'s comment`} />
+                    </>
+                  )}
+                  onReply={open && me ? (n, text) => reply(n.apId, text) : undefined}
+                />
+              )}
+              {t.truncated && (
+                <p className="font-sans text-sm text-ink-faint">
+                  This thread is longer than one page. Later replies are not shown.
+                </p>
+              )}
+            </section>
+          </div>
+          <About community={c} />
+        </div>
       </Page>
     </div>
   )

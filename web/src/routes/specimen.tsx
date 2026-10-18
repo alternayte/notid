@@ -17,7 +17,7 @@ export const Route = createFileRoute('/specimen')({
   component: Specimen,
 })
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 function Specimen() {
   const [failing, setFailing] = useState(false)
@@ -132,6 +132,7 @@ function Specimen() {
             <div id="comments" className="border-t border-rule pt-6">
               <Thread
                 comments={comments}
+                onReply={() => wait(300)}
                 renderActions={(c) => <VoteControl score={c.score} label={`${c.author}'s comment`} send={send} />}
               />
             </div>

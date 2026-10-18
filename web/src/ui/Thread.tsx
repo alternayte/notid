@@ -18,6 +18,7 @@ export type CommentNode = {
 type Actions<T extends CommentNode> = {
   renderActions: (c: T) => ReactNode
   // Sends a reply; a rejected promise keeps the text and shows the failure.
+  // Without it, comments offer no Reply button.
   onReply?: (c: T, text: string) => Promise<void>
 }
 
@@ -37,6 +38,7 @@ function Comment<T extends CommentNode>({ comment, ...actions }: { comment: T } 
   const [open, setOpen] = useState(true)
   const [replying, setReplying] = useState(false)
   const branch = useId()
+  const onReply = actions.onReply
   const who = comment.gone ? 'a deleted' : `${comment.author}'s`
   return (
     <li id={`c-${comment.id}`} className="relative flex scroll-mt-8 flex-col gap-2">
@@ -80,19 +82,21 @@ function Comment<T extends CommentNode>({ comment, ...actions }: { comment: T } 
                 <div className="font-serif text-base">{comment.body}</div>
                 <div className="flex flex-wrap items-center gap-4 font-sans text-xs">
                   {actions.renderActions(comment)}
-                  <button
-                    type="button"
-                    onClick={() => setReplying((r) => !r)}
-                    className="font-semibold text-ink-soft hover:text-mark"
-                    aria-expanded={replying}
-                  >
-                    Reply
-                  </button>
+                  {onReply && (
+                    <button
+                      type="button"
+                      onClick={() => setReplying((r) => !r)}
+                      className="font-semibold text-ink-soft hover:text-mark"
+                      aria-expanded={replying}
+                    >
+                      Reply
+                    </button>
+                  )}
                 </div>
-                {replying && (
+                {onReply && replying && (
                   <ReplyBox
                     label={`Reply to ${comment.author}`}
-                    send={actions.onReply && ((text) => actions.onReply?.(comment, text) ?? Promise.resolve())}
+                    send={(text) => onReply(comment, text)}
                     onClose={() => setReplying(false)}
                   />
                 )}
@@ -106,7 +110,7 @@ function Comment<T extends CommentNode>({ comment, ...actions }: { comment: T } 
   )
 }
 
-// ReplyBox writes a reply. Without send it only closes, as on the specimen page.
+// ReplyBox writes a reply.
 export function ReplyBox({
   label,
   send,
@@ -114,7 +118,7 @@ export function ReplyBox({
   autoFocus = true,
 }: {
   label: string
-  send?: (text: string) => Promise<void>
+  send: (text: string) => Promise<void>
   onClose?: () => void
   autoFocus?: boolean
 }) {
@@ -127,7 +131,6 @@ export function ReplyBox({
       className="flex flex-col gap-2 motion-safe:animate-[unfold_var(--dur-open)_var(--ease-out)]"
       onSubmit={async (e) => {
         e.preventDefault()
-        if (!send) return onClose?.()
         if (!text.trim()) return
         setBusy(true)
         setFailed(null)
