@@ -241,6 +241,7 @@ JOIN communities c ON c.id = p.community_id
 LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
 WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND p.search @@ websearch_to_tsquery('simple', @query)
   AND (EXISTS (SELECT 1 FROM actors ga WHERE ga.id = c.actor_id AND ga.local)
     OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
@@ -265,6 +266,7 @@ JOIN communities c ON c.id = p.community_id
 LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = sqlc.narg(viewer)::bigint
 LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = sqlc.narg(viewer)::bigint
 WHERE m.deleted_at IS NULL AND m.removed_at IS NULL AND NOT m.held AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND m.search @@ websearch_to_tsquery('simple', @query)
   AND (EXISTS (SELECT 1 FROM actors ga WHERE ga.id = c.actor_id AND ga.local)
     OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)

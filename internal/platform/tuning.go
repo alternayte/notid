@@ -44,7 +44,9 @@ type Tuning struct {
 	ThreadMaxComments int32
 	SavedPerPage      int32
 
-	ReportQueueSize   int32
+	ReportQueueSize int32
+	// PeerListSize caps the peers an admin sees in one list.
+	PeerListSize      int32
 	ModerationLogSize int32
 
 	TrustMinAge        time.Duration
@@ -106,6 +108,7 @@ func DefaultTuning() Tuning {
 		SavedPerPage:      25,
 
 		ReportQueueSize:   100,
+		PeerListSize:      200,
 		ModerationLogSize: 100,
 
 		TrustMinAge:           72 * time.Hour,

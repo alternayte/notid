@@ -474,3 +474,40 @@ func TestOnlyAnOwnerAppointsModeratorsAndTheLogAndPeersHearOfIt(t *testing.T) {
 		t.Fatalf("role after removal %q: %v", role, err)
 	}
 }
+
+func TestOnlyAnAdminBlocksAPeerAndTheDomainIsNormalised(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.svc.IsAdmin = func(_ context.Context, a actors.Actor) (bool, error) { return a.ID == f.owner.ID, nil }
+
+	if err := f.svc.SetPeerBlock(ctx, f.member, "peer.test", true, "spam"); !errors.Is(err, moderation.ErrNotAdmin) {
+		t.Fatalf("a member blocked a peer: %v", err)
+	}
+	for _, bad := range []string{"", "https://peer.test/c/x", "peer.test:8080", "notid.test"} {
+		if err := f.svc.SetPeerBlock(ctx, f.owner, bad, true, ""); !errors.Is(err, moderation.ErrBadDomain) {
+			t.Fatalf("blocking %q: %v", bad, err)
+		}
+	}
+	if err := f.svc.SetPeerBlock(ctx, f.owner, " Peer.Test ", true, "spam"); err != nil {
+		t.Fatal(err)
+	}
+	peers, err := f.svc.Peers(ctx, f.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked := false
+	for _, p := range peers {
+		if p.Domain == "peer.test" {
+			blocked = p.Blocked && p.Reason == "spam"
+		}
+	}
+	if !blocked {
+		t.Fatalf("the peer is not listed as blocked: %+v", peers)
+	}
+	if err := f.svc.SetPeerBlock(ctx, f.owner, "peer.test", false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Peers(ctx, f.member); !errors.Is(err, moderation.ErrNotAdmin) {
+		t.Fatalf("a member listed the peers: %v", err)
+	}
+}

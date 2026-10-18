@@ -76,6 +76,16 @@ type siteBansOut struct {
 	Bans []SiteBanView `json:"bans" nullable:"false"`
 }
 
+type peerBody struct {
+	Domain  string `json:"domain" minLength:"1" maxLength:"300" doc:"The server's domain, with no scheme or path"`
+	Blocked bool   `json:"blocked" doc:"true blocks the server, false lets it federate again"`
+	Reason  string `json:"reason,omitempty" maxLength:"500" doc:"Why it was blocked, shown to admins"`
+}
+
+type peersOut struct {
+	Peers []PeerView `json:"peers" nullable:"false"`
+}
+
 func signedIn(ctx context.Context) (actors.Actor, error) {
 	a := accounts.ActorFrom(ctx)
 	if a == nil {
@@ -94,6 +104,8 @@ func apiError(err error) error {
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, ErrBadDomain):
+		return huma.Error422UnprocessableEntity(err.Error())
 	}
 	return err
 }
@@ -315,6 +327,30 @@ func (s *Service) registerSiteAdmin(api huma.API) {
 		}
 		reports, err := s.SiteQueue(ctx, a)
 		return &struct{ Body queueOut }{queueOut{Reports: reports}}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "sitePeers", Method: http.MethodGet, Path: "/api/admin/peers",
+		Summary: "List the servers this installation federates with and their delivery health", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body peersOut }, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		peers, err := s.Peers(ctx, a)
+		return &struct{ Body peersOut }{peersOut{Peers: peers}}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "blockPeer", Method: http.MethodPost, Path: "/api/admin/peers",
+		Summary: "Block a server from federating with this installation, or let it back in", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct{ Body peerBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.SetPeerBlock(ctx, a, in.Body.Domain, in.Body.Blocked, in.Body.Reason))
 	})
 }
 

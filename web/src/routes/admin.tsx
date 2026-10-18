@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import { errorMessage } from '~/api/errors'
 import {
+  blockPeerMutation,
   meOptions,
   removeObjectMutation,
   resolveReportMutation,
@@ -10,11 +11,13 @@ import {
   siteBanMutation,
   siteBansOptions,
   siteBansQueryKey,
+  sitePeersOptions,
+  sitePeersQueryKey,
   siteReportsOptions,
   siteReportsQueryKey,
   siteUnbanMutation,
 } from '~/api/gen/@tanstack/react-query.gen'
-import type { Report, SiteBanView } from '~/api/gen/types.gen'
+import type { PeerView, Report, SiteBanView } from '~/api/gen/types.gen'
 import { Age } from '~/discussions/Age'
 import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
@@ -25,6 +28,7 @@ export const Route = createFileRoute('/admin')({
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({ ...siteReportsOptions(), retry: false })
     await context.queryClient.prefetchQuery({ ...siteBansOptions(), retry: false })
+    await context.queryClient.prefetchQuery({ ...sitePeersOptions(), retry: false })
   },
   head: () => ({ meta: [{ title: 'Site admin · Open Communities' }] }),
   component: Admin,
@@ -66,10 +70,12 @@ function AdminBody() {
   const queryClient = useQueryClient()
   const reports = useQuery({ ...siteReportsOptions(), retry: false })
   const bans = useQuery({ ...siteBansOptions(), retry: false })
+  const peers = useQuery({ ...sitePeersOptions(), retry: false })
   const remove = useMutation(removeObjectMutation())
   const resolve = useMutation(resolveReportMutation())
   const ban = useMutation(siteBanMutation())
   const unban = useMutation(siteUnbanMutation())
+  const block = useMutation(blockPeerMutation())
   const trust = useMutation(setTrustMutation())
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -80,7 +86,7 @@ function AdminBody() {
     } catch (err) {
       setStatus({ ok: false, message: errorMessage(err, 'That did not work. Try again.') })
     }
-    for (const key of [siteReportsQueryKey(), siteBansQueryKey()]) {
+    for (const key of [siteReportsQueryKey(), siteBansQueryKey(), sitePeersQueryKey()]) {
       void queryClient.invalidateQueries({ queryKey: key })
     }
   }
@@ -122,6 +128,46 @@ function AdminBody() {
             ))}
           </ol>
         )}
+      </section>
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-2xl tracking-tight">Peers</h2>
+        <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+          A blocked peer's activities are refused, nothing more is sent to it, and its communities leave Discover and
+          search. Its content stays where it already is.
+        </p>
+        {peers.isPending ? (
+          <p className="font-sans text-sm text-ink-faint">Loading…</p>
+        ) : peers.isError ? (
+          <p role="alert" className="font-sans text-sm text-danger">
+            The peer list did not load. Reload the page to try again.
+          </p>
+        ) : (
+          <ul className="flex max-w-(--container-measure) flex-col gap-4">
+            {peers.data.peers.map((p) => (
+              <PeerRow
+                key={p.domain}
+                peer={p}
+                onBlock={(reason) =>
+                  act(
+                    () => block.mutateAsync({ body: { domain: p.domain, blocked: true, reason } }),
+                    `Blocked ${p.domain}.`,
+                  )
+                }
+                onUnblock={() =>
+                  act(() => block.mutateAsync({ body: { domain: p.domain, blocked: false } }), `Unblocked ${p.domain}.`)
+                }
+              />
+            ))}
+            {peers.data.peers.length === 0 && (
+              <li className="font-serif text-sm text-ink-soft">No server has contacted this installation yet.</li>
+            )}
+          </ul>
+        )}
+        <BlockPeerForm
+          onBlock={(domain, reason) =>
+            act(() => block.mutateAsync({ body: { domain, blocked: true, reason } }), `Blocked ${domain}.`)
+          }
+        />
       </section>
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-tight">Site bans</h2>
@@ -213,6 +259,117 @@ function ReportRow({
         </Button>
       </div>
     </li>
+  )
+}
+
+function PeerRow({
+  peer,
+  onBlock,
+  onUnblock,
+}: {
+  peer: PeerView
+  onBlock: (reason: string) => Promise<void>
+  onUnblock: () => Promise<void>
+}) {
+  const ids = { reason: useId() }
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const health = peer.failingSince
+    ? `No answer since ${new Date(peer.failingSince).toLocaleDateString()}`
+    : peer.lastOkAt
+      ? `Answered ${new Date(peer.lastOkAt).toLocaleString()}`
+      : 'Never answered'
+  return (
+    <li className="flex flex-col gap-3 border-t border-rule pt-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="font-sans text-sm font-semibold">{peer.domain}</span>
+          <span className="font-serif text-sm text-ink-soft">
+            {health}
+            {peer.software && ` · ${peer.software} ${peer.version}`}
+            {peer.blocked && ` · blocked${peer.reason ? `: ${peer.reason}` : ''}`}
+          </span>
+        </div>
+        {peer.blocked ? (
+          <Button variant="quiet" onClick={() => void onUnblock()}>
+            Unblock
+          </Button>
+        ) : (
+          <Button variant="quiet" onClick={() => setOpen(!open)}>
+            Block
+          </Button>
+        )}
+      </div>
+      {open && !peer.blocked && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void onBlock(reason.trim()).then(() => {
+              setOpen(false)
+              setReason('')
+            })
+          }}
+        >
+          <label htmlFor={ids.reason} className="sr-only">
+            Why block {peer.domain}?
+          </label>
+          <Input
+            id={ids.reason}
+            value={reason}
+            maxLength={500}
+            autoFocus
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why (shown to admins)"
+            className="w-64"
+          />
+          <Button type="submit">Block</Button>
+        </form>
+      )}
+    </li>
+  )
+}
+
+function BlockPeerForm({ onBlock }: { onBlock: (domain: string, reason: string) => Promise<void> }) {
+  const ids = { domain: useId(), reason: useId() }
+  const [domain, setDomain] = useState('')
+  const [reason, setReason] = useState('')
+  return (
+    <form
+      className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void onBlock(domain.trim(), reason.trim()).then(() => {
+          setDomain('')
+          setReason('')
+        })
+      }}
+    >
+      <h3 className="font-display text-lg tracking-tight">Block a server</h3>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={ids.domain} className={label}>
+          Its domain
+        </label>
+        <Input
+          id={ids.domain}
+          value={domain}
+          required
+          maxLength={300}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="example.org"
+        />
+        <p className={hint}>The domain only, with no scheme or path.</p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={ids.reason} className={label}>
+          Why
+        </label>
+        <Input id={ids.reason} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
+      </div>
+      <Button type="submit" className="w-fit">
+        Block it
+      </Button>
+    </form>
   )
 }
 

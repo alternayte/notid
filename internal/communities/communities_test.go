@@ -171,6 +171,21 @@ func TestDiscoverListsLocalAndDirectoryCommunitiesOnly(t *testing.T) {
 	if _, ok := seen[unlisted]; ok {
 		t.Fatal("a remote community outside the directory is listed")
 	}
+
+	// A blocked peer's communities leave Discover, directory or not.
+	if _, err := tx.Exec(ctx, `INSERT INTO peers (domain, blocked) VALUES ('peer.example', true)
+		ON CONFLICT (domain) DO UPDATE SET blocked = true`); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = communitiesdb.New(tx).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.Domain == "peer.example" {
+			t.Fatalf("a blocked peer's community is listed: %+v", r)
+		}
+	}
 }
 
 // The request body shape is checked through the real Huma API, because Huma

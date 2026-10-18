@@ -156,3 +156,55 @@ func (s *Service) BlockSiteBans(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// PeerView is one server this installation exchanges activities with.
+type PeerView struct {
+	Domain       string     `json:"domain"`
+	Software     string     `json:"software,omitempty"`
+	Version      string     `json:"version,omitempty"`
+	Blocked      bool       `json:"blocked"`
+	Reason       string     `json:"reason,omitempty" doc:"Why an admin blocked it"`
+	LastOKAt     *time.Time `json:"lastOkAt,omitempty"`
+	FailingSince *time.Time `json:"failingSince,omitempty" doc:"When the peer last failed; empty while it answers"`
+}
+
+// Peers lists the servers this installation knows, with their delivery health.
+func (s *Service) Peers(ctx context.Context, admin actors.Actor) ([]PeerView, error) {
+	if err := s.requireAdmin(ctx, admin); err != nil {
+		return nil, err
+	}
+	rows, err := moderationdb.New(s.Pool).Peers(ctx, s.Tuning.PeerListSize)
+	if err != nil {
+		return nil, fmt.Errorf("peers: %w", err)
+	}
+	out := make([]PeerView, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, PeerView{
+			Domain: r.Domain, Software: r.Software, Version: r.Version,
+			Blocked: r.Blocked, Reason: r.Reason, LastOKAt: r.LastOkAt, FailingSince: r.FailingSince,
+		})
+	}
+	return out, nil
+}
+
+// ErrBadDomain refuses a domain this site cannot block.
+var ErrBadDomain = errors.New("that is not a domain this site can block")
+
+// SetPeerBlock stops or resumes federation with one server. A blocked peer's
+// activities are refused, nothing more is sent to it, and its communities
+// leave Discover and search.
+func (s *Service) SetPeerBlock(ctx context.Context, admin actors.Actor, domain string, blocked bool, reason string) error {
+	if err := s.requireAdmin(ctx, admin); err != nil {
+		return err
+	}
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	if domain == "" || len(domain) > 253 || domain == s.Local.AppDomain || strings.ContainsAny(domain, "/:@ \t") {
+		return ErrBadDomain
+	}
+	if err := moderationdb.New(s.Pool).SetPeerBlocked(ctx, moderationdb.SetPeerBlockedParams{
+		Domain: domain, Blocked: blocked, Reason: reason,
+	}); err != nil {
+		return fmt.Errorf("block peer %s: %w", domain, err)
+	}
+	return nil
+}

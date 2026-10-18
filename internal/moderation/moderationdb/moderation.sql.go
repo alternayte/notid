@@ -373,6 +373,53 @@ func (q *Queries) ModeratorOf(ctx context.Context, arg ModeratorOfParams) (strin
 	return role, err
 }
 
+const peers = `-- name: Peers :many
+SELECT p.domain, p.software, p.version, p.blocked, p.reason, p.last_ok_at, p.failing_since
+FROM peers p
+ORDER BY p.blocked DESC, coalesce(p.last_ok_at, p.created_at) DESC, p.domain
+LIMIT $1
+`
+
+type PeersRow struct {
+	Domain       string
+	Software     string
+	Version      string
+	Blocked      bool
+	Reason       string
+	LastOkAt     *time.Time
+	FailingSince *time.Time
+}
+
+// Peers are the servers this installation has exchanged activities with.
+// Delivery health is the last answer and, when one failed, the start of the run.
+func (q *Queries) Peers(ctx context.Context, lim int32) ([]PeersRow, error) {
+	rows, err := q.db.Query(ctx, peers, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PeersRow
+	for rows.Next() {
+		var i PeersRow
+		if err := rows.Scan(
+			&i.Domain,
+			&i.Software,
+			&i.Version,
+			&i.Blocked,
+			&i.Reason,
+			&i.LastOkAt,
+			&i.FailingSince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const postForModeration = `-- name: PostForModeration :one
 SELECT p.id, p.ap_id, p.ref, p.community_id, p.author_id, p.local
 FROM posts p WHERE p.ap_id = $1
@@ -758,6 +805,22 @@ type SetMembershipRoleParams struct {
 
 func (q *Queries) SetMembershipRole(ctx context.Context, arg SetMembershipRoleParams) error {
 	_, err := q.db.Exec(ctx, setMembershipRole, arg.Role, arg.CommunityID, arg.ActorID)
+	return err
+}
+
+const setPeerBlocked = `-- name: SetPeerBlocked :exec
+INSERT INTO peers (domain, blocked, reason) VALUES ($1, $2, $3)
+ON CONFLICT (domain) DO UPDATE SET blocked = excluded.blocked, reason = excluded.reason
+`
+
+type SetPeerBlockedParams struct {
+	Domain  string
+	Blocked bool
+	Reason  string
+}
+
+func (q *Queries) SetPeerBlocked(ctx context.Context, arg SetPeerBlockedParams) error {
+	_, err := q.db.Exec(ctx, setPeerBlocked, arg.Domain, arg.Blocked, arg.Reason)
 	return err
 }
 

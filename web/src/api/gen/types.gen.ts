@@ -496,6 +496,49 @@ export type ObjectBody = {
     reason?: string;
 };
 
+export type PeerBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * true blocks the server, false lets it federate again
+     */
+    blocked: boolean;
+    /**
+     * The server's domain, with no scheme or path
+     */
+    domain: string;
+    /**
+     * Why it was blocked, shown to admins
+     */
+    reason?: string;
+};
+
+export type PeerView = {
+    blocked: boolean;
+    domain: string;
+    /**
+     * When the peer last failed; empty while it answers
+     */
+    failingSince?: string;
+    lastOkAt?: string;
+    /**
+     * Why an admin blocked it
+     */
+    reason?: string;
+    software?: string;
+    version?: string;
+};
+
+export type PeersOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    peers: Array<PeerView>;
+};
+
 export type Person = {
     displayName: string;
     handle: string;
@@ -1235,6 +1278,25 @@ export type ObjectBodyWritable = {
     reason?: string;
 };
 
+export type PeerBodyWritable = {
+    /**
+     * true blocks the server, false lets it federate again
+     */
+    blocked: boolean;
+    /**
+     * The server's domain, with no scheme or path
+     */
+    domain: string;
+    /**
+     * Why it was blocked, shown to admins
+     */
+    reason?: string;
+};
+
+export type PeersOutWritable = {
+    peers: Array<PeerView>;
+};
+
 export type PostBodyWritable = {
     /**
      * Markdown
@@ -1608,6 +1670,76 @@ export type SiteUnbanResponses = {
 };
 
 export type SiteUnbanResponse = SiteUnbanResponses[keyof SiteUnbanResponses];
+
+export type SitePeersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/peers';
+};
+
+export type SitePeersErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SitePeersError = SitePeersErrors[keyof SitePeersErrors];
+
+export type SitePeersResponses = {
+    /**
+     * OK
+     */
+    200: PeersOut;
+};
+
+export type SitePeersResponse = SitePeersResponses[keyof SitePeersResponses];
+
+export type BlockPeerData = {
+    body: PeerBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/peers';
+};
+
+export type BlockPeerErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type BlockPeerError = BlockPeerErrors[keyof BlockPeerErrors];
+
+export type BlockPeerResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type BlockPeerResponse = BlockPeerResponses[keyof BlockPeerResponses];
 
 export type SetTrustData = {
     body: TrustBodyWritable;

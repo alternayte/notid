@@ -1206,6 +1206,99 @@
         ],
         "type": "object"
       },
+      "PeerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/PeerBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "blocked": {
+            "description": "true blocks the server, false lets it federate again",
+            "type": "boolean"
+          },
+          "domain": {
+            "description": "The server's domain, with no scheme or path",
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it was blocked, shown to admins",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "blocked"
+        ],
+        "type": "object"
+      },
+      "PeerView": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "type": "boolean"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "failingSince": {
+            "description": "When the peer last failed; empty while it answers",
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastOkAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why an admin blocked it",
+            "type": "string"
+          },
+          "software": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "blocked"
+        ],
+        "type": "object"
+      },
+      "PeersOut": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/PeersOut.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "peers": {
+            "items": {
+              "$ref": "#/components/schemas/PeerView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "peers"
+        ],
+        "type": "object"
+      },
       "Person": {
         "additionalProperties": false,
         "properties": {
@@ -2625,6 +2718,119 @@
           }
         },
         "summary": "Lift a site ban",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/peers": {
+      "get": {
+        "operationId": "sitePeers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeersOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List the servers this installation federates with and their delivery health",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "blockPeer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PeerBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Block a server from federating with this installation, or let it back in",
         "tags": [
           "admin"
         ]

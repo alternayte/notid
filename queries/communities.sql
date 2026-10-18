@@ -87,6 +87,7 @@ FROM communities c
 JOIN actors a ON a.id = c.actor_id
 LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = sqlc.narg(viewer_id)::bigint
 WHERE c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND (a.local OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id))
 ORDER BY members DESC, c.id
 LIMIT @lim OFFSET @off;
@@ -119,6 +120,7 @@ FROM communities c
 JOIN actors a ON a.id = c.actor_id
 LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = sqlc.narg(viewer_id)::bigint
 WHERE c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND c.search @@ websearch_to_tsquery('simple', @query)
   AND (a.local
     OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)

@@ -14,7 +14,7 @@ export function DeliveryNote({ delivery, community }: { delivery?: Delivery; com
       </p>
     )
   }
-	if (delivery.state === 'rejected') {
+  if (delivery.state === 'rejected') {
     return (
       <p role="status" className="rounded-sm bg-mark-wash px-3 py-2 font-sans text-xs text-ink-soft">
         <span className="font-semibold text-ink">{host} did not accept this.</span>{' '}
