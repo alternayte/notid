@@ -295,6 +295,35 @@ func (q *Queries) FollowerInboxes(ctx context.Context, communityID int64) ([]str
 	return items, nil
 }
 
+const groupDoc = `-- name: GroupDoc :one
+SELECT a.ap_id, c.name, c.title, c.description, a.inbox, a.public_key_pem
+FROM communities c JOIN actors a ON a.id = c.actor_id
+WHERE c.id = $1
+`
+
+type GroupDocRow struct {
+	ApID         string
+	Name         string
+	Title        string
+	Description  string
+	Inbox        string
+	PublicKeyPem string
+}
+
+func (q *Queries) GroupDoc(ctx context.Context, id int64) (GroupDocRow, error) {
+	row := q.db.QueryRow(ctx, groupDoc, id)
+	var i GroupDocRow
+	err := row.Scan(
+		&i.ApID,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Inbox,
+		&i.PublicKeyPem,
+	)
+	return i, err
+}
+
 const localActorByName = `-- name: LocalActorByName :one
 SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
 WHERE local AND kind = $1 AND domain = $2 AND lower(name) = lower($3)
@@ -553,6 +582,23 @@ UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = $1
 
 func (q *Queries) SetMembershipAccepted(ctx context.Context, followApID *string) error {
 	_, err := q.db.Exec(ctx, setMembershipAccepted, followApID)
+	return err
+}
+
+const setRemoteMembershipRole = `-- name: SetRemoteMembershipRole :exec
+INSERT INTO memberships (community_id, actor_id, role, state)
+VALUES ($1, $2, $3, 'accepted')
+ON CONFLICT (community_id, actor_id) DO UPDATE SET role = excluded.role
+`
+
+type SetRemoteMembershipRoleParams struct {
+	CommunityID int64
+	ActorID     int64
+	Role        string
+}
+
+func (q *Queries) SetRemoteMembershipRole(ctx context.Context, arg SetRemoteMembershipRoleParams) error {
+	_, err := q.db.Exec(ctx, setRemoteMembershipRole, arg.CommunityID, arg.ActorID, arg.Role)
 	return err
 }
 

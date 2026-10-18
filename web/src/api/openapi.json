@@ -1098,6 +1098,37 @@
         ],
         "type": "object"
       },
+      "ModeratorBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/ModeratorBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "actor": {
+            "description": "Person's handle: name on this site, else name@domain",
+            "maxLength": 300,
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "moderator",
+              "member"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "role"
+        ],
+        "type": "object"
+      },
       "MyMembership": {
         "additionalProperties": false,
         "properties": {
@@ -4668,6 +4699,101 @@
           }
         },
         "summary": "Read a community's public moderation log, newest first",
+        "tags": [
+          "moderation"
+        ]
+      }
+    },
+    "/api/communities/{handle}/moderators": {
+      "post": {
+        "operationId": "setModerator",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeratorBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Make a member a moderator, or a moderator a member again. Owners appoint",
         "tags": [
           "moderation"
         ]

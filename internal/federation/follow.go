@@ -24,8 +24,18 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 	case "Create", "Like", "Dislike":
 		_, err := s.planContent(ctx, s.Pool, act, nil)
 		return err
-	case "Update", "Delete":
+	case "Update":
+		if objectType(act.Object) == "Group" {
+			_, err := s.planGroupUpdate(ctx, s.Pool, act, nil)
+			return err
+		}
 		_, err := s.planChange(ctx, s.Pool, act, nil)
+		return err
+	case "Delete":
+		_, err := s.planChange(ctx, s.Pool, act, nil)
+		return err
+	case "Add", "Remove":
+		_, err := s.planRole(ctx, s.Pool, act, nil)
 		return err
 	case "Lock":
 		_, err := s.planLock(ctx, s.Pool, act, nil)
@@ -88,8 +98,15 @@ func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.Ra
 	switch act.Type {
 	case "Create", "Like", "Dislike":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
-	case "Update", "Delete":
+	case "Update":
+		if objectType(act.Object) == "Group" {
+			return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planGroupUpdate(ctx, tx, act, nil) })
+		}
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planChange(ctx, tx, act, nil) })
+	case "Delete":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planChange(ctx, tx, act, nil) })
+	case "Add", "Remove":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planRole(ctx, tx, act, nil) })
 	case "Lock":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planLock(ctx, tx, act, nil) })
 	case "Block":

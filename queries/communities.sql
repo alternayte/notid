@@ -126,3 +126,9 @@ WHERE c.state = 'active'
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
 ORDER BY members DESC, c.id
 LIMIT @lim;
+
+-- name: UpdateRemoteCommunity :one
+UPDATE communities c SET title = @title, description = @description
+FROM actors a
+WHERE a.id = c.actor_id AND a.ap_id = @ap_id AND NOT a.local
+RETURNING c.*;

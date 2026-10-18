@@ -168,3 +168,11 @@ SELECT
     count(*) FILTER (WHERE state = 'upheld' AND resolved_at >= now() - @since::interval)::int AS upheld_recent,
     count(*) FILTER (WHERE state = 'dismissed' AND resolved_at >= now() - @since::interval)::int AS dismissed_recent
 FROM reports;
+
+-- name: RoleOf :one
+SELECT role FROM memberships
+WHERE community_id = @community_id AND actor_id = @actor_id AND state = 'accepted';
+
+-- name: SetMembershipRole :exec
+UPDATE memberships SET role = @role
+WHERE community_id = @community_id AND actor_id = @actor_id;

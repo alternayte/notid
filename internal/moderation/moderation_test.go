@@ -437,3 +437,40 @@ func TestBanningARemotePersonTellsTheirServerAndALocalBanStaysHere(t *testing.T)
 		t.Fatalf("lifting the ban sent %v", calls)
 	}
 }
+
+func TestOnlyAnOwnerAppointsModeratorsAndTheLogAndPeersHearOfIt(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	community, err := moderationCommunityID(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.SetRole(ctx, f.member, community, f.owner.ID, true); !errors.Is(err, moderation.ErrNotOwner) {
+		t.Fatalf("a member appointed a moderator: %v", err)
+	}
+	var told bool
+	f.svc.SendRole = func(_ context.Context, _ pgx.Tx, communityID int64, personApID string, moderator bool) error {
+		told = moderator
+		return nil
+	}
+	if err := f.svc.SetRole(ctx, f.owner, community, f.member.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	var role string
+	if err := f.svc.Pool.QueryRow(ctx, `SELECT role FROM memberships WHERE community_id = $1 AND actor_id = $2`, community, f.member.ID).Scan(&role); err != nil || role != "moderator" {
+		t.Fatalf("role %q: %v", role, err)
+	}
+	if !told {
+		t.Fatal("the appointment did not reach the person's server")
+	}
+	entries, err := f.svc.Log(ctx, f.name)
+	if err != nil || len(entries) != 1 || entries[0].Action != moderation.ActionAddModerator {
+		t.Fatalf("log %+v: %v", entries, err)
+	}
+	if err := f.svc.SetRole(ctx, f.owner, community, f.member.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Pool.QueryRow(ctx, `SELECT role FROM memberships WHERE community_id = $1 AND actor_id = $2`, community, f.member.ID).Scan(&role); err != nil || role != "member" {
+		t.Fatalf("role after removal %q: %v", role, err)
+	}
+}

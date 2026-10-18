@@ -27,6 +27,8 @@ type Service struct {
 	Markdown *platform.Markdown
 	// MediaURL is where an uploaded image with a storage key is served.
 	MediaURL func(key string) string
+	// SendGroupUpdate federates a change to a community's name, title or description.
+	SendGroupUpdate func(ctx context.Context, tx pgx.Tx, communityID int64) error
 	// Resolve finds a local or remote actor by URL or name@host handle.
 	Resolve func(ctx context.Context, ref string) (actors.Actor, error)
 	// SendFollow queues a Follow of a remote group and returns its AP ID.
@@ -237,8 +239,13 @@ func (s *Service) Register(api huma.API) {
 			return nil, fmt.Errorf("community %s: %w", in.Handle, err)
 		}
 		err = s.inTx(ctx, func(tx pgx.Tx) error {
-			_, err := Update(ctx, tx, person, row.ID, in.Body.settings())
-			return err
+			if _, err := Update(ctx, tx, person, row.ID, in.Body.settings()); err != nil {
+				return err
+			}
+			if s.SendGroupUpdate == nil {
+				return nil
+			}
+			return s.SendGroupUpdate(ctx, tx, row.ID)
 		})
 		if err != nil {
 			return nil, apiError(err)

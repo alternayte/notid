@@ -53,6 +53,11 @@ type resolveBody struct {
 	Upheld bool `json:"upheld" doc:"true keeps the report as a real problem, false dismisses it"`
 }
 
+type moderatorBody struct {
+	Actor string `json:"actor" maxLength:"300" doc:"Person's handle: name on this site, else name@domain"`
+	Role  string `json:"role" enum:"moderator,member"`
+}
+
 type logOut struct {
 	Entries []Entry `json:"entries" nullable:"false"`
 }
@@ -85,7 +90,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoObject):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin):
+	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin), errors.Is(err, ErrNotOwner):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone):
 		return huma.Error409Conflict(err.Error())
@@ -216,6 +221,24 @@ func (s *Service) Register(api huma.API) {
 	}) (*struct{ Body logOut }, error) {
 		entries, err := s.Log(ctx, in.Handle)
 		return &struct{ Body logOut }{logOut{Entries: entries}}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "setModerator", Method: http.MethodPost, Path: "/api/communities/{handle}/moderators",
+		Summary: "Make a member a moderator, or a moderator a member again. Owners appoint", Tags: tags,
+		DefaultStatus: http.StatusNoContent, Errors: errs,
+	}, func(ctx context.Context, in *struct {
+		Handle string `path:"handle" maxLength:"300"`
+		Body   moderatorBody
+	}) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		communityID, targetID, err := s.banTargets(ctx, in.Handle, in.Body.Actor)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return nil, apiError(s.SetRole(ctx, a, communityID, targetID, in.Body.Role == "moderator"))
 	})
 	huma.Register(api, huma.Operation{
 		OperationID: "about", Method: http.MethodGet, Path: "/api/about",

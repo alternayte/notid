@@ -662,6 +662,40 @@ func (q *Queries) UpdateCommunity(ctx context.Context, arg UpdateCommunityParams
 	return i, err
 }
 
+const updateRemoteCommunity = `-- name: UpdateRemoteCommunity :one
+UPDATE communities c SET title = $1, description = $2
+FROM actors a
+WHERE a.id = c.actor_id AND a.ap_id = $3 AND NOT a.local
+RETURNING c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, c.search
+`
+
+type UpdateRemoteCommunityParams struct {
+	Title       string
+	Description string
+	ApID        string
+}
+
+func (q *Queries) UpdateRemoteCommunity(ctx context.Context, arg UpdateRemoteCommunityParams) (Community, error) {
+	row := q.db.QueryRow(ctx, updateRemoteCommunity, arg.Title, arg.Description, arg.ApID)
+	var i Community
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+		&i.Search,
+	)
+	return i, err
+}
+
 const upsertMembership = `-- name: UpsertMembership :one
 INSERT INTO memberships (community_id, actor_id, state, follow_ap_id)
 VALUES ($1, $2, $3, $4)

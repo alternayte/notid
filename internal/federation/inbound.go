@@ -32,8 +32,11 @@ type contentPlan struct {
 	// changeID is the AP ID of the object an Update or Delete changes, or of
 	// the person a Block names.
 	changeID string
-	// targetActorID is the stored person a Block names.
+	// targetActorID is the stored person a Block or a role change names.
 	targetActorID int64
+	// groupName and groupSummary carry an Update of a remote group's document.
+	groupName    string
+	groupSummary string
 	// direct is true for an activity sent to a local group, which the group
 	// then announces to its followers.
 	direct bool
@@ -251,8 +254,14 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	if err != nil {
 		return contentPlan{}, reject(http.StatusUnprocessableEntity, "Announce must embed the activity")
 	}
+	if inner.Type == "Update" && objectType(inner.Object) == "Group" {
+		return s.planGroupUpdate(ctx, db, inner, &g)
+	}
 	if inner.Type == "Update" || inner.Type == "Delete" {
 		return s.planChange(ctx, db, inner, &g)
+	}
+	if inner.Type == "Add" || inner.Type == "Remove" {
+		return s.planRole(ctx, db, inner, &g)
 	}
 	if inner.Type == "Lock" {
 		return s.planLock(ctx, db, inner, &g)
@@ -373,6 +382,16 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 		var err error
 		changed, err = moderation.ApplyRemoteBan(ctx, tx, p.community.ID, p.targetActorID, p.kind == "block")
 		if err != nil {
+			return err
+		}
+	case "add-moderator", "remove-moderator":
+		var err error
+		if changed, err = s.applyRole(ctx, tx, p); err != nil {
+			return err
+		}
+	case "group-update":
+		var err error
+		if changed, err = s.applyGroupUpdate(ctx, tx, p); err != nil {
 			return err
 		}
 	}

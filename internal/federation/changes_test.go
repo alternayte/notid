@@ -324,3 +324,139 @@ func TestInboundBlockAndUndoApplyToTheCommunity(t *testing.T) {
 		t.Fatalf("ban not lifted: %v %v", banned, err)
 	}
 }
+
+func TestInboundAddAndRemoveChangeTheModeratorRole(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	sealer, err := platform.NewSealer(bytes.Repeat([]byte{5}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{
+		Pool: pool, Markdown: platform.NewMarkdown(), Log: slog.New(slog.DiscardHandler),
+		Local: actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: sealer},
+	}
+	modName := "mods" + uuid.NewString()[:8]
+	group := "https://lemmy.test/c/" + modName
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var communityID int64
+	if err := tx.QueryRow(ctx,
+		`WITH g AS (
+		   INSERT INTO actors (ap_id, kind, local, domain, name, inbox)
+		   VALUES ($1, 'group', false, 'lemmy.test', $2, $1 || '/inbox') RETURNING id
+		 )
+		 INSERT INTO communities (actor_id, domain, name) SELECT id, 'lemmy.test', $2 FROM g RETURNING id`,
+		group, modName).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	suffix := uuid.NewString()
+	person, err := actors.UpsertRemote(ctx, tx, actors.Remote{
+		ApID: "https://lemmy.test/u/mira-" + suffix, Kind: "person", Domain: "lemmy.test", Name: "mira" + suffix[:5],
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	via, err := federationdb.New(pool).CommunityByGroupApID(ctx, group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	apply := func(plan contentPlan, raw json.RawMessage) {
+		t.Helper()
+		tx, err := s.Pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.applyContent(ctx, tx, plan, raw); err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	raw, _ := json.Marshal(person.ApID)
+	add := activity{ID: "https://lemmy.test/a/" + uuid.NewString(), Type: "Add", Actor: ref{group}, Object: raw}
+	plan, err := s.planRole(ctx, s.Pool, add, &via)
+	if err != nil || plan.kind != "add-moderator" {
+		t.Fatalf("plan add %+v: %v", plan, err)
+	}
+	apply(plan, raw)
+	var role, state string
+	if err := pool.QueryRow(ctx,
+		`SELECT role, state FROM memberships WHERE community_id = $1 AND actor_id = $2`, communityID, person.ID).Scan(&role, &state); err != nil || role != "moderator" || state != "accepted" {
+		t.Fatalf("membership %q %q: %v", role, state, err)
+	}
+
+	remove := activity{ID: "https://lemmy.test/a/" + uuid.NewString(), Type: "Remove", Actor: ref{group}, Object: raw}
+	plan, err = s.planRole(ctx, s.Pool, remove, &via)
+	if err != nil || plan.kind != "remove-moderator" {
+		t.Fatalf("plan remove %+v: %v", plan, err)
+	}
+	apply(plan, raw)
+	if err := pool.QueryRow(ctx,
+		`SELECT role FROM memberships WHERE community_id = $1 AND actor_id = $2`, communityID, person.ID).Scan(&role); err != nil || role != "member" {
+		t.Fatalf("role after removal %q: %v", role, err)
+	}
+}
+
+func TestInboundGroupUpdateChangesTheCommunity(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	sealer, err := platform.NewSealer(bytes.Repeat([]byte{6}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{
+		Pool: pool, Markdown: platform.NewMarkdown(), Log: slog.New(slog.DiscardHandler),
+		Local: actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: sealer},
+	}
+	upName := "ups" + uuid.NewString()[:8]
+	group := "https://lemmy.test/c/" + upName
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var communityID int64
+	if err := tx.QueryRow(ctx,
+		`WITH g AS (
+		   INSERT INTO actors (ap_id, kind, local, domain, name, inbox)
+		   VALUES ($1, 'group', false, 'lemmy.test', $2, $1 || '/inbox') RETURNING id
+		 )
+		 INSERT INTO communities (actor_id, domain, name, title, description)
+		 SELECT id, 'lemmy.test', $2, 'Before', 'Old' FROM g RETURNING id`,
+		group, upName).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	via, err := federationdb.New(pool).CommunityByGroupApID(ctx, group)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(map[string]any{"id": group, "type": "Group", "name": "After", "summary": "New about"})
+	act := activity{ID: "https://lemmy.test/a/" + uuid.NewString(), Type: "Update", Actor: ref{group}, Object: raw}
+	plan, err := s.planGroupUpdate(ctx, s.Pool, act, &via)
+	if err != nil || plan.kind != "group-update" {
+		t.Fatalf("plan group update %+v: %v", plan, err)
+	}
+	tx, err = s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.applyContent(ctx, tx, plan, raw); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var title, description string
+	if err := pool.QueryRow(ctx, `SELECT title, description FROM communities WHERE id = $1`, communityID).Scan(&title, &description); err != nil || title != "After" || description != "New about" {
+		t.Fatalf("community %q %q: %v", title, description, err)
+	}
+}

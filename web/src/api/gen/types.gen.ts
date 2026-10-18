@@ -455,6 +455,18 @@ export type MessageResponse = {
     message: string;
 };
 
+export type ModeratorBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    role: 'moderator' | 'member';
+};
+
 export type MyMembership = {
     role: 'member' | 'moderator' | 'owner';
     state: 'pending' | 'accepted';
@@ -1192,6 +1204,14 @@ export type MembershipWritable = {
      * pending until the community's host accepts the follow; none after leaving
      */
     state: 'pending' | 'accepted' | 'none';
+};
+
+export type ModeratorBodyWritable = {
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    role: 'moderator' | 'member';
 };
 
 export type ObjectBodyWritable = {
@@ -2702,6 +2722,53 @@ export type ModerationLogResponses = {
 };
 
 export type ModerationLogResponse = ModerationLogResponses[keyof ModerationLogResponses];
+
+export type SetModeratorData = {
+    body: ModeratorBodyWritable;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/communities/{handle}/moderators';
+};
+
+export type SetModeratorErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SetModeratorError = SetModeratorErrors[keyof SetModeratorErrors];
+
+export type SetModeratorResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SetModeratorResponse = SetModeratorResponses[keyof SetModeratorResponses];
 
 export type CommunityPostsData = {
     body?: never;

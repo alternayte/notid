@@ -725,6 +725,39 @@ func (q *Queries) RestorePost(ctx context.Context, apID string) (Post, error) {
 	return i, err
 }
 
+const roleOf = `-- name: RoleOf :one
+SELECT role FROM memberships
+WHERE community_id = $1 AND actor_id = $2 AND state = 'accepted'
+`
+
+type RoleOfParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) RoleOf(ctx context.Context, arg RoleOfParams) (string, error) {
+	row := q.db.QueryRow(ctx, roleOf, arg.CommunityID, arg.ActorID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
+const setMembershipRole = `-- name: SetMembershipRole :exec
+UPDATE memberships SET role = $1
+WHERE community_id = $2 AND actor_id = $3
+`
+
+type SetMembershipRoleParams struct {
+	Role        string
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) SetMembershipRole(ctx context.Context, arg SetMembershipRoleParams) error {
+	_, err := q.db.Exec(ctx, setMembershipRole, arg.Role, arg.CommunityID, arg.ActorID)
+	return err
+}
+
 const setPostLocked = `-- name: SetPostLocked :one
 UPDATE posts SET locked = $1 WHERE ap_id = $2 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
 `

@@ -27,7 +27,9 @@ type Service struct {
 	SendLock func(ctx context.Context, tx pgx.Tx, communityID int64, postApID string, locked bool) error
 	// SendBlock federates a community ban or its lifting of a remote person.
 	SendBlock func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, blocked bool) error
-	Logger    *slog.Logger
+	// SendRole federates an appointment or removal of a moderator.
+	SendRole func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, moderator bool) error
+	Logger   *slog.Logger
 }
 
 var (
@@ -49,6 +51,8 @@ const (
 	ActionUnlock          = "unlock"
 	ActionBan             = "ban"
 	ActionUnban           = "unban"
+	ActionAddModerator    = "add_moderator"
+	ActionRemoveModerator = "remove_moderator"
 	ActionSiteBan         = "site_ban"
 	ActionSiteUnban       = "site_unban"
 	ActionReportUpheld    = "report_upheld"
@@ -223,6 +227,52 @@ func (s *Service) Restore(ctx context.Context, actor actors.Actor, objectApID st
 		return writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, objectApID, "", nil)
 	})
 	return t, err
+}
+
+// ErrNotOwner is returned when someone other than an owner appoints a moderator.
+var ErrNotOwner = errors.New("only a community's owner can appoint moderators")
+
+// SetRole makes a member a moderator, or a moderator a member again. Only an
+// owner can, and the change is in the moderation log.
+func (s *Service) SetRole(ctx context.Context, actor actors.Actor, communityID, targetID int64, moderator bool) error {
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		q := moderationdb.New(tx)
+		role, err := q.RoleOf(ctx, moderationdb.RoleOfParams{CommunityID: communityID, ActorID: actor.ID})
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && role != "owner") {
+			return ErrNotOwner
+		}
+		if err != nil {
+			return fmt.Errorf("owner: %w", err)
+		}
+		if targetID == actor.ID {
+			return ErrNotOwner
+		}
+		if _, err := q.RoleOf(ctx, moderationdb.RoleOfParams{CommunityID: communityID, ActorID: targetID}); errors.Is(err, pgx.ErrNoRows) {
+			return ErrNoObject
+		} else if err != nil {
+			return fmt.Errorf("member: %w", err)
+		}
+		next, action := "member", ActionRemoveModerator
+		if moderator {
+			next, action = "moderator", ActionAddModerator
+		}
+		if err := q.SetMembershipRole(ctx, moderationdb.SetMembershipRoleParams{
+			CommunityID: communityID, ActorID: targetID, Role: next,
+		}); err != nil {
+			return fmt.Errorf("set role: %w", err)
+		}
+		if err := writeLog(ctx, q, &communityID, actor.ID, action, &targetID, "", "", nil); err != nil {
+			return err
+		}
+		if s.SendRole == nil {
+			return nil
+		}
+		person, err := actors.ByID(ctx, tx, targetID)
+		if err != nil {
+			return fmt.Errorf("person %d: %w", targetID, err)
+		}
+		return s.SendRole(ctx, tx, communityID, person.ApID, moderator)
+	})
 }
 
 // SetLocked locks or unlocks replies to a post.

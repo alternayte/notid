@@ -70,6 +70,20 @@ func CreateLocal(ctx context.Context, tx pgx.Tx, local actors.Local, person acto
 	return update(ctx, tx, c, person.ID, s)
 }
 
+// ApplyRemoteUpdate stores a remote group's new title and description.
+func ApplyRemoteUpdate(ctx context.Context, db communitiesdb.DBTX, apID, title, description string) (bool, error) {
+	_, err := communitiesdb.New(db).UpdateRemoteCommunity(ctx, communitiesdb.UpdateRemoteCommunityParams{
+		ApID: apID, Title: title, Description: description,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("remote group %s: %w", apID, err)
+	}
+	return true, nil
+}
+
 // Update changes a community's settings, rules and theme.
 func Update(ctx context.Context, tx pgx.Tx, editor actors.Actor, communityID int64, s Settings) (Community, error) {
 	q := communitiesdb.New(tx)

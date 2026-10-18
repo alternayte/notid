@@ -109,3 +109,13 @@ WHERE cm.ap_id = @ap_id AND cm.deleted_at IS NULL;
 -- name: MembershipRole :one
 SELECT role FROM memberships
 WHERE community_id = @community_id AND actor_id = @actor_id AND state = 'accepted';
+
+-- name: GroupDoc :one
+SELECT a.ap_id, c.name, c.title, c.description, a.inbox, a.public_key_pem
+FROM communities c JOIN actors a ON a.id = c.actor_id
+WHERE c.id = @id;
+
+-- name: SetRemoteMembershipRole :exec
+INSERT INTO memberships (community_id, actor_id, role, state)
+VALUES (@community_id, @actor_id, @role, 'accepted')
+ON CONFLICT (community_id, actor_id) DO UPDATE SET role = excluded.role;
