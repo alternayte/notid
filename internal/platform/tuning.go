@@ -37,6 +37,10 @@ type Tuning struct {
 	DeliveryWorkers           int
 	InboxWorkers              int
 	ProbeInterval             time.Duration
+
+	PostsPerPage      int32
+	ThreadMaxComments int32
+	SavedPerPage      int32
 }
 
 func DefaultTuning() Tuning {
@@ -72,5 +76,9 @@ func DefaultTuning() Tuning {
 		DeliveryWorkers:           20,
 		InboxWorkers:              10,
 		ProbeInterval:             time.Minute,
+
+		PostsPerPage:      25,
+		ThreadMaxComments: 500,
+		SavedPerPage:      25,
 	}
 }

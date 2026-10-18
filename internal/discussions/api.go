@@ -14,12 +14,16 @@ import (
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
+	"github.com/alternayte/notid/internal/platform"
 )
 
 // Service serves posting, commenting and voting. Federation supplies the
 // functions that send each write to peers inside the write's transaction.
 type Service struct {
 	Pool          *pgxpool.Pool
+	Local         actors.Local
+	Markdown      *platform.Markdown
+	Tuning        platform.Tuning
 	SendPost      func(ctx context.Context, tx pgx.Tx, author actors.Actor, p Post) error
 	SendComment   func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
 	SendVote      func(ctx context.Context, tx pgx.Tx, voter actors.Actor, communityID int64, objectApID string, value int16, voteID, previousID string) error
@@ -94,6 +98,74 @@ func (s *Service) Register(api huma.API) {
 		}
 		return nil, apiError(s.Vote(ctx, person, in.Body.Object, in.Body.Value))
 	})
+	s.registerReads(api)
+}
+
+type saveBody struct {
+	Object string `json:"object" doc:"AP ID of the post or comment" maxLength:"500"`
+	Saved  bool   `json:"saved" doc:"false removes the save"`
+}
+
+type previewBody struct {
+	Markdown string `json:"markdown" maxLength:"40000"`
+}
+
+type previewOut struct {
+	HTML string `json:"html" doc:"Sanitized HTML, as the post or comment will show"`
+}
+
+func (s *Service) registerReads(api huma.API) {
+	tags := []string{"discussions"}
+	huma.Register(api, huma.Operation{
+		OperationID: "thread", Method: http.MethodGet, Path: "/api/posts/{ref}",
+		Summary: "Read a post and its comments", Tags: tags, Errors: []int{http.StatusNotFound},
+	}, func(ctx context.Context, in *struct {
+		Ref string `path:"ref" pattern:"^[a-z2-7]{12}$"`
+	}) (*struct{ Body ThreadView }, error) {
+		t, err := s.Thread(ctx, in.Ref, accounts.ActorFrom(ctx))
+		return &struct{ Body ThreadView }{t}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "communityPosts", Method: http.MethodGet, Path: "/api/communities/{handle}/posts",
+		Summary: "List a community's posts, newest first", Tags: tags, Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct {
+		Handle string `path:"handle" maxLength:"300"`
+		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
+	}) (*struct{ Body PostPage }, error) {
+		p, err := s.CommunityPosts(ctx, in.Handle, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "save", Method: http.MethodPost, Path: "/api/saves",
+		Summary: "Save or unsave a post or a comment", Tags: tags, DefaultStatus: http.StatusNoContent,
+		Errors: []int{http.StatusUnauthorized, http.StatusNotFound},
+	}, func(ctx context.Context, in *struct{ Body saveBody }) (*struct{}, error) {
+		person, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.SetSaved(ctx, person, in.Body.Object, in.Body.Saved))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "saved", Method: http.MethodGet, Path: "/api/me/saved",
+		Summary: "List my saved posts and comments, newest save first", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct {
+		Before string `query:"before" maxLength:"60"`
+	}) (*struct{ Body SavedPage }, error) {
+		person, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		p, err := s.Saved(ctx, person, in.Before)
+		return &struct{ Body SavedPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "previewMarkdown", Method: http.MethodPost, Path: "/api/markdown/preview",
+		Summary: "Render Markdown as a post or comment will show it", Tags: tags,
+	}, func(ctx context.Context, in *struct{ Body previewBody }) (*struct{ Body previewOut }, error) {
+		return &struct{ Body previewOut }{previewOut{HTML: s.Markdown.HTML(in.Body.Markdown)}}, nil
+	})
 }
 
 func signedIn(ctx context.Context) (actors.Actor, error) {
@@ -110,6 +182,8 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject):
 		return huma.Error404NotFound(err.Error())
+	case errors.Is(err, ErrBadCursor):
+		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
 	}

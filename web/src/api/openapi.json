@@ -196,6 +196,27 @@
         ],
         "type": "object"
       },
+      "Author": {
+        "additionalProperties": false,
+        "properties": {
+          "bot": {
+            "type": "boolean"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "handle": {
+            "description": "name for people on this site, else name@domain",
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "displayName",
+          "bot"
+        ],
+        "type": "object"
+      },
       "CommentBody": {
         "additionalProperties": false,
         "properties": {
@@ -223,6 +244,54 @@
         "required": [
           "inReplyTo",
           "body"
+        ],
+        "type": "object"
+      },
+      "CommentView": {
+        "additionalProperties": false,
+        "properties": {
+          "apId": {
+            "type": "string"
+          },
+          "author": {
+            "$ref": "#/components/schemas/Author"
+          },
+          "bodyHtml": {
+            "type": "string"
+          },
+          "gone": {
+            "description": "true when the comment was deleted or removed",
+            "type": "boolean"
+          },
+          "parentRef": {
+            "description": "Ref of the comment this replies to; empty for a reply to the post",
+            "type": "string"
+          },
+          "published": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "score": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/Viewer"
+          }
+        },
+        "required": [
+          "apId",
+          "ref",
+          "parentRef",
+          "bodyHtml",
+          "gone",
+          "author",
+          "published",
+          "score",
+          "viewer"
         ],
         "type": "object"
       },
@@ -722,6 +791,144 @@
         ],
         "type": "object"
       },
+      "PostPage": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/PostPage.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "next": {
+            "description": "Cursor for the next page; empty on the last page",
+            "type": "string"
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/PostView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "posts",
+          "next"
+        ],
+        "type": "object"
+      },
+      "PostView": {
+        "additionalProperties": false,
+        "properties": {
+          "apId": {
+            "type": "string"
+          },
+          "author": {
+            "$ref": "#/components/schemas/Author"
+          },
+          "bodyHtml": {
+            "description": "Sanitized HTML from the Markdown body",
+            "type": "string"
+          },
+          "comments": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "community": {
+            "description": "Handle of the community",
+            "type": "string"
+          },
+          "communityTitle": {
+            "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "published": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "score": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/Viewer"
+          }
+        },
+        "required": [
+          "apId",
+          "ref",
+          "community",
+          "communityTitle",
+          "title",
+          "bodyHtml",
+          "url",
+          "nsfw",
+          "author",
+          "published",
+          "score",
+          "comments",
+          "viewer"
+        ],
+        "type": "object"
+      },
+      "PreviewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/PreviewBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "markdown": {
+            "maxLength": 40000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "markdown"
+        ],
+        "type": "object"
+      },
+      "PreviewOut": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/PreviewOut.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "html": {
+            "description": "Sanitized HTML, as the post or comment will show",
+            "type": "string"
+          }
+        },
+        "required": [
+          "html"
+        ],
+        "type": "object"
+      },
       "RevokeAllResponse": {
         "properties": {
           "revoked": {
@@ -730,6 +937,83 @@
         },
         "required": [
           "revoked"
+        ],
+        "type": "object"
+      },
+      "SaveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/SaveBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "object": {
+            "description": "AP ID of the post or comment",
+            "maxLength": 500,
+            "type": "string"
+          },
+          "saved": {
+            "description": "false removes the save",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object",
+          "saved"
+        ],
+        "type": "object"
+      },
+      "SavedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/CommentView"
+          },
+          "post": {
+            "$ref": "#/components/schemas/PostView"
+          },
+          "savedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "savedAt",
+          "post"
+        ],
+        "type": "object"
+      },
+      "SavedPage": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/SavedPage.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedItem"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "Cursor for the next page; empty on the last page",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "next"
         ],
         "type": "object"
       },
@@ -1017,6 +1301,39 @@
         },
         "type": "object"
       },
+      "ThreadView": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/ThreadView.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/CommentView"
+            },
+            "type": "array"
+          },
+          "post": {
+            "$ref": "#/components/schemas/PostView"
+          },
+          "truncated": {
+            "description": "true when the post has more comments than one page holds",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "post",
+          "comments",
+          "truncated"
+        ],
+        "type": "object"
+      },
       "User": {
         "properties": {
           "createdAt": {
@@ -1054,6 +1371,33 @@
           "image",
           "createdAt",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "Viewer": {
+        "additionalProperties": false,
+        "properties": {
+          "saved": {
+            "type": "boolean"
+          },
+          "vote": {
+            "enum": [
+              -1,
+              0,
+              1
+            ],
+            "format": "int32",
+            "type": "integer"
+          },
+          "voteCounted": {
+            "description": "Whether the reader's vote is part of score",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vote",
+          "voteCounted",
+          "saved"
         ],
         "type": "object"
       },
@@ -2729,6 +3073,120 @@
         ]
       }
     },
+    "/api/communities/{handle}/posts": {
+      "get": {
+        "operationId": "communityPosts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cursor from the previous page's next",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Cursor from the previous page's next",
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List a community's posts, newest first",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/markdown/preview": {
+      "post": {
+        "operationId": "previewMarkdown",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Render Markdown as a post or comment will show it",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
     "/api/me": {
       "get": {
         "operationId": "me",
@@ -2811,6 +3269,68 @@
         ]
       }
     },
+    "/api/me/saved": {
+      "get": {
+        "operationId": "saved",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List my saved posts and comments, newest save first",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
     "/api/posts": {
       "post": {
         "operationId": "createPost",
@@ -2887,6 +3407,132 @@
           }
         },
         "summary": "Post in a community",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/posts/{ref}": {
+      "get": {
+        "operationId": "thread",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z2-7]{12}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadView"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Read a post and its comments",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/saves": {
+      "post": {
+        "operationId": "save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save or unsave a post or a comment",
         "tags": [
           "discussions"
         ]

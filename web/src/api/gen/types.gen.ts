@@ -67,6 +67,15 @@ export type AdminUserResponse = {
     user: AdminUser;
 };
 
+export type Author = {
+    bot: boolean;
+    displayName: string;
+    /**
+     * name for people on this site, else name@domain
+     */
+    handle: string;
+};
+
 export type CommentBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -80,6 +89,24 @@ export type CommentBody = {
      * AP ID of the post or comment
      */
     inReplyTo: string;
+};
+
+export type CommentView = {
+    apId: string;
+    author: Author;
+    bodyHtml: string;
+    /**
+     * true when the comment was deleted or removed
+     */
+    gone: boolean;
+    /**
+     * Ref of the comment this replies to; empty for a reply to the post
+     */
+    parentRef: string;
+    published: string;
+    ref: string;
+    score: number;
+    viewer: Viewer;
 };
 
 export type CreateBody = {
@@ -282,8 +309,94 @@ export type PostBody = {
     url?: string;
 };
 
+export type PostPage = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
+    posts: Array<PostView>;
+};
+
+export type PostView = {
+    apId: string;
+    author: Author;
+    /**
+     * Sanitized HTML from the Markdown body
+     */
+    bodyHtml: string;
+    comments: number;
+    /**
+     * Handle of the community
+     */
+    community: string;
+    communityTitle: string;
+    nsfw: boolean;
+    published: string;
+    ref: string;
+    score: number;
+    title: string;
+    url: string;
+    viewer: Viewer;
+};
+
+export type PreviewBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    markdown: string;
+};
+
+export type PreviewOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Sanitized HTML, as the post or comment will show
+     */
+    html: string;
+};
+
 export type RevokeAllResponse = {
     revoked: number;
+};
+
+export type SaveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * false removes the save
+     */
+    saved: boolean;
+};
+
+export type SavedItem = {
+    comment?: CommentView;
+    post: PostView;
+    savedAt: string;
+};
+
+export type SavedPage = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    items: Array<SavedItem>;
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
 };
 
 export type Session = {
@@ -393,6 +506,19 @@ export type Theme = {
     accent?: 'vermilion' | 'moss' | 'teal' | 'cobalt' | 'plum' | 'ochre';
 };
 
+export type ThreadView = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    comments: Array<CommentView>;
+    post: PostView;
+    /**
+     * true when the post has more comments than one page holds
+     */
+    truncated: boolean;
+};
+
 export type User = {
     createdAt: string;
     email: string;
@@ -402,6 +528,15 @@ export type User = {
     name: string;
     role?: string;
     updatedAt: string;
+};
+
+export type Viewer = {
+    saved: boolean;
+    vote: -1 | 0 | 1;
+    /**
+     * Whether the reader's vote is part of score
+     */
+    voteCounted: boolean;
 };
 
 export type VoteBody = {
@@ -564,6 +699,44 @@ export type PostBodyWritable = {
     url?: string;
 };
 
+export type PostPageWritable = {
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
+    posts: Array<PostView>;
+};
+
+export type PreviewBodyWritable = {
+    markdown: string;
+};
+
+export type PreviewOutWritable = {
+    /**
+     * Sanitized HTML, as the post or comment will show
+     */
+    html: string;
+};
+
+export type SaveBodyWritable = {
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * false removes the save
+     */
+    saved: boolean;
+};
+
+export type SavedPageWritable = {
+    items: Array<SavedItem>;
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
+};
+
 export type SettingsBodyWritable = {
     /**
      * Where members appeal a removal: an email address or URL
@@ -597,6 +770,15 @@ export type SignUpBodyWritable = {
 
 export type SignupModeWritable = {
     mode: 'open' | 'invite' | 'closed';
+};
+
+export type ThreadViewWritable = {
+    comments: Array<CommentView>;
+    post: PostView;
+    /**
+     * true when the post has more comments than one page holds
+     */
+    truncated: boolean;
 };
 
 export type VoteBodyWritable = {
@@ -1486,6 +1668,71 @@ export type UpdateCommunityResponses = {
 
 export type UpdateCommunityResponse = UpdateCommunityResponses[keyof UpdateCommunityResponses];
 
+export type CommunityPostsData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/communities/{handle}/posts';
+};
+
+export type CommunityPostsErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CommunityPostsError = CommunityPostsErrors[keyof CommunityPostsErrors];
+
+export type CommunityPostsResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type CommunityPostsResponse = CommunityPostsResponses[keyof CommunityPostsResponses];
+
+export type PreviewMarkdownData = {
+    body: PreviewBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/markdown/preview';
+};
+
+export type PreviewMarkdownErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type PreviewMarkdownError = PreviewMarkdownErrors[keyof PreviewMarkdownErrors];
+
+export type PreviewMarkdownResponses = {
+    /**
+     * OK
+     */
+    200: PreviewOut;
+};
+
+export type PreviewMarkdownResponse = PreviewMarkdownResponses[keyof PreviewMarkdownResponses];
+
 export type MeData = {
     body?: never;
     path?: never;
@@ -1544,6 +1791,41 @@ export type MyCommunitiesResponses = {
 
 export type MyCommunitiesResponse = MyCommunitiesResponses[keyof MyCommunitiesResponses];
 
+export type SavedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        before?: string;
+    };
+    url: '/api/me/saved';
+};
+
+export type SavedErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SavedError = SavedErrors[keyof SavedErrors];
+
+export type SavedResponses = {
+    /**
+     * OK
+     */
+    200: SavedPage;
+};
+
+export type SavedResponse = SavedResponses[keyof SavedResponses];
+
 export type CreatePostData = {
     body: PostBodyWritable;
     path?: never;
@@ -1584,6 +1866,78 @@ export type CreatePostResponses = {
 };
 
 export type CreatePostResponse = CreatePostResponses[keyof CreatePostResponses];
+
+export type ThreadData = {
+    body?: never;
+    path: {
+        ref: string;
+    };
+    query?: never;
+    url: '/api/posts/{ref}';
+};
+
+export type ThreadErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type ThreadError = ThreadErrors[keyof ThreadErrors];
+
+export type ThreadResponses = {
+    /**
+     * OK
+     */
+    200: ThreadView;
+};
+
+export type ThreadResponse = ThreadResponses[keyof ThreadResponses];
+
+export type SaveData = {
+    body: SaveBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/saves';
+};
+
+export type SaveErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SaveError = SaveErrors[keyof SaveErrors];
+
+export type SaveResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SaveResponse = SaveResponses[keyof SaveResponses];
 
 export type SignupModeData = {
     body?: never;

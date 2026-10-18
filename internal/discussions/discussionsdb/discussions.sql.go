@@ -184,6 +184,122 @@ func (q *Queries) CommunityByID(ctx context.Context, id int64) (CommunityByIDRow
 	return i, err
 }
 
+const communityIDByHandle = `-- name: CommunityIDByHandle :one
+SELECT c.id FROM communities c WHERE c.domain = $1 AND lower(c.name) = lower($2)
+`
+
+type CommunityIDByHandleParams struct {
+	Domain string
+	Name   string
+}
+
+func (q *Queries) CommunityIDByHandle(ctx context.Context, arg CommunityIDByHandleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, communityIDByHandle, arg.Domain, arg.Name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const communityPosts = `-- name: CommunityPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+WHERE p.community_id = $2
+  AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT $5
+`
+
+type CommunityPostsParams struct {
+	Viewer      *int64
+	CommunityID int64
+	BeforeAt    time.Time
+	BeforeID    int64
+	Lim         int32
+}
+
+type CommunityPostsRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	SortAt            time.Time
+	Score             int32
+	CommentCount      int32
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+// Posts a reader sees in a community, newest first, from before the cursor.
+func (q *Queries) CommunityPosts(ctx context.Context, arg CommunityPostsParams) ([]CommunityPostsRow, error) {
+	rows, err := q.db.Query(ctx, communityPosts,
+		arg.Viewer,
+		arg.CommunityID,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CommunityPostsRow
+	for rows.Next() {
+		var i CommunityPostsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteVote = `-- name: DeleteVote :exec
 DELETE FROM votes
 WHERE actor_id = $1 AND post_id IS NOT DISTINCT FROM $2 AND comment_id IS NOT DISTINCT FROM $3
@@ -433,6 +549,156 @@ func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
 	return i, err
 }
 
+const postByRef = `-- name: PostByRef :one
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+WHERE p.ref = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+`
+
+type PostByRefParams struct {
+	Viewer *int64
+	Ref    string
+}
+
+type PostByRefRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	SortAt            time.Time
+	Score             int32
+	CommentCount      int32
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRefRow, error) {
+	row := q.db.QueryRow(ctx, postByRef, arg.Viewer, arg.Ref)
+	var i PostByRefRow
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.Nsfw,
+		&i.Published,
+		&i.SortAt,
+		&i.Score,
+		&i.CommentCount,
+		&i.AuthorName,
+		&i.AuthorDomain,
+		&i.AuthorDisplayName,
+		&i.AuthorBot,
+		&i.CommunityName,
+		&i.CommunityDomain,
+		&i.CommunityTitle,
+		&i.MyVote,
+		&i.MyVoteCounted,
+		&i.Saved,
+	)
+	return i, err
+}
+
+const postComments = `-- name: PostComments :many
+SELECT
+    m.id, m.ap_id, m.ref, m.parent_id, m.body, m.published, m.score,
+    (m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL)::boolean AS gone,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM comments m
+JOIN actors a ON a.id = m.author_id
+LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = $1::bigint
+WHERE m.post_id = $2 AND NOT m.held
+ORDER BY m.published, m.id
+LIMIT $3
+`
+
+type PostCommentsParams struct {
+	Viewer *int64
+	PostID int64
+	Lim    int32
+}
+
+type PostCommentsRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	ParentID          *int64
+	Body              string
+	Published         time.Time
+	Score             int32
+	Gone              bool
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+// Comments of a post in the order they were written. Held comments stay out.
+func (q *Queries) PostComments(ctx context.Context, arg PostCommentsParams) ([]PostCommentsRow, error) {
+	rows, err := q.db.Query(ctx, postComments, arg.Viewer, arg.PostID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PostCommentsRow
+	for rows.Next() {
+		var i PostCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.ParentID,
+			&i.Body,
+			&i.Published,
+			&i.Score,
+			&i.Gone,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const postVote = `-- name: PostVote :one
 SELECT actor_id, post_id, comment_id, value, counted, ap_id, created_at FROM votes WHERE actor_id = $1 AND post_id = $2
 `
@@ -455,6 +721,192 @@ func (q *Queries) PostVote(ctx context.Context, arg PostVoteParams) (Vote, error
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const saveComment = `-- name: SaveComment :exec
+INSERT INTO saves (actor_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type SaveCommentParams struct {
+	ActorID   int64
+	CommentID *int64
+}
+
+func (q *Queries) SaveComment(ctx context.Context, arg SaveCommentParams) error {
+	_, err := q.db.Exec(ctx, saveComment, arg.ActorID, arg.CommentID)
+	return err
+}
+
+const savePost = `-- name: SavePost :exec
+INSERT INTO saves (actor_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type SavePostParams struct {
+	ActorID int64
+	PostID  *int64
+}
+
+func (q *Queries) SavePost(ctx context.Context, arg SavePostParams) error {
+	_, err := q.db.Exec(ctx, savePost, arg.ActorID, arg.PostID)
+	return err
+}
+
+const savedItems = `-- name: SavedItems :many
+SELECT
+    s.created_at AS saved_at, s.comment_id,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,
+    EXISTS (SELECT 1 FROM saves ps WHERE ps.post_id = p.id AND ps.actor_id = $1)::boolean AS saved,
+    m.ap_id AS comment_ap_id, m.ref AS comment_ref, m.parent_id AS comment_parent_id, m.body AS comment_body,
+    m.published AS comment_published, m.score AS comment_score,
+    ma.name AS comment_author_name, ma.domain AS comment_author_domain,
+    ma.display_name AS comment_author_display_name, ma.bot AS comment_author_bot,
+    coalesce(mv.value, 0)::smallint AS comment_my_vote, coalesce(mv.counted, false) AS comment_my_vote_counted
+FROM saves s
+LEFT JOIN comments m ON m.id = s.comment_id
+JOIN posts p ON p.id = coalesce(s.post_id, m.post_id)
+JOIN actors pa ON pa.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN actors ma ON ma.id = m.author_id
+LEFT JOIN votes pv ON pv.post_id = p.id AND pv.actor_id = $1
+LEFT JOIN votes mv ON mv.comment_id = m.id AND mv.actor_id = $1
+WHERE s.actor_id = $1
+  AND p.deleted_at IS NULL AND p.removed_at IS NULL
+  AND (m.id IS NULL OR (m.deleted_at IS NULL AND m.removed_at IS NULL))
+  AND s.created_at < $2::timestamptz
+ORDER BY s.created_at DESC
+LIMIT $3
+`
+
+type SavedItemsParams struct {
+	Viewer int64
+	Before time.Time
+	Lim    int32
+}
+
+type SavedItemsRow struct {
+	SavedAt                  time.Time
+	CommentID                *int64
+	ID                       int64
+	ApID                     string
+	Ref                      string
+	Title                    string
+	Body                     string
+	Url                      string
+	Nsfw                     bool
+	Published                time.Time
+	SortAt                   time.Time
+	Score                    int32
+	CommentCount             int32
+	AuthorName               string
+	AuthorDomain             string
+	AuthorDisplayName        string
+	AuthorBot                bool
+	CommunityName            string
+	CommunityDomain          string
+	CommunityTitle           string
+	MyVote                   int16
+	MyVoteCounted            bool
+	Saved                    bool
+	CommentApID              *string
+	CommentRef               *string
+	CommentParentID          *int64
+	CommentBody              *string
+	CommentPublished         *time.Time
+	CommentScore             *int32
+	CommentAuthorName        *string
+	CommentAuthorDomain      *string
+	CommentAuthorDisplayName *string
+	CommentAuthorBot         *bool
+	CommentMyVote            int16
+	CommentMyVoteCounted     bool
+}
+
+// Saved posts and comments, newest save first. A saved comment comes with its post.
+func (q *Queries) SavedItems(ctx context.Context, arg SavedItemsParams) ([]SavedItemsRow, error) {
+	rows, err := q.db.Query(ctx, savedItems, arg.Viewer, arg.Before, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SavedItemsRow
+	for rows.Next() {
+		var i SavedItemsRow
+		if err := rows.Scan(
+			&i.SavedAt,
+			&i.CommentID,
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+			&i.CommentApID,
+			&i.CommentRef,
+			&i.CommentParentID,
+			&i.CommentBody,
+			&i.CommentPublished,
+			&i.CommentScore,
+			&i.CommentAuthorName,
+			&i.CommentAuthorDomain,
+			&i.CommentAuthorDisplayName,
+			&i.CommentAuthorBot,
+			&i.CommentMyVote,
+			&i.CommentMyVoteCounted,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const unsaveComment = `-- name: UnsaveComment :exec
+DELETE FROM saves WHERE actor_id = $1 AND comment_id = $2
+`
+
+type UnsaveCommentParams struct {
+	ActorID   int64
+	CommentID *int64
+}
+
+func (q *Queries) UnsaveComment(ctx context.Context, arg UnsaveCommentParams) error {
+	_, err := q.db.Exec(ctx, unsaveComment, arg.ActorID, arg.CommentID)
+	return err
+}
+
+const unsavePost = `-- name: UnsavePost :exec
+DELETE FROM saves WHERE actor_id = $1 AND post_id = $2
+`
+
+type UnsavePostParams struct {
+	ActorID int64
+	PostID  *int64
+}
+
+func (q *Queries) UnsavePost(ctx context.Context, arg UnsavePostParams) error {
+	_, err := q.db.Exec(ctx, unsavePost, arg.ActorID, arg.PostID)
+	return err
 }
 
 const updateVote = `-- name: UpdateVote :exec

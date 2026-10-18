@@ -73,3 +73,96 @@ SELECT c.id, c.state, a.local
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE c.id = @id;
+
+-- name: CommunityIDByHandle :one
+SELECT c.id FROM communities c WHERE c.domain = @domain AND lower(c.name) = lower(@name);
+
+-- Posts a reader sees in a community, newest first, from before the cursor.
+-- name: CommunityPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.community_id = @community_id
+  AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT @lim;
+
+-- name: PostByRef :one
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.ref = @ref AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held;
+
+-- Comments of a post in the order they were written. Held comments stay out.
+-- name: PostComments :many
+SELECT
+    m.id, m.ap_id, m.ref, m.parent_id, m.body, m.published, m.score,
+    (m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL)::boolean AS gone,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM comments m
+JOIN actors a ON a.id = m.author_id
+LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE m.post_id = @post_id AND NOT m.held
+ORDER BY m.published, m.id
+LIMIT @lim;
+
+-- name: SavePost :exec
+INSERT INTO saves (actor_id, post_id) VALUES (@actor_id, @post_id) ON CONFLICT DO NOTHING;
+
+-- name: SaveComment :exec
+INSERT INTO saves (actor_id, comment_id) VALUES (@actor_id, @comment_id) ON CONFLICT DO NOTHING;
+
+-- name: UnsavePost :exec
+DELETE FROM saves WHERE actor_id = @actor_id AND post_id = @post_id;
+
+-- name: UnsaveComment :exec
+DELETE FROM saves WHERE actor_id = @actor_id AND comment_id = @comment_id;
+
+-- Saved posts and comments, newest save first. A saved comment comes with its post.
+-- name: SavedItems :many
+SELECT
+    s.created_at AS saved_at, s.comment_id,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,
+    EXISTS (SELECT 1 FROM saves ps WHERE ps.post_id = p.id AND ps.actor_id = @viewer)::boolean AS saved,
+    m.ap_id AS comment_ap_id, m.ref AS comment_ref, m.parent_id AS comment_parent_id, m.body AS comment_body,
+    m.published AS comment_published, m.score AS comment_score,
+    ma.name AS comment_author_name, ma.domain AS comment_author_domain,
+    ma.display_name AS comment_author_display_name, ma.bot AS comment_author_bot,
+    coalesce(mv.value, 0)::smallint AS comment_my_vote, coalesce(mv.counted, false) AS comment_my_vote_counted
+FROM saves s
+LEFT JOIN comments m ON m.id = s.comment_id
+JOIN posts p ON p.id = coalesce(s.post_id, m.post_id)
+JOIN actors pa ON pa.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN actors ma ON ma.id = m.author_id
+LEFT JOIN votes pv ON pv.post_id = p.id AND pv.actor_id = @viewer
+LEFT JOIN votes mv ON mv.comment_id = m.id AND mv.actor_id = @viewer
+WHERE s.actor_id = @viewer
+  AND p.deleted_at IS NULL AND p.removed_at IS NULL
+  AND (m.id IS NULL OR (m.deleted_at IS NULL AND m.removed_at IS NULL))
+  AND s.created_at < @before::timestamptz
+ORDER BY s.created_at DESC
+LIMIT @lim;

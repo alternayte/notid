@@ -48,6 +48,25 @@ type Local struct {
 	Sealer    *platform.Sealer
 }
 
+// Handle is how the web app and people name an actor: name on the app domain,
+// else name@domain.
+func (l Local) Handle(name, domain string) string {
+	if domain == l.AppDomain {
+		return name
+	}
+	return name + "@" + domain
+}
+
+// SplitHandle reads name or name@domain, with an optional leading ! or @; a
+// bare name lives on the app domain.
+func (l Local) SplitHandle(handle string) (domain, name string) {
+	handle = strings.TrimLeft(handle, "!@")
+	if n, d, ok := strings.Cut(handle, "@"); ok {
+		return strings.ToLower(d), n
+	}
+	return l.AppDomain, handle
+}
+
 // PersonURL is the AP ID of a local person. It is fixed at creation and stored, never recomputed.
 func (l Local) PersonURL(name string) string { return l.AppOrigin + "/u/" + name }
 

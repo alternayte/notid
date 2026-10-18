@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, community, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, leaveCommunity, listApiKeys, listSessions, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, myCommunities, type Options, revokeAllSessions, revokeApiKey, revokeSession, signOut, signUp, signupMode, updateCommunity, vote } from '../sdk.gen';
-import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CommunityData, CommunityError, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
+import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, community, communityPosts, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, leaveCommunity, listApiKeys, listSessions, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, myCommunities, type Options, previewMarkdown, revokeAllSessions, revokeApiKey, revokeSession, save, saved, signOut, signUp, signupMode, thread, updateCommunity, vote } from '../sdk.gen';
+import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, ThreadData, ThreadError, ThreadResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -536,6 +536,71 @@ export const updateCommunityMutation = (options?: Partial<Options<UpdateCommunit
     return mutationOptions;
 };
 
+export const communityPostsQueryKey = (options: Options<CommunityPostsData>) => createQueryKey('communityPosts', options);
+
+/**
+ * List a community's posts, newest first
+ */
+export const communityPostsOptions = (options: Options<CommunityPostsData>) => queryOptions<CommunityPostsResponse, CommunityPostsError, CommunityPostsResponse, ReturnType<typeof communityPostsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await communityPosts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: communityPostsQueryKey(options)
+});
+
+export const communityPostsInfiniteQueryKey = (options: Options<CommunityPostsData>): QueryKey<Options<CommunityPostsData>> => createQueryKey('communityPosts', options, true);
+
+/**
+ * List a community's posts, newest first
+ */
+export const communityPostsInfiniteOptions = (options: Options<CommunityPostsData>) => {
+    const opts = infiniteQueryOptions<CommunityPostsResponse, CommunityPostsError, InfiniteData<CommunityPostsResponse>, QueryKey<Options<CommunityPostsData>>, string | Pick<QueryKey<Options<CommunityPostsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<CommunityPostsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await communityPosts({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: communityPostsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Render Markdown as a post or comment will show it
+ */
+export const previewMarkdownMutation = (options?: Partial<Options<PreviewMarkdownData>>): UseMutationOptions<PreviewMarkdownResponse, PreviewMarkdownError, Options<PreviewMarkdownData>> => {
+    const mutationOptions: UseMutationOptions<PreviewMarkdownResponse, PreviewMarkdownError, Options<PreviewMarkdownData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await previewMarkdown({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const meQueryKey = (options?: Options<MeData>) => createQueryKey('me', options);
 
 /**
@@ -572,6 +637,54 @@ export const myCommunitiesOptions = (options?: Options<MyCommunitiesData>) => qu
     queryKey: myCommunitiesQueryKey(options)
 });
 
+export const savedQueryKey = (options?: Options<SavedData>) => createQueryKey('saved', options);
+
+/**
+ * List my saved posts and comments, newest save first
+ */
+export const savedOptions = (options?: Options<SavedData>) => queryOptions<SavedResponse, SavedError, SavedResponse, ReturnType<typeof savedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await saved({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: savedQueryKey(options)
+});
+
+export const savedInfiniteQueryKey = (options?: Options<SavedData>): QueryKey<Options<SavedData>> => createQueryKey('saved', options, true);
+
+/**
+ * List my saved posts and comments, newest save first
+ */
+export const savedInfiniteOptions = (options?: Options<SavedData>) => {
+    const opts = infiniteQueryOptions<SavedResponse, SavedError, InfiniteData<SavedResponse>, QueryKey<Options<SavedData>>, string | Pick<QueryKey<Options<SavedData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<SavedData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await saved({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: savedInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 /**
  * Post in a community
  */
@@ -579,6 +692,41 @@ export const createPostMutation = (options?: Partial<Options<CreatePostData>>): 
     const mutationOptions: UseMutationOptions<CreatePostResponse, CreatePostError, Options<CreatePostData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const threadQueryKey = (options: Options<ThreadData>) => createQueryKey('thread', options);
+
+/**
+ * Read a post and its comments
+ */
+export const threadOptions = (options: Options<ThreadData>) => queryOptions<ThreadResponse, ThreadError, ThreadResponse, ReturnType<typeof threadQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await thread({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: threadQueryKey(options)
+});
+
+/**
+ * Save or unsave a post or a comment
+ */
+export const saveMutation = (options?: Partial<Options<SaveData>>): UseMutationOptions<SaveResponse, SaveError, Options<SaveData>> => {
+    const mutationOptions: UseMutationOptions<SaveResponse, SaveError, Options<SaveData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await save({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

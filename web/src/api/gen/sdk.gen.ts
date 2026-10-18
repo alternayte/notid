@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CommunityData, CommunityErrors, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
+import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CommunityData, CommunityErrors, CommunityPostsData, CommunityPostsErrors, CommunityPostsResponses, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, PreviewMarkdownData, PreviewMarkdownErrors, PreviewMarkdownResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveData, SavedData, SavedErrors, SavedResponses, SaveErrors, SaveResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, ThreadData, ThreadErrors, ThreadResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -241,6 +241,23 @@ export const updateCommunity = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * List a community's posts, newest first
+ */
+export const communityPosts = <ThrowOnError extends boolean = false>(options: Options<CommunityPostsData, ThrowOnError>): RequestResult<CommunityPostsResponses, CommunityPostsErrors, ThrowOnError> => (options.client ?? client).get<CommunityPostsResponses, CommunityPostsErrors, ThrowOnError>({ url: '/api/communities/{handle}/posts', ...options });
+
+/**
+ * Render Markdown as a post or comment will show it
+ */
+export const previewMarkdown = <ThrowOnError extends boolean = false>(options: Options<PreviewMarkdownData, ThrowOnError>): RequestResult<PreviewMarkdownResponses, PreviewMarkdownErrors, ThrowOnError> => (options.client ?? client).post<PreviewMarkdownResponses, PreviewMarkdownErrors, ThrowOnError>({
+    url: '/api/markdown/preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Read the signed-in person
  */
 export const me = <ThrowOnError extends boolean = false>(options?: Options<MeData, ThrowOnError>): RequestResult<MeResponses, MeErrors, ThrowOnError> => (options?.client ?? client).get<MeResponses, MeErrors, ThrowOnError>({ url: '/api/me', ...options });
@@ -251,10 +268,32 @@ export const me = <ThrowOnError extends boolean = false>(options?: Options<MeDat
 export const myCommunities = <ThrowOnError extends boolean = false>(options?: Options<MyCommunitiesData, ThrowOnError>): RequestResult<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError> => (options?.client ?? client).get<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError>({ url: '/api/me/communities', ...options });
 
 /**
+ * List my saved posts and comments, newest save first
+ */
+export const saved = <ThrowOnError extends boolean = false>(options?: Options<SavedData, ThrowOnError>): RequestResult<SavedResponses, SavedErrors, ThrowOnError> => (options?.client ?? client).get<SavedResponses, SavedErrors, ThrowOnError>({ url: '/api/me/saved', ...options });
+
+/**
  * Post in a community
  */
 export const createPost = <ThrowOnError extends boolean = false>(options: Options<CreatePostData, ThrowOnError>): RequestResult<CreatePostResponses, CreatePostErrors, ThrowOnError> => (options.client ?? client).post<CreatePostResponses, CreatePostErrors, ThrowOnError>({
     url: '/api/posts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read a post and its comments
+ */
+export const thread = <ThrowOnError extends boolean = false>(options: Options<ThreadData, ThrowOnError>): RequestResult<ThreadResponses, ThreadErrors, ThrowOnError> => (options.client ?? client).get<ThreadResponses, ThreadErrors, ThrowOnError>({ url: '/api/posts/{ref}', ...options });
+
+/**
+ * Save or unsave a post or a comment
+ */
+export const save = <ThrowOnError extends boolean = false>(options: Options<SaveData, ThrowOnError>): RequestResult<SaveResponses, SaveErrors, ThrowOnError> => (options.client ?? client).post<SaveResponses, SaveErrors, ThrowOnError>({
+    url: '/api/saves',
     ...options,
     headers: {
         'Content-Type': 'application/json',

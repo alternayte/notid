@@ -84,7 +84,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	markdown := platform.NewMarkdown()
 	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown}
 	communitiesSvc.Register(api)
-	discussionsSvc := &discussions.Service{Pool: pool}
+	discussionsSvc := &discussions.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t}
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 

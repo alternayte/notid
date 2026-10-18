@@ -177,7 +177,7 @@ func (s *Service) Register(api huma.API) {
 		OperationID: "community", Method: http.MethodGet, Path: "/api/communities/{handle}",
 		Summary: "Read a community and its about page", Tags: tags, Errors: []int{http.StatusNotFound},
 	}, func(ctx context.Context, in *handlePath) (*struct{ Body Detail }, error) {
-		domain, name := s.splitHandle(in.Handle)
+		domain, name := s.Local.SplitHandle(in.Handle)
 		d, err := s.Detail(ctx, domain, name, accounts.ActorFrom(ctx))
 		if err != nil {
 			return nil, apiError(err)
@@ -197,7 +197,7 @@ func (s *Service) Register(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		domain, name := s.splitHandle(in.Handle)
+		domain, name := s.Local.SplitHandle(in.Handle)
 		row, err := communitiesdb.New(s.Pool).CommunityByHandle(ctx, communitiesdb.CommunityByHandleParams{Domain: domain, Name: name})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apiError(ErrNotFound)
@@ -313,24 +313,6 @@ func (s *Service) inTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
 	return nil
 }
 
-// splitHandle reads name or name@domain; a bare name lives on the app domain.
-func (s *Service) splitHandle(handle string) (domain, name string) {
-	handle = strings.TrimPrefix(handle, "!")
-	if n, d, ok := strings.Cut(handle, "@"); ok {
-		return strings.ToLower(d), n
-	}
-	return s.Local.AppDomain, handle
-}
-
-// Handle is how the web app and people name an actor: name on the app domain,
-// else name@domain.
-func (s *Service) Handle(name, domain string) string {
-	if domain == s.Local.AppDomain {
-		return name
-	}
-	return name + "@" + domain
-}
-
 func membership(state, role *string) *MyMembership {
 	if state == nil || role == nil {
 		return nil
@@ -340,7 +322,7 @@ func membership(state, role *string) *MyMembership {
 
 func (s *Service) summary(r communitiesdb.JoinedRow, m *MyMembership) Summary {
 	return Summary{
-		Handle: s.Handle(r.Name, r.Domain), ApID: r.ApID, Name: r.Name, Domain: r.Domain,
+		Handle: s.Local.Handle(r.Name, r.Domain), ApID: r.ApID, Name: r.Name, Domain: r.Domain,
 		Title: r.Title, DescriptionHTML: s.Markdown.HTML(r.Description), Local: r.Local,
 		Members: r.Members, NSFW: r.Nsfw, Theme: parseTheme(r.Theme), Membership: m,
 	}
@@ -386,7 +368,7 @@ func (s *Service) Detail(ctx context.Context, domain, name string, viewer *actor
 		d.Rules = []string{}
 	}
 	for _, m := range mods {
-		d.Moderators = append(d.Moderators, Person{Handle: s.Handle(m.Name, m.Domain), DisplayName: m.DisplayName, Role: m.Role})
+		d.Moderators = append(d.Moderators, Person{Handle: s.Local.Handle(m.Name, m.Domain), DisplayName: m.DisplayName, Role: m.Role})
 	}
 	return d, nil
 }
