@@ -286,7 +286,7 @@ function BanForm({ onBan }: { onBan: (actor: string, reason: string, days: numbe
           0 bans until a site admin lifts it.
         </p>
       </div>
-      <Button type="submit" disabled={busy || actor.trim() === ''}>
+      <Button type="submit" className="w-fit" disabled={busy || actor.trim() === ''}>
         Ban from the site
       </Button>
     </form>

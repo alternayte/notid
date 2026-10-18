@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 import { errorMessage } from '~/api/errors'
 import { deleteMeMutation, meOptions, personOptions, updateProfileMutation } from '~/api/gen/@tanstack/react-query.gen'
@@ -160,7 +160,6 @@ function Form({ handle }: { handle: string }) {
 // DeleteAccount erases the person's profile and content. Two steps, because the wrong press cannot be undone.
 function DeleteAccount() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const del = useMutation(deleteMeMutation())
   const [confirming, setConfirming] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -171,8 +170,9 @@ function DeleteAccount() {
     setMessage(null)
     try {
       await del.mutateAsync({})
-      void queryClient.clear()
-      await navigate({ to: '/' })
+      queryClient.clear()
+      // A full load drops every piece of client state the deleted account left behind.
+      window.location.replace('/')
     } catch (err) {
       setMessage(errorMessage(err, 'Your account was not deleted. Try again.'))
       setBusy(false)
