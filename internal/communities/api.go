@@ -15,6 +15,7 @@ import (
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities/communitiesdb"
 	"github.com/alternayte/notid/internal/platform"
+	"github.com/alternayte/notid/internal/platform/media"
 )
 
 // Service serves the community operations. Federation supplies the functions
@@ -23,6 +24,8 @@ type Service struct {
 	Pool     *pgxpool.Pool
 	Local    actors.Local
 	Markdown *platform.Markdown
+	// MediaURL is where an uploaded image with a storage key is served.
+	MediaURL func(key string) string
 	// Resolve finds a local or remote actor by URL or name@host handle.
 	Resolve func(ctx context.Context, ref string) (actors.Actor, error)
 	// SendFollow queues a Follow of a remote group and returns its AP ID.
@@ -57,6 +60,7 @@ type Summary struct {
 	Members         int64         `json:"members" doc:"Members known to this installation"`
 	NSFW            bool          `json:"nsfw"`
 	Theme           Theme         `json:"theme"`
+	BannerURL       string        `json:"bannerUrl" doc:"URL of the theme's banner image; empty without one"`
 	Membership      *MyMembership `json:"membership,omitempty" doc:"The signed-in person's membership, if any"`
 }
 
@@ -294,6 +298,8 @@ func apiError(err error) error {
 		return huma.Error422UnprocessableEntity("A name has 3 to 20 characters: lowercase letters, digits and underscores, starting with a letter.")
 	case errors.Is(err, ErrAccentUnknown):
 		return huma.Error422UnprocessableEntity("Choose one of the listed accents.")
+	case errors.Is(err, media.ErrNotYours):
+		return huma.Error422UnprocessableEntity("Upload the banner yourself, then save.")
 	}
 	return err
 }
@@ -321,11 +327,16 @@ func membership(state, role *string) *MyMembership {
 }
 
 func (s *Service) summary(r communitiesdb.JoinedRow, m *MyMembership) Summary {
-	return Summary{
+	theme := parseTheme(r.Theme)
+	sum := Summary{
 		Handle: s.Local.Handle(r.Name, r.Domain), ApID: r.ApID, Name: r.Name, Domain: r.Domain,
 		Title: r.Title, DescriptionHTML: s.Markdown.HTML(r.Description), Local: r.Local,
-		Members: r.Members, NSFW: r.Nsfw, Theme: parseTheme(r.Theme), Membership: m,
+		Members: r.Members, NSFW: r.Nsfw, Theme: theme, Membership: m,
 	}
+	if theme.Banner != "" && s.MediaURL != nil {
+		sum.BannerURL = s.MediaURL(theme.Banner)
+	}
+	return sum
 }
 
 // Detail reads one community as viewer sees it; viewer may be nil.

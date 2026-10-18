@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { errorMessage } from '~/api/errors'
-import { communityOptions, communityQueryKey, updateCommunityMutation } from '~/api/gen/@tanstack/react-query.gen'
+import {
+  communityOptions,
+  communityQueryKey,
+  updateCommunityMutation,
+  uploadImageMutation,
+} from '~/api/gen/@tanstack/react-query.gen'
 import { accentAttr } from '~/communities/accents'
 import { SettingsForm } from '~/communities/SettingsForm'
 import { Page } from './__root'
@@ -24,6 +29,7 @@ function Manage() {
   const { handle } = Route.useParams()
   const { data: c } = useSuspenseQuery(communityOptions({ path: { handle } }))
   const update = useMutation(updateCommunityMutation())
+  const upload = useMutation(uploadImageMutation())
   const queryClient = useQueryClient()
   const allowed = c.local && (c.membership?.role === 'owner' || c.membership?.role === 'moderator')
 
@@ -41,6 +47,14 @@ function Manage() {
         ) : (
           <SettingsForm
             initial={c}
+            initialBannerUrl={c.bannerUrl}
+            upload={async (file) => {
+              try {
+                return await upload.mutateAsync({ body: { file } })
+              } catch (err) {
+                throw new Error(errorMessage(err, 'The banner did not upload. Try again.'))
+              }
+            }}
             submitLabel="Save changes"
             busyLabel="Saving…"
             onSubmit={async (values) => {

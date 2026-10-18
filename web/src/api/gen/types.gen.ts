@@ -152,6 +152,10 @@ export type Detail = {
     apId: string;
     appealsContact: string;
     /**
+     * URL of the theme's banner image; empty without one
+     */
+    bannerUrl: string;
+    /**
      * Markdown
      */
     description: string;
@@ -488,6 +492,10 @@ export type SuccessResponse = {
 export type Summary = {
     apId: string;
     /**
+     * URL of the theme's banner image; empty without one
+     */
+    bannerUrl: string;
+    /**
      * Sanitized HTML from the Markdown description
      */
     descriptionHtml: string;
@@ -516,6 +524,10 @@ export type Summary = {
 
 export type Theme = {
     accent?: 'vermilion' | 'moss' | 'teal' | 'cobalt' | 'plum' | 'ochre';
+    /**
+     * Key of an image uploaded through /api/media
+     */
+    banner?: string;
 };
 
 export type ThreadView = {
@@ -628,6 +640,10 @@ export type CreatedWritable = {
 export type DetailWritable = {
     apId: string;
     appealsContact: string;
+    /**
+     * URL of the theme's banner image; empty without one
+     */
+    bannerUrl: string;
     /**
      * Markdown
      */

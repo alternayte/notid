@@ -63,6 +63,13 @@ function CommunityPage() {
           </p>
         )}
         <header className="flex flex-col gap-3 border-b border-rule pb-6">
+          {c.bannerUrl && (
+            <img
+              src={c.bannerUrl}
+              alt=""
+              className="mb-2 aspect-[4/1] w-full rounded-sm object-cover sm:aspect-[5/1]"
+            />
+          )}
           <Kicker>{c.local ? 'Community' : `Community on ${c.domain}`}</Kicker>
           <h1 className="font-display text-4xl tracking-tight text-balance">{c.title || c.name}</h1>
           <p className="font-sans text-xs text-ink-faint">

@@ -12,6 +12,7 @@ import (
 
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities/communitiesdb"
+	"github.com/alternayte/notid/internal/platform/media"
 )
 
 var (
@@ -29,6 +30,7 @@ var Accents = []string{"vermilion", "moss", "teal", "cobalt", "plum", "ochre"}
 
 type Theme struct {
 	Accent string `json:"accent,omitempty" enum:"vermilion,moss,teal,cobalt,plum,ochre"`
+	Banner string `json:"banner,omitempty" maxLength:"40" doc:"Key of an image uploaded through /api/media"`
 }
 
 func parseTheme(b []byte) Theme {
@@ -63,7 +65,7 @@ func CreateLocal(ctx context.Context, tx pgx.Tx, local actors.Local, person acto
 	if err := q.InsertOwner(ctx, communitiesdb.InsertOwnerParams{CommunityID: c.ID, ActorID: person.ID}); err != nil {
 		return Community{}, fmt.Errorf("owner: %w", err)
 	}
-	return update(ctx, tx, c, s)
+	return update(ctx, tx, c, person.ID, s)
 }
 
 // Update changes a community's settings, rules and theme.
@@ -83,12 +85,18 @@ func Update(ctx context.Context, tx pgx.Tx, editor actors.Actor, communityID int
 	if c.State != "active" {
 		return Community{}, ErrNotActive
 	}
-	return update(ctx, tx, c, s)
+	return update(ctx, tx, c, editor.ID, s)
 }
 
-func update(ctx context.Context, tx pgx.Tx, c Community, s Settings) (Community, error) {
+func update(ctx context.Context, tx pgx.Tx, c Community, editorID int64, s Settings) (Community, error) {
 	if s.Theme.Accent != "" && !slices.Contains(Accents, s.Theme.Accent) {
 		return Community{}, fmt.Errorf("%q: %w", s.Theme.Accent, ErrAccentUnknown)
+	}
+	// A new banner must be the editor's own upload; an unchanged one stays whoever uploaded it.
+	if b := s.Theme.Banner; b != "" && b != parseTheme(c.Theme).Banner {
+		if _, err := media.Owned(ctx, tx, b, editorID); err != nil {
+			return Community{}, err
+		}
 	}
 	theme, err := json.Marshal(s.Theme)
 	if err != nil {

@@ -399,6 +399,10 @@
           "appealsContact": {
             "type": "string"
           },
+          "bannerUrl": {
+            "description": "URL of the theme's banner image; empty without one",
+            "type": "string"
+          },
           "description": {
             "description": "Markdown",
             "type": "string"
@@ -476,7 +480,8 @@
           "local",
           "members",
           "nsfw",
-          "theme"
+          "theme",
+          "bannerUrl"
         ],
         "type": "object"
       },
@@ -1248,6 +1253,10 @@
           "apId": {
             "type": "string"
           },
+          "bannerUrl": {
+            "description": "URL of the theme's banner image; empty without one",
+            "type": "string"
+          },
           "descriptionHtml": {
             "description": "Sanitized HTML from the Markdown description",
             "type": "string"
@@ -1295,7 +1304,8 @@
           "local",
           "members",
           "nsfw",
-          "theme"
+          "theme",
+          "bannerUrl"
         ],
         "type": "object"
       },
@@ -1311,6 +1321,11 @@
               "plum",
               "ochre"
             ],
+            "type": "string"
+          },
+          "banner": {
+            "description": "Key of an image uploaded through /api/media",
+            "maxLength": 40,
             "type": "string"
           }
         },

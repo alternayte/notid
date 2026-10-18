@@ -16,8 +16,13 @@ export type SettingsValues = {
   nsfw: boolean
 }
 
+type Banner = { key: string; url: string }
+
 type Props = {
   initial: SettingsValues
+  initialBannerUrl?: string
+  // Uploads a banner image; a rejected promise shows the error's message.
+  upload?: (file: File) => Promise<Banner>
   submitLabel: string
   busyLabel: string
   // Returns an error message, or nothing on success. form carries extra fields passed as children.
@@ -29,8 +34,11 @@ const label = 'font-sans text-sm font-semibold'
 const hint = 'font-sans text-xs text-ink-faint'
 
 // SettingsForm edits what owners and moderators control: title, description, rules, accent, appeals contact.
-export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, children }: Props) {
+export function SettingsForm({ initial, initialBannerUrl, upload, submitLabel, busyLabel, onSubmit, children }: Props) {
   const [accent, setAccent] = useState<Accent>(initial.theme.accent ?? 'vermilion')
+  const [banner, setBanner] = useState<Banner | null>(
+    initial.theme.banner && initialBannerUrl ? { key: initial.theme.banner, url: initialBannerUrl } : null,
+  )
   const [nsfw, setNsfw] = useState(initial.nsfw)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
@@ -48,7 +56,7 @@ export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, childr
           .split('\n')
           .map((r) => r.trim())
           .filter(Boolean),
-        theme: { accent },
+        theme: banner ? { accent, banner: banner.key } : { accent },
         appealsContact: String(form.get('appealsContact') ?? '').trim(),
         nsfw,
       },
@@ -122,6 +130,7 @@ export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, childr
         </div>
         <p className={hint}>Marks, links and buttons on the community's pages take this colour.</p>
       </fieldset>
+      {upload && <BannerField banner={banner} onChange={setBanner} upload={upload} />}
       <div className="flex flex-col gap-2">
         <label htmlFor="appealsContact" className={label}>
           Appeals contact
@@ -158,5 +167,67 @@ export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, childr
         )}
       </div>
     </form>
+  )
+}
+
+function BannerField({
+  banner,
+  onChange,
+  upload,
+}: {
+  banner: Banner | null
+  onChange: (b: Banner | null) => void
+  upload: (file: File) => Promise<Banner>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+
+  async function take(file: File | undefined) {
+    if (!file) return
+    setBusy(true)
+    setFailed(null)
+    try {
+      onChange(await upload(file))
+    } catch (err) {
+      setFailed(err instanceof Error && err.message ? err.message : 'The banner did not upload.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className={cn(label, 'mb-2')}>Banner</legend>
+      {banner ? (
+        <img src={banner.url} alt="Banner" className="aspect-[4/1] w-full rounded-sm border border-rule object-cover" />
+      ) : (
+        <div className="grid aspect-[4/1] w-full place-items-center rounded-sm bg-paper-sunk font-sans text-xs text-ink-faint">
+          No banner
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="inline-flex h-9 cursor-pointer items-center rounded-pill px-4 font-sans text-sm font-semibold shadow-[inset_0_0_0_1px_var(--rule)] hover:shadow-[inset_0_0_0_1px_var(--rule-strong)] has-focus-visible:outline-2 has-focus-visible:outline-focus">
+          {busy ? 'Uploading…' : banner ? 'Replace banner' : 'Choose a banner'}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            disabled={busy}
+            onChange={(e) => void take(e.target.files?.[0])}
+          />
+        </label>
+        {banner && (
+          <Button type="button" variant="quiet" onClick={() => onChange(null)}>
+            Remove
+          </Button>
+        )}
+      </div>
+      {failed && (
+        <p role="alert" className="font-sans text-sm text-danger">
+          {failed}
+        </p>
+      )}
+      <p className={hint}>A wide image across the top of the community page. Location data is removed.</p>
+    </fieldset>
   )
 }

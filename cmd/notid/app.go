@@ -134,6 +134,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.SendVote = fed.SendVote
 	discussionsSvc.NewActivityID = federation.NewActivityID
 	discussionsSvc.MediaURL = mediaSvc.URL
+	communitiesSvc.MediaURL = mediaSvc.URL
 	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaSvc.Handler(), doc: api, river: rc}, nil
 }
 
