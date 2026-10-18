@@ -80,13 +80,22 @@ function CommunityPage() {
           <div className="flex flex-wrap items-center gap-4 pt-1">
             <Join community={c} signedIn={!!me} />
             {canManage && (
-              <Link
-                to="/c/$handle/manage"
-                params={{ handle }}
-                className="font-sans text-sm font-semibold text-ink-soft hover:text-ink"
-              >
-                Manage
-              </Link>
+              <>
+                <Link
+                  to="/c/$handle/manage"
+                  params={{ handle }}
+                  className="font-sans text-sm font-semibold text-ink-soft hover:text-ink"
+                >
+                  Manage
+                </Link>
+                <Link
+                  to="/c/$handle/reports"
+                  params={{ handle }}
+                  className="font-sans text-sm font-semibold text-ink-soft hover:text-ink"
+                >
+                  Reports
+                </Link>
+              </>
             )}
           </div>
         </header>

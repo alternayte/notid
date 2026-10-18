@@ -13,6 +13,7 @@ import (
 
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
+	"github.com/alternayte/notid/internal/moderation"
 )
 
 // Author is the person who wrote a post or a comment.
@@ -43,6 +44,7 @@ type PostView struct {
 	Image          bool      `json:"image" doc:"true when url is an image uploaded to this site"`
 	NSFW           bool      `json:"nsfw"`
 	Locked         bool      `json:"locked" doc:"true when replies are closed"`
+	Removed        bool      `json:"removed" doc:"true when a moderator removed it; only its author and the moderators see it"`
 	Author         Author    `json:"author"`
 	Published      time.Time `json:"published"`
 	Score          int32     `json:"score"`
@@ -108,6 +110,7 @@ type postRow struct {
 	ApID, Ref, Title, Body, URL                    string
 	NSFW, AuthorBot, MyVoteCounted, Saved, Image   bool
 	Locked                                         bool
+	RemovedAt                                      *time.Time
 	Published                                      time.Time
 	Score, CommentCount                            int32
 	AuthorName, AuthorDomain, AuthorDisplayName    string
@@ -116,13 +119,18 @@ type postRow struct {
 }
 
 func (s *Service) postView(r postRow) PostView {
-	return PostView{
+	v := PostView{
 		ApID: r.ApID, Ref: r.Ref, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
-		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW, Locked: r.Locked,
+		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW, Locked: r.Locked, Removed: r.RemovedAt != nil,
 		Author:    s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
 		Published: r.Published, Score: r.Score, Comments: r.CommentCount,
 		Viewer: Viewer{Vote: r.MyVote, VoteCounted: r.MyVoteCounted, Saved: r.Saved},
 	}
+	if v.Removed {
+		// A removal notice names the post; its body is not shown again until a moderator restores it.
+		v.BodyHTML, v.Excerpt, v.Image, v.URL = "", "", false, ""
+	}
+	return v
 }
 
 // listRow maps a post list row; every list query selects the same columns,
@@ -133,7 +141,18 @@ func listRow(r discussionsdb.CommunityPostsNewRow) postRow {
 		MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
-		Image: r.HasImage, Locked: r.Locked,
+		Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
+	}
+}
+
+// refRow maps the thread's query, which also carries the ids a removal notice needs.
+func refRow(r discussionsdb.PostByRefRow) postRow {
+	return postRow{
+		ApID: r.ApID, Ref: r.Ref, Title: r.Title, Body: r.Body, URL: r.Url, NSFW: r.Nsfw, AuthorBot: r.AuthorBot,
+		MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
+		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
+		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
+		Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
 	}
 }
 
@@ -274,12 +293,15 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 	if err != nil {
 		return ThreadView{}, fmt.Errorf("post %s: %w", ref, err)
 	}
+	if p.RemovedAt != nil && !s.maySeeRemoved(ctx, p.AuthorID, p.CommunityID, viewer) {
+		return ThreadView{}, ErrNoObject
+	}
 	limit := s.Tuning.ThreadMaxComments
 	rows, err := q.PostComments(ctx, discussionsdb.PostCommentsParams{PostID: p.ID, Viewer: viewerID(viewer), Lim: limit + 1})
 	if err != nil {
 		return ThreadView{}, fmt.Errorf("comments of %s: %w", ref, err)
 	}
-	t := ThreadView{Post: s.postView(listRow(discussionsdb.CommunityPostsNewRow(p))), Comments: make([]CommentView, 0, len(rows))}
+	t := ThreadView{Post: s.postView(refRow(p)), Comments: make([]CommentView, 0, len(rows))}
 	refs := make(map[int64]string, len(rows))
 	for i, r := range rows {
 		if int32(i) == limit {
@@ -301,6 +323,19 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 		t.Comments = append(t.Comments, c)
 	}
 	return t, nil
+}
+
+// maySeeRemoved reports whether viewer is the post's author or a moderator of
+// its community, the two people a removal notice is for.
+func (s *Service) maySeeRemoved(ctx context.Context, authorID, communityID int64, viewer *actors.Actor) bool {
+	if viewer == nil {
+		return false
+	}
+	if viewer.ID == authorID {
+		return true
+	}
+	ok, err := moderation.CanModerate(ctx, s.Pool, communityID, viewer.ID)
+	return err == nil && ok
 }
 
 // Saved lists what viewer saved, newest save first.
@@ -325,7 +360,7 @@ func (s *Service) Saved(ctx context.Context, viewer actors.Actor, before string)
 			MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 			AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 			CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
-			Image: r.HasImage, Locked: r.Locked,
+			Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
 		})}
 		if r.CommentID != nil {
 			item.Comment = &CommentView{

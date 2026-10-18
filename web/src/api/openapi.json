@@ -1092,6 +1092,10 @@
           "ref": {
             "type": "string"
           },
+          "removed": {
+            "description": "true when a moderator removed it; only its author and the moderators see it",
+            "type": "boolean"
+          },
           "score": {
             "format": "int32",
             "type": "integer"
@@ -1118,6 +1122,7 @@
           "image",
           "nsfw",
           "locked",
+          "removed",
           "author",
           "published",
           "score",

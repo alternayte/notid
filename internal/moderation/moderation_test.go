@@ -213,3 +213,29 @@ func moderationCommunityID(ctx context.Context, f fixture) (int64, error) {
 	err := f.svc.Pool.QueryRow(ctx, `SELECT c.id FROM communities c WHERE c.name = $1`, f.name).Scan(&id)
 	return id, err
 }
+
+func TestARemovedPostShowsOnlyToItsAuthorAndTheModerators(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	if _, err := f.svc.Remove(ctx, f.owner, f.postApID, "Be kind"); err != nil {
+		t.Fatal(err)
+	}
+	thread := f.discussion()
+	tv, err := thread.Thread(ctx, f.post.Ref, &f.member)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !tv.Post.Removed || tv.Post.BodyHTML != "" {
+		t.Fatalf("the author's removal notice %+v", tv.Post)
+	}
+	if _, err := thread.Thread(ctx, f.post.Ref, &f.owner); err != nil {
+		t.Fatalf("a moderator cannot see the removal notice: %v", err)
+	}
+	stranger := person(t, pgtest.Tx(t), "trusted")
+	if _, err := thread.Thread(ctx, f.post.Ref, &stranger); !errors.Is(err, discussions.ErrNoObject) {
+		t.Fatalf("a stranger saw a removed post: %v", err)
+	}
+	if _, err := thread.Thread(ctx, f.post.Ref, nil); !errors.Is(err, discussions.ErrNoObject) {
+		t.Fatalf("a signed-out reader saw a removed post: %v", err)
+	}
+}

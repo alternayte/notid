@@ -1,4 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
+import { moderationLogOptions } from '~/api/gen/@tanstack/react-query.gen'
 import type { Detail } from '~/api/gen/types.gen'
+import { Age } from '~/discussions/Age'
 import { Kicker } from '~/ui/Kicker'
 import { fromRenderer, Rendered } from '~/ui/RenderedHtml'
 
@@ -37,6 +40,7 @@ export function About({ community: c }: { community: Detail }) {
           </ul>
         </section>
       )}
+      <ModerationLog handle={c.handle} />
       {c.appealsContact && (
         <section className="flex flex-col gap-2 border-t border-rule pt-3">
           <Kicker>Appeals</Kicker>
@@ -47,4 +51,56 @@ export function About({ community: c }: { community: Detail }) {
       )}
     </aside>
   )
+}
+
+// ModerationLog shows the community's public record of moderator actions.
+function ModerationLog({ handle }: { handle: string }) {
+  const { data, isError } = useQuery({ ...moderationLogOptions({ path: { handle } }), retry: false })
+  if (isError) {
+    return (
+      <section className="flex flex-col gap-2 border-t border-rule pt-3">
+        <Kicker>Moderation log</Kicker>
+        <p className="font-sans text-sm text-danger">The log did not load.</p>
+      </section>
+    )
+  }
+  const entries = data?.entries ?? []
+  return (
+    <section className="flex flex-col gap-3 border-t border-rule pt-3">
+      <Kicker>Moderation log</Kicker>
+      {entries.length === 0 ? (
+        <p className="font-serif text-sm text-ink-faint">No moderator actions yet.</p>
+      ) : (
+        <ol className="flex flex-col gap-2 font-sans text-xs text-ink-soft">
+          {entries.slice(0, 10).map((e) => (
+            <li key={e.id}>
+              <span className="font-semibold text-ink">{actionLabel(e.action)}</span>
+              {e.target && <span className="text-ink-faint"> · {e.target}</span>}
+              {e.reason && <span className="block text-ink-faint">{e.reason}</span>}
+              <span className="block text-ink-faint">
+                {e.moderator} · <Age iso={e.createdAt} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+const actionLabels: Record<string, string> = {
+  remove_post: 'Post removed',
+  restore_post: 'Post restored',
+  remove_comment: 'Reply removed',
+  restore_comment: 'Reply restored',
+  lock: 'Post locked',
+  unlock: 'Post unlocked',
+  ban: 'Ban',
+  unban: 'Ban lifted',
+  report_upheld: 'Report upheld',
+  report_dismissed: 'Report dismissed',
+}
+
+function actionLabel(action: string): string {
+  return actionLabels[action] ?? action.replaceAll('_', ' ')
 }

@@ -454,6 +454,10 @@ export type PostView = {
     nsfw: boolean;
     published: string;
     ref: string;
+    /**
+     * true when a moderator removed it; only its author and the moderators see it
+     */
+    removed: boolean;
     score: number;
     title: string;
     url: string;

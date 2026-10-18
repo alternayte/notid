@@ -80,6 +80,11 @@ func moderator(ctx context.Context, q *moderationdb.Queries, communityID, actorI
 	return nil
 }
 
+// CanModerate reports whether actor holds a moderator or owner role in community.
+func CanModerate(ctx context.Context, db moderationdb.DBTX, communityID, actorID int64) (bool, error) {
+	return moderator(ctx, moderationdb.New(db), communityID, actorID) == nil, nil
+}
+
 // Banned reports whether actor is banned from community now. A ban whose
 // expiry has passed no longer applies.
 func Banned(ctx context.Context, db moderationdb.DBTX, communityID, actorID int64) (bool, error) {

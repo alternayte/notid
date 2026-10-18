@@ -22,6 +22,7 @@ import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 import { Route as UHandleRouteImport } from './routes/u.$handle'
 import { Route as CHandleManageRouteImport } from './routes/c.$handle_.manage'
+import { Route as CHandleReportsRouteImport } from './routes/c.$handle_.reports'
 import { Route as CHandlePRefRouteImport } from './routes/c.$handle_.p.$ref'
 
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +90,11 @@ const CHandleManageRoute = CHandleManageRouteImport.update({
   path: '/c/$handle/manage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CHandleReportsRoute = CHandleReportsRouteImport.update({
+  id: '/c/$handle_/reports',
+  path: '/c/$handle/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CHandlePRefRoute = CHandlePRefRouteImport.update({
   id: '/c/$handle_/p/$ref',
   path: '/c/$handle/p/$ref',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/login/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
   '/c/$handle/manage': typeof CHandleManageRoute
+  '/c/$handle/reports': typeof CHandleReportsRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/login/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
   '/c/$handle/manage': typeof CHandleManageRoute
+  '/c/$handle/reports': typeof CHandleReportsRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/login_/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
   '/c/$handle_/manage': typeof CHandleManageRoute
+  '/c/$handle_/reports': typeof CHandleReportsRoute
   '/c/$handle_/p/$ref': typeof CHandlePRefRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/login/verify'
     | '/u/$handle'
     | '/c/$handle/manage'
+    | '/c/$handle/reports'
     | '/c/$handle/p/$ref'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/login/verify'
     | '/u/$handle'
     | '/c/$handle/manage'
+    | '/c/$handle/reports'
     | '/c/$handle/p/$ref'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/login_/verify'
     | '/u/$handle'
     | '/c/$handle_/manage'
+    | '/c/$handle_/reports'
     | '/c/$handle_/p/$ref'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   LoginVerifyRoute: typeof LoginVerifyRoute
   UHandleRoute: typeof UHandleRoute
   CHandleManageRoute: typeof CHandleManageRoute
+  CHandleReportsRoute: typeof CHandleReportsRoute
   CHandlePRefRoute: typeof CHandlePRefRoute
 }
 
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CHandleManageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$handle_/reports': {
+      id: '/c/$handle_/reports'
+      path: '/c/$handle/reports'
+      fullPath: '/c/$handle/reports'
+      preLoaderRoute: typeof CHandleReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$handle_/p/$ref': {
       id: '/c/$handle_/p/$ref'
       path: '/c/$handle/p/$ref'
@@ -329,6 +349,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginVerifyRoute: LoginVerifyRoute,
   UHandleRoute: UHandleRoute,
   CHandleManageRoute: CHandleManageRoute,
+  CHandleReportsRoute: CHandleReportsRoute,
   CHandlePRefRoute: CHandlePRefRoute,
 }
 export const routeTree = rootRouteImport

@@ -16,6 +16,7 @@ import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
 import { SaveButton } from '~/discussions/SaveButton'
 import { type Node, tree } from '~/discussions/tree'
 import { Votes } from '~/discussions/Votes'
+import { ModActions } from '~/moderation/ModActions'
 import { Kicker } from '~/ui/Kicker'
 import { BotLabel } from '~/ui/PostCard'
 import { fromRenderer, Rendered } from '~/ui/RenderedHtml'
@@ -48,6 +49,9 @@ function ThreadPage() {
   const comments = useMemo(() => tree(t.comments), [t.comments])
   const p = t.post
   const open = c.state === 'active' || !c.local
+  const canModerate =
+    c.local && (c.membership?.role === 'owner' || c.membership?.role === 'moderator') && c.state === 'active'
+  const signInToReport = me !== undefined && me.handle !== p.author.handle
 
   async function reply(inReplyTo: string, text: string) {
     try {
@@ -65,6 +69,20 @@ function ThreadPage() {
           <p role="status" className="rounded-sm bg-mark-wash px-4 py-3 font-sans text-sm">
             This community is moving to another site. It is read-only for now.
           </p>
+        )}
+        {p.removed && (
+          <div role="status" className="flex flex-col gap-2 rounded-sm bg-mark-wash px-4 py-3 font-sans text-sm">
+            <p className="font-semibold">A moderator removed this post.</p>
+            <p>
+              Only you and the moderators can see it now.
+              {c.appealsContact && (
+                <>
+                  {' '}
+                  To appeal, contact <span className="font-semibold">{c.appealsContact}</span>.
+                </>
+              )}
+            </p>
+          </div>
         )}
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col gap-6">
@@ -98,6 +116,17 @@ function ThreadPage() {
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />
                 <SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />
+                <ModActions
+                  apId={p.apId}
+                  kind="post"
+                  ref={p.ref}
+                  community={p.community}
+                  author={p.author.handle}
+                  removed={p.removed}
+                  locked={p.locked}
+                  canModerate={canModerate}
+                  canReport={signInToReport}
+                />
               </div>
             </article>
             <section
@@ -130,7 +159,7 @@ function ThreadPage() {
                       <SaveButton apId={n.apId} initial={n.viewer.saved} label={`${n.author}'s comment`} />
                     </>
                   )}
-                  onReply={open && me ? (n, text) => reply(n.apId, text) : undefined}
+                  onReply={open && !p.locked && !p.removed && me ? (n, text) => reply(n.apId, text) : undefined}
                 />
               )}
               {t.truncated && (
