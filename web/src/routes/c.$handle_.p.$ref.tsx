@@ -14,6 +14,7 @@ import { accentAttr } from '~/communities/accents'
 import { Age } from '~/discussions/Age'
 import { CommentAuthorActions, PostAuthorActions } from '~/discussions/AuthorActions'
 import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
+import { DeliveryNote } from '~/discussions/DeliveryNote'
 import { SaveButton } from '~/discussions/SaveButton'
 import { type Node, tree } from '~/discussions/tree'
 import { Votes } from '~/discussions/Votes'
@@ -114,8 +115,9 @@ function ThreadPage() {
                 </a>
               )}
               {p.bodyHtml && <Rendered html={fromRenderer(p.bodyHtml)} className="prose-news" />}
+              <DeliveryNote delivery={p.delivery} community={p.community} />
               <div className="flex flex-wrap items-center gap-4 pt-2">
-                <Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />
+                <Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} community={p.community} />
                 <SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />
                 <ModActions
                   apId={p.apId}
@@ -157,7 +159,13 @@ function ThreadPage() {
                   comments={comments.map(node)}
                   renderActions={(n) => (
                     <>
-                      <Votes apId={n.apId} score={n.score} viewer={n.viewer} label={`${n.author}'s comment`} />
+                      <Votes
+                        apId={n.apId}
+                        score={n.score}
+                        viewer={n.viewer}
+                        label={`${n.author}'s comment`}
+                        community={p.community}
+                      />
                       <SaveButton apId={n.apId} initial={n.viewer.saved} label={`${n.author}'s comment`} />
                       {me?.handle === n.authorHandle && !n.gone && open && (
                         <CommentAuthorActions
@@ -168,6 +176,7 @@ function ThreadPage() {
                           }
                         />
                       )}
+                      <DeliveryNote delivery={n.delivery} community={p.community} />
                     </>
                   )}
                   onReply={open && !p.locked && !p.removed && me ? (n, text) => reply(n.apId, text) : undefined}
@@ -188,7 +197,7 @@ function ThreadPage() {
 }
 
 type ThreadNode = CommentNode &
-  Pick<Node, 'apId' | 'score' | 'viewer' | 'ref'> & {
+  Pick<Node, 'apId' | 'score' | 'viewer' | 'ref' | 'delivery'> & {
     authorHandle: string
     markdown: string
     replies: ThreadNode[]
@@ -201,6 +210,7 @@ function node(n: Node): ThreadNode {
     score: n.score,
     viewer: n.viewer,
     ref: n.ref,
+    delivery: n.delivery,
     markdown: n.body,
     authorHandle: n.author.handle,
     gone: n.gone,

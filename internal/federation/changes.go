@@ -21,7 +21,7 @@ func (s *Server) SendPostUpdate(ctx context.Context, tx pgx.Tx, author actors.Ac
 	if err != nil {
 		return fmt.Errorf("post %s: %w", post.ApID, err)
 	}
-	return s.sendUpdate(ctx, tx, author, post.CommunityID, s.pageDoc(doc))
+	return s.sendUpdate(ctx, tx, author, post.CommunityID, s.pageDoc(doc), post.ID, 0)
 }
 
 // SendCommentUpdate federates an author's edit of a comment.
@@ -30,15 +30,15 @@ func (s *Server) SendCommentUpdate(ctx context.Context, tx pgx.Tx, author actors
 	if err != nil {
 		return fmt.Errorf("comment %s: %w", comment.ApID, err)
 	}
-	return s.sendUpdate(ctx, tx, author, doc.CommunityID, s.noteDoc(doc))
+	return s.sendUpdate(ctx, tx, author, doc.CommunityID, s.noteDoc(doc), 0, comment.ID)
 }
 
-func (s *Server) sendUpdate(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, obj objectDoc) error {
+func (s *Server) sendUpdate(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, obj objectDoc, postID, commentID int64) error {
 	id, err := newActivityID(author.ApID)
 	if err != nil {
 		return err
 	}
-	return s.publish(ctx, tx, author, communityID, map[string]any{
+	return s.publishTo(ctx, tx, author, communityID, map[string]any{
 		"@context": activityStreams,
 		"id":       id,
 		"type":     "Update",
@@ -47,7 +47,7 @@ func (s *Server) sendUpdate(ctx context.Context, tx pgx.Tx, author actors.Actor,
 		"cc":       obj.Cc,
 		"audience": obj.Audience,
 		"object":   obj,
-	})
+	}, postID, commentID)
 }
 
 // SendPostDelete federates an author's deletion of a post.

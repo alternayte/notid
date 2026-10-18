@@ -358,6 +358,9 @@
           "bodyHtml": {
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
           "gone": {
             "description": "true when the comment was deleted or removed",
             "type": "boolean"
@@ -527,6 +530,27 @@
         "required": [
           "apId",
           "ref"
+        ],
+        "type": "object"
+      },
+      "Delivery": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "description": "Why the peer refused it, when it did",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "delivered",
+              "rejected"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
         ],
         "type": "object"
       },
@@ -1306,6 +1330,9 @@
           },
           "communityTitle": {
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
           },
           "excerpt": {
             "description": "Plain text from the start of the body, for lists",

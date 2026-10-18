@@ -3,11 +3,15 @@ package federation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/riverqueue/river"
 
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities"
@@ -177,4 +181,88 @@ func TestAccountDeletionTellsFollowersAndRemoteCommunities(t *testing.T) {
 	if inner["type"] != "Follow" || inner["id"] != followApID || inner["object"] != group.ApID {
 		t.Fatalf("undo %v", byType["Undo"])
 	}
+}
+
+func TestDeliveryOfAPostIntoARemoteCommunityIsRecordedForItsAuthor(t *testing.T) {
+	ctx := context.Background()
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	person := localPerson(t, s, "writer")
+	group, err := actors.UpsertRemote(ctx, s.Pool, actors.Remote{
+		ApID: "http://" + peer.host + "/c/wood", Kind: "group", Domain: peer.host, Name: "wood",
+		Inbox: "http://" + peer.host + "/c/wood/inbox",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var communityID int64
+	if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, 'wood') RETURNING id`,
+		group.ID, peer.host).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	post, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{
+		CommunityID: communityID, Author: person, Title: "Over there", Body: "body", Published: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	tx, err = s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SendPost(ctx, tx, person, post); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if state := deliveryState(t, s, post.ID); state != "pending" {
+		t.Fatalf("state after writing is %q", state)
+	}
+	queued := jobs(t, s, "deliver", "post_id", strconv.FormatInt(post.ID, 10))
+	if len(queued) != 1 {
+		t.Fatalf("delivery jobs: %d", len(queued))
+	}
+	work := func() error {
+		return (&deliverWorker{s: s}).Work(ctx, job[DeliverArgs](t, queued[0]))
+	}
+
+	peer.status = http.StatusForbidden
+	var cancel *river.JobCancelError
+	if err := work(); !errors.As(err, &cancel) {
+		t.Fatalf("403: %v, want a cancelled job", err)
+	}
+	var reason string
+	if err := s.Pool.QueryRow(ctx, `SELECT coalesce(delivery_error, '') FROM posts WHERE id = $1`, post.ID).Scan(&reason); err != nil {
+		t.Fatal(err)
+	}
+	if state := deliveryState(t, s, post.ID); state != "rejected" || !strings.Contains(reason, "403") {
+		t.Fatalf("state %q reason %q", state, reason)
+	}
+
+	peer.status = http.StatusAccepted
+	if err := work(); err != nil {
+		t.Fatal(err)
+	}
+	if state := deliveryState(t, s, post.ID); state != "delivered" {
+		t.Fatalf("state after a successful send is %q", state)
+	}
+}
+
+func deliveryState(t *testing.T, s *Server, postID int64) string {
+	t.Helper()
+	var state string
+	if err := s.Pool.QueryRow(context.Background(),
+		`SELECT coalesce(delivery_state, '') FROM posts WHERE id = $1`, postID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	return state
 }

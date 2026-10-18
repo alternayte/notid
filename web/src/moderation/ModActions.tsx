@@ -10,6 +10,7 @@ import {
   restoreObjectMutation,
   threadQueryKey,
 } from '~/api/gen/@tanstack/react-query.gen'
+import { splitHandle } from '~/discussions/AuthorLink'
 import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
 import { Textarea } from '~/ui/primitives/textarea'
@@ -39,6 +40,7 @@ export function ModActions(p: Props) {
   const [reason, setReason] = useState('')
   const [days, setDays] = useState('')
   const [failed, setFailed] = useState<string | null>(null)
+  const host = splitHandle(p.community).host
 
   async function run(action: () => Promise<unknown>) {
     setFailed(null)
@@ -123,8 +125,17 @@ export function ModActions(p: Props) {
             autoFocus
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="What is wrong with it? The moderators of this community see this."
+            placeholder={
+              host
+                ? `What is wrong with it? The moderators on ${host} see who reported it.`
+                : 'What is wrong with it? The moderators of this community see this.'
+            }
           />
+          {host && (
+            <p className="font-sans text-xs text-ink-faint">
+              The report goes to {host}. Admins there can see who reported it, and that site decides what happens.
+            </p>
+          )}
           <div className="flex gap-2">
             <Button type="submit">Send report</Button>
             <Button type="button" variant="quiet" onClick={() => setOpen(null)}>

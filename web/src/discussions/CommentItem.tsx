@@ -37,7 +37,7 @@ export function CommentItem({
       </p>
       <Rendered html={fromRenderer(c.bodyHtml)} className="prose-news text-base" />
       <div className="flex flex-wrap items-center gap-4">
-        <Votes apId={c.apId} score={c.score} viewer={c.viewer} label={label} />
+        <Votes apId={c.apId} score={c.score} viewer={c.viewer} label={label} community={post.community} />
         <SaveButton apId={c.apId} initial={c.viewer.saved} label={label} />
       </div>
     </article>

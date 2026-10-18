@@ -265,6 +265,30 @@ func TombstoneContentOfAuthor(ctx context.Context, db discussionsdb.DBTX, author
 	return nil
 }
 
+// RecordDelivery stores how far a peer got with the author's newest activity
+// about their own post or comment. Only one of postID and commentID is set.
+func RecordDelivery(ctx context.Context, db discussionsdb.DBTX, postID, commentID int64, state, reason string) error {
+	if len(reason) > deliveryReasonMax {
+		reason = reason[:deliveryReasonMax]
+	}
+	q := discussionsdb.New(db)
+	if postID != 0 {
+		if err := q.SetPostDelivery(ctx, discussionsdb.SetPostDeliveryParams{ID: postID, State: &state, DeliveryError: reason}); err != nil {
+			return fmt.Errorf("delivery of post %d: %w", postID, err)
+		}
+		return nil
+	}
+	if commentID != 0 {
+		if err := q.SetCommentDelivery(ctx, discussionsdb.SetCommentDeliveryParams{ID: commentID, State: &state, DeliveryError: reason}); err != nil {
+			return fmt.Errorf("delivery of comment %d: %w", commentID, err)
+		}
+	}
+	return nil
+}
+
+// deliveryReasonMax keeps a peer's answer to one line in the thread.
+const deliveryReasonMax = 400
+
 // ApplyRemoteLock locks or unlocks a remote post, as its group asked.
 func ApplyRemoteLock(ctx context.Context, db discussionsdb.DBTX, apID string, locked bool) (bool, error) {
 	q := discussionsdb.New(db)

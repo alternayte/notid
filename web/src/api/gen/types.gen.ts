@@ -144,6 +144,7 @@ export type CommentView = {
      */
     body: string;
     bodyHtml: string;
+    delivery?: Delivery;
     /**
      * true when the comment was deleted or removed
      */
@@ -208,6 +209,14 @@ export type Created = {
     readonly $schema?: string;
     apId: string;
     ref: string;
+};
+
+export type Delivery = {
+    /**
+     * Why the peer refused it, when it did
+     */
+    error?: string;
+    state: 'pending' | 'delivered' | 'rejected';
 };
 
 export type Detail = {
@@ -543,6 +552,7 @@ export type PostView = {
      */
     community: string;
     communityTitle: string;
+    delivery?: Delivery;
     /**
      * Plain text from the start of the body, for lists
      */

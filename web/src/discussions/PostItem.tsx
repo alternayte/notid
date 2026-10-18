@@ -34,7 +34,7 @@ export function PostItem({ post: p, showCommunity = true }: { post: PostView; sh
           <img src={p.url} alt="" loading="lazy" className="aspect-square w-full rounded-sm object-cover" />
         ) : undefined
       }
-      votes={<Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />}
+      votes={<Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} community={p.community} />}
       actions={<SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />}
     />
   )

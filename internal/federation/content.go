@@ -104,12 +104,18 @@ func (s *Server) object(w http.ResponseWriter, r *http.Request) {
 // to the group's inbox for a remote community, or as the group's Announce to
 // its followers for a local one.
 func (s *Server) publish(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, act map[string]any) error {
+	return s.publishTo(ctx, tx, author, communityID, act, 0, 0)
+}
+
+// publishTo sends an activity about a local post or comment. Only content
+// written into a community on another installation carries delivery state.
+func (s *Server) publishTo(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, act map[string]any, postID, commentID int64) error {
 	c, err := federationdb.New(tx).CommunityByID(ctx, communityID)
 	if err != nil {
 		return fmt.Errorf("community %d: %w", communityID, err)
 	}
 	if !c.Local {
-		return s.deliver(ctx, tx, author.ID, c.Inbox, act)
+		return s.deliverContent(ctx, tx, author.ID, c.Inbox, act, postID, commentID)
 	}
 	return s.announce(ctx, tx, c, act, "")
 }
@@ -157,7 +163,7 @@ func (s *Server) SendPost(ctx context.Context, tx pgx.Tx, author actors.Actor, p
 		return fmt.Errorf("post %s: %w", post.ApID, err)
 	}
 	page := s.pageDoc(p)
-	return s.sendCreate(ctx, tx, author, post.CommunityID, page)
+	return s.sendCreate(ctx, tx, author, post.CommunityID, page, post.ID, 0)
 }
 
 // SendComment federates a new local comment.
@@ -166,15 +172,15 @@ func (s *Server) SendComment(ctx context.Context, tx pgx.Tx, author actors.Actor
 	if err != nil {
 		return fmt.Errorf("comment %s: %w", comment.ApID, err)
 	}
-	return s.sendCreate(ctx, tx, author, c.CommunityID, s.noteDoc(c))
+	return s.sendCreate(ctx, tx, author, c.CommunityID, s.noteDoc(c), 0, comment.ID)
 }
 
-func (s *Server) sendCreate(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, obj objectDoc) error {
+func (s *Server) sendCreate(ctx context.Context, tx pgx.Tx, author actors.Actor, communityID int64, obj objectDoc, postID, commentID int64) error {
 	id, err := newActivityID(author.ApID)
 	if err != nil {
 		return err
 	}
-	return s.publish(ctx, tx, author, communityID, map[string]any{
+	return s.publishTo(ctx, tx, author, communityID, map[string]any{
 		"@context": activityStreams,
 		"id":       id,
 		"type":     "Create",
@@ -183,7 +189,7 @@ func (s *Server) sendCreate(ctx context.Context, tx pgx.Tx, author actors.Actor,
 		"cc":       obj.Cc,
 		"audience": obj.Audience,
 		"object":   obj,
-	})
+	}, postID, commentID)
 }
 
 // SendVote federates a vote change: Like or Dislike for 1 or -1, and an Undo

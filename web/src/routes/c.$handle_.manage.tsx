@@ -47,7 +47,11 @@ function Manage() {
           <h1 className="font-display text-4xl tracking-tight">Manage the community</h1>
         </div>
         {!allowed ? (
-          <p className="font-sans text-sm text-ink-soft">Only the community's owners and moderators can change it.</p>
+          <p className="font-sans text-sm text-ink-soft">
+            {c.local
+              ? "Only the community's owners and moderators can change it."
+              : `${c.title || c.name} is hosted on ${c.domain}. Its own owners and moderators change it there, and its site decides what it accepts from here.`}
+          </p>
         ) : (
           <>
             <SettingsForm

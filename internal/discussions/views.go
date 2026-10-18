@@ -31,6 +31,13 @@ type Viewer struct {
 	Saved       bool `json:"saved"`
 }
 
+// Delivery is how far the author's newest activity about their own content
+// got to a community on another installation. Only the author sees it.
+type Delivery struct {
+	State string `json:"state" enum:"pending,delivered,rejected"`
+	Error string `json:"error,omitempty" doc:"Why the peer refused it, when it did"`
+}
+
 // PostView is a post as a reader sees it.
 type PostView struct {
 	ApID           string    `json:"apId"`
@@ -51,6 +58,7 @@ type PostView struct {
 	Score          int32     `json:"score"`
 	Comments       int32     `json:"comments"`
 	Viewer         Viewer    `json:"viewer"`
+	Delivery       *Delivery `json:"delivery,omitempty"`
 }
 
 // CommentView is a comment as a reader sees it. A deleted or removed comment
@@ -66,6 +74,7 @@ type CommentView struct {
 	Published time.Time `json:"published"`
 	Score     int32     `json:"score"`
 	Viewer    Viewer    `json:"viewer"`
+	Delivery  *Delivery `json:"delivery,omitempty"`
 }
 
 // ThreadView is a post with its comments in the order they were written.
@@ -325,7 +334,36 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 		}
 		t.Comments = append(t.Comments, c)
 	}
+	if viewer != nil {
+		s.attachDelivery(ctx, &t, p.ID, viewer.ID)
+	}
 	return t, nil
+}
+
+// attachDelivery shows the viewer how their own content in this thread was
+// delivered to a peer. Nothing is shown for content a peer already had.
+func (s *Service) attachDelivery(ctx context.Context, t *ThreadView, postID, viewerID int64) {
+	rows, err := discussionsdb.New(s.Pool).DeliveryOfAuthor(ctx, discussionsdb.DeliveryOfAuthorParams{
+		PostID: postID, AuthorID: viewerID,
+	})
+	if err != nil {
+		return
+	}
+	for _, r := range rows {
+		if r.DeliveryState == nil {
+			continue
+		}
+		d := &Delivery{State: *r.DeliveryState, Error: r.DeliveryError}
+		if r.Kind == "post" && t.Post.Ref == r.Ref {
+			t.Post.Delivery = d
+			continue
+		}
+		for i := range t.Comments {
+			if t.Comments[i].Ref == r.Ref {
+				t.Comments[i].Delivery = d
+			}
+		}
+	}
 }
 
 // maySeeRemoved reports whether viewer is the post's author or a moderator of

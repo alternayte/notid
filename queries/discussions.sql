@@ -417,3 +417,22 @@ WHERE author_id = @author_id AND deleted_at IS NULL;
 UPDATE posts SET locked = @locked
 WHERE ap_id = @ap_id AND deleted_at IS NULL
 RETURNING *;
+
+-- Delivery progress is for the author of content written into a community on
+-- another installation.
+-- name: SetPostDelivery :exec
+UPDATE posts SET delivery_state = @state, delivery_error = @delivery_error
+WHERE id = @id AND local;
+
+-- name: SetCommentDelivery :exec
+UPDATE comments SET delivery_state = @state, delivery_error = @delivery_error
+WHERE id = @id AND local;
+
+-- name: DeliveryOfAuthor :many
+SELECT 'post'::text AS kind, p.ref, p.delivery_state, p.delivery_error
+FROM posts p
+WHERE p.id = @post_id AND p.author_id = @author_id AND p.delivery_state IS NOT NULL
+UNION ALL
+SELECT 'comment'::text, c.ref, c.delivery_state, c.delivery_error
+FROM comments c
+WHERE c.post_id = @post_id AND c.author_id = @author_id AND c.delivery_state IS NOT NULL;

@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/federation/federationdb"
 )
 
@@ -22,6 +24,10 @@ type DeliverArgs struct {
 	Inbox    string          `json:"inbox"`
 	Activity json.RawMessage `json:"activity"`
 	SignerID int64           `json:"signer_id"`
+	// PostID or CommentID names the local content this activity writes, so the
+	// job can record the peer's answer on it.
+	PostID    int64 `json:"post_id,omitempty"`
+	CommentID int64 `json:"comment_id,omitempty"`
 }
 
 func (DeliverArgs) Kind() string { return "deliver" }
@@ -35,22 +41,47 @@ func (DeliverArgs) InsertOpts() river.InsertOpts {
 // deliver queues activity for inbox inside tx, so the write and its delivery
 // commit together.
 func (s *Server) deliver(ctx context.Context, tx pgx.Tx, signerID int64, inbox string, activity any) error {
+	return s.deliverContent(ctx, tx, signerID, inbox, activity, 0, 0)
+}
+
+// deliverContent queues an activity about a local post or comment and records
+// on that row that the peer has not answered yet.
+func (s *Server) deliverContent(ctx context.Context, tx pgx.Tx, signerID int64, inbox string, activity any, postID, commentID int64) error {
 	body, err := json.Marshal(activity)
 	if err != nil {
 		return fmt.Errorf("encode activity: %w", err)
 	}
-	if _, err := s.River.InsertTx(ctx, tx, DeliverArgs{Inbox: inbox, Activity: body, SignerID: signerID}, nil); err != nil {
+	if postID != 0 || commentID != 0 {
+		if err := discussions.RecordDelivery(ctx, tx, postID, commentID, "pending", ""); err != nil {
+			return err
+		}
+	}
+	args := DeliverArgs{Inbox: inbox, Activity: body, SignerID: signerID, PostID: postID, CommentID: commentID}
+	if _, err := s.River.InsertTx(ctx, tx, args, nil); err != nil {
 		return fmt.Errorf("queue delivery to %s: %w", inbox, err)
 	}
 	return nil
 }
 
-var (
-	// errPermanent is a refusal by the peer that a retry cannot change.
-	errPermanent = errors.New("the peer refused the activity")
-	// errMaybeTransient marks a 400, which some peers also answer for their own transient failures.
-	errMaybeTransient = errors.New("bad request")
-)
+// refusal is a peer's 4xx answer. A retry cannot change it, apart from a 400,
+// which some peers also answer for their own transient failures.
+type refusal struct {
+	status int
+	msg    string
+	inbox  string
+}
+
+func (r *refusal) Error() string {
+	return fmt.Sprintf("the peer refused the activity: %s answered %d: %s", r.inbox, r.status, r.msg)
+}
+
+// reason is the peer's answer without the inbox, for the author to read.
+func (r *refusal) reason() string {
+	if r.msg == "" {
+		return strconv.Itoa(r.status)
+	}
+	return fmt.Sprintf("%d: %s", r.status, r.msg)
+}
 
 type deliverWorker struct {
 	river.WorkerDefaults[DeliverArgs]
@@ -76,38 +107,58 @@ func (w *deliverWorker) Work(ctx context.Context, job *river.Job[DeliverArgs]) e
 	}
 	if err == nil {
 		if p.Blocked {
+			w.rejected(ctx, job.Args, "this installation does not federate with "+peer)
 			return river.JobCancel(fmt.Errorf("peer %s is blocked", peer))
 		}
 		if p.FailingSince != nil && time.Since(*p.FailingSince) > s.Tuning.DeliveryRetryWindow {
+			w.rejected(ctx, job.Args, "no answer from "+peer+" for "+s.Tuning.DeliveryRetryWindow.String())
 			return river.JobCancel(fmt.Errorf("peer %s has failed since %s", peer, p.FailingSince.Format(time.RFC3339)))
 		}
 	}
 
 	err = s.post(ctx, job.Args)
 	var local *river.JobCancelError
+	var ref *refusal
 	switch {
 	case errors.As(err, &local):
 		return err
 	case err == nil:
+		w.record(ctx, job.Args, "delivered", "")
 		return q.PeerOK(ctx, peer)
-	case errors.Is(err, errPermanent) && errors.Is(err, errMaybeTransient) && job.Attempt < w.s.Tuning.DeliveryBadRequestRetries:
+	case errors.As(err, &ref) && ref.status == http.StatusBadRequest && job.Attempt < w.s.Tuning.DeliveryBadRequestRetries:
 		// Lemmy answers 400 when its own fetch of an actor fails, for example
 		// over stale DNS during a move; a few retries let that pass.
 		return err
-	case errors.Is(err, errPermanent):
+	case errors.As(err, &ref):
 		// The peer answered, so it is reachable.
 		if okErr := q.PeerOK(ctx, peer); okErr != nil {
 			s.Log.ErrorContext(ctx, "mark peer", "peer", peer, "err", okErr)
 		}
+		w.rejected(ctx, job.Args, ref.reason())
 		return river.JobCancel(err)
 	}
 	if failErr := q.PeerFailing(ctx, peer); failErr != nil {
 		s.Log.ErrorContext(ctx, "mark peer", "peer", peer, "err", failErr)
 	}
 	if time.Since(job.CreatedAt) > s.Tuning.DeliveryRetryWindow {
+		w.rejected(ctx, job.Args, "no answer for "+s.Tuning.DeliveryRetryWindow.String())
 		return river.JobCancel(fmt.Errorf("gave up after %s: %w", s.Tuning.DeliveryRetryWindow, err))
 	}
 	return err
+}
+
+// rejected records that a peer will not have the activity.
+func (w *deliverWorker) rejected(ctx context.Context, args DeliverArgs, reason string) {
+	w.record(ctx, args, "rejected", reason)
+}
+
+func (w *deliverWorker) record(ctx context.Context, args DeliverArgs, state, reason string) {
+	if args.PostID == 0 && args.CommentID == 0 {
+		return
+	}
+	if err := discussions.RecordDelivery(ctx, w.s.Pool, args.PostID, args.CommentID, state, reason); err != nil {
+		w.s.Log.ErrorContext(ctx, "record delivery", "post", args.PostID, "comment", args.CommentID, "err", err)
+	}
 }
 
 // post signs and sends one delivery. It wraps errPermanent for a 4xx answer
@@ -142,11 +193,7 @@ func (s *Server) post(ctx context.Context, args DeliverArgs) error {
 		return nil
 	case resp.StatusCode >= 400 && resp.StatusCode < 500 &&
 		resp.StatusCode != http.StatusRequestTimeout && resp.StatusCode != http.StatusTooManyRequests:
-		err := fmt.Errorf("%w: %s answered %d: %s", errPermanent, args.Inbox, resp.StatusCode, bytes.TrimSpace(msg))
-		if resp.StatusCode == http.StatusBadRequest {
-			err = fmt.Errorf("%w (%w)", err, errMaybeTransient)
-		}
-		return err
+		return &refusal{status: resp.StatusCode, msg: string(bytes.TrimSpace(msg)), inbox: args.Inbox}
 	default:
 		return fmt.Errorf("%s answered %d: %s", args.Inbox, resp.StatusCode, bytes.TrimSpace(msg))
 	}

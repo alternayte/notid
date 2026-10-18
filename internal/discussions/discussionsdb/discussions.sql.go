@@ -820,6 +820,53 @@ func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 	return err
 }
 
+const deliveryOfAuthor = `-- name: DeliveryOfAuthor :many
+SELECT 'post'::text AS kind, p.ref, p.delivery_state, p.delivery_error
+FROM posts p
+WHERE p.id = $1 AND p.author_id = $2 AND p.delivery_state IS NOT NULL
+UNION ALL
+SELECT 'comment'::text, c.ref, c.delivery_state, c.delivery_error
+FROM comments c
+WHERE c.post_id = $1 AND c.author_id = $2 AND c.delivery_state IS NOT NULL
+`
+
+type DeliveryOfAuthorParams struct {
+	PostID   int64
+	AuthorID int64
+}
+
+type DeliveryOfAuthorRow struct {
+	Kind          string
+	Ref           string
+	DeliveryState *string
+	DeliveryError string
+}
+
+func (q *Queries) DeliveryOfAuthor(ctx context.Context, arg DeliveryOfAuthorParams) ([]DeliveryOfAuthorRow, error) {
+	rows, err := q.db.Query(ctx, deliveryOfAuthor, arg.PostID, arg.AuthorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DeliveryOfAuthorRow
+	for rows.Next() {
+		var i DeliveryOfAuthorRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Ref,
+			&i.DeliveryState,
+			&i.DeliveryError,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const editComment = `-- name: EditComment :one
 UPDATE comments SET body = $1, updated = now()
 WHERE id = $2 AND author_id = $3 AND deleted_at IS NULL AND removed_at IS NULL
@@ -2059,6 +2106,40 @@ func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Sea
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCommentDelivery = `-- name: SetCommentDelivery :exec
+UPDATE comments SET delivery_state = $1, delivery_error = $2
+WHERE id = $3 AND local
+`
+
+type SetCommentDeliveryParams struct {
+	State         *string
+	DeliveryError string
+	ID            int64
+}
+
+func (q *Queries) SetCommentDelivery(ctx context.Context, arg SetCommentDeliveryParams) error {
+	_, err := q.db.Exec(ctx, setCommentDelivery, arg.State, arg.DeliveryError, arg.ID)
+	return err
+}
+
+const setPostDelivery = `-- name: SetPostDelivery :exec
+UPDATE posts SET delivery_state = $1, delivery_error = $2
+WHERE id = $3 AND local
+`
+
+type SetPostDeliveryParams struct {
+	State         *string
+	DeliveryError string
+	ID            int64
+}
+
+// Delivery progress is for the author of content written into a community on
+// another installation.
+func (q *Queries) SetPostDelivery(ctx context.Context, arg SetPostDeliveryParams) error {
+	_, err := q.db.Exec(ctx, setPostDelivery, arg.State, arg.DeliveryError, arg.ID)
+	return err
 }
 
 const setRemotePostLocked = `-- name: SetRemotePostLocked :one
