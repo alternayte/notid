@@ -1,6 +1,7 @@
-import { useInfiniteQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import {
+  meOptions,
   personCommentsInfiniteOptions,
   personOptions,
   personPostsInfiniteOptions,
@@ -47,6 +48,7 @@ function Profile() {
   const { handle } = Route.useParams()
   const tab = Route.useSearch().tab ?? 'posts'
   const { data: p } = useSuspenseQuery(personOptions({ path: { handle } }))
+  const { data: me } = useQuery({ ...meOptions(), retry: false })
 
   return (
     <Page>
@@ -65,6 +67,11 @@ function Profile() {
           </p>
         )}
         {p.bioHtml && <Rendered html={fromRenderer(p.bioHtml)} className="prose-news" />}
+        {me?.handle === p.handle && (
+          <Link to="/settings" className="w-fit font-sans text-sm font-semibold text-mark">
+            Edit your profile
+          </Link>
+        )}
       </header>
       <section aria-labelledby="activity" className="flex max-w-(--container-measure) flex-col gap-4">
         <div className="flex items-baseline justify-between gap-4 border-b border-rule-strong pb-1">

@@ -21,6 +21,9 @@ export function Masthead() {
           <Link to="/discover" className={navLink}>
             Discover
           </Link>
+          <Link to="/search" className={navLink}>
+            Search
+          </Link>
         </nav>
         <div className="ml-auto flex items-baseline gap-5">
           {me ? (
@@ -34,7 +37,9 @@ export function Masthead() {
               <Link to="/communities/new" className={navLink}>
                 Start a community
               </Link>
-              <span className="font-sans text-sm text-ink-faint">{me.displayName || me.name}</span>
+              <Link to="/u/$handle" params={{ handle: me.handle }} className={navLink}>
+                {me.displayName || me.name}
+              </Link>
             </>
           ) : (
             <Link to="/login" className={navLink}>

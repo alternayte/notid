@@ -96,7 +96,7 @@ func (s *Service) Register(api huma.API) {
 		}
 		return &struct{ Body Me }{Me{
 			Name:        a.Name,
-			Handle:      a.Name + "@" + a.Domain,
+			Handle:      s.Local.Handle(a.Name, a.Domain),
 			DisplayName: a.DisplayName,
 			Bot:         a.Bot,
 			Trust:       trust,

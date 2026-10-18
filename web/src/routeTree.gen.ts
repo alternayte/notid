@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SavedRouteImport } from './routes/saved'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpecimenRouteImport } from './routes/specimen'
 import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as CHandleRouteImport } from './routes/c.$handle'
@@ -40,6 +42,16 @@ const LoginRoute = LoginRouteImport.update({
 const SavedRoute = SavedRouteImport.update({
   id: '/saved',
   path: '/saved',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SpecimenRoute = SpecimenRouteImport.update({
@@ -88,6 +100,8 @@ export interface FileRoutesByFullPath {
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/saved': typeof SavedRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
@@ -102,6 +116,8 @@ export interface FileRoutesByTo {
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/saved': typeof SavedRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
@@ -117,6 +133,8 @@ export interface FileRoutesById {
   '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/saved': typeof SavedRoute
+  '/search': typeof SearchRoute
+  '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
   '/c/$handle': typeof CHandleRoute
@@ -133,6 +151,8 @@ export interface FileRouteTypes {
     | '/discover'
     | '/login'
     | '/saved'
+    | '/search'
+    | '/settings'
     | '/specimen'
     | '/submit'
     | '/c/$handle'
@@ -147,6 +167,8 @@ export interface FileRouteTypes {
     | '/discover'
     | '/login'
     | '/saved'
+    | '/search'
+    | '/settings'
     | '/specimen'
     | '/submit'
     | '/c/$handle'
@@ -161,6 +183,8 @@ export interface FileRouteTypes {
     | '/discover'
     | '/login'
     | '/saved'
+    | '/search'
+    | '/settings'
     | '/specimen'
     | '/submit'
     | '/c/$handle'
@@ -176,6 +200,8 @@ export interface RootRouteChildren {
   DiscoverRoute: typeof DiscoverRoute
   LoginRoute: typeof LoginRoute
   SavedRoute: typeof SavedRoute
+  SearchRoute: typeof SearchRoute
+  SettingsRoute: typeof SettingsRoute
   SpecimenRoute: typeof SpecimenRoute
   SubmitRoute: typeof SubmitRoute
   CHandleRoute: typeof CHandleRoute
@@ -214,6 +240,20 @@ declare module '@tanstack/react-router' {
       path: '/saved'
       fullPath: '/saved'
       preLoaderRoute: typeof SavedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/specimen': {
@@ -280,6 +320,8 @@ const rootRouteChildren: RootRouteChildren = {
   DiscoverRoute: DiscoverRoute,
   LoginRoute: LoginRoute,
   SavedRoute: SavedRoute,
+  SearchRoute: SearchRoute,
+  SettingsRoute: SettingsRoute,
   SpecimenRoute: SpecimenRoute,
   SubmitRoute: SubmitRoute,
   CHandleRoute: CHandleRoute,
