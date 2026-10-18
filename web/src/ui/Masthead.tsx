@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { meOptions } from '~/api/gen/@tanstack/react-query.gen'
 
 const navLink =
-  'font-sans text-sm font-semibold text-ink-soft no-underline transition-colors duration-(--dur-press) hover:text-ink data-[status=active]:text-ink data-[status=active]:underline data-[status=active]:decoration-mark data-[status=active]:decoration-2 data-[status=active]:underline-offset-[0.4em]'
+  'font-sans text-sm font-semibold whitespace-nowrap text-ink-soft no-underline transition-colors duration-(--dur-press) hover:text-ink data-[status=active]:text-ink data-[status=active]:underline data-[status=active]:decoration-mark data-[status=active]:decoration-2 data-[status=active]:underline-offset-[0.4em]'
 
 // The nameplate and the section links, set above a heavy rule like a front page.
 export function Masthead() {
@@ -25,7 +25,7 @@ export function Masthead() {
             Search
           </Link>
         </nav>
-        <div className="ml-auto flex items-baseline gap-5">
+        <div className="ml-auto flex flex-wrap items-baseline gap-x-5 gap-y-2">
           {me ? (
             <>
               <Link to="/submit" className={navLink}>
