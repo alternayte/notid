@@ -370,3 +370,70 @@ func TestAnAdminModeratesLocalContentInARemoteCommunityOnly(t *testing.T) {
 		t.Fatalf("site queue local %v remote %v: %+v", local, remoteSeen, reports)
 	}
 }
+
+func TestLockingAPostFederatesAsTheGroup(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	var community int64
+	var apID string
+	var locked bool
+	f.svc.SendLock = func(_ context.Context, _ pgx.Tx, communityID int64, postApID string, value bool) error {
+		community, apID, locked = communityID, postApID, value
+		return nil
+	}
+	if _, err := f.svc.SetLocked(ctx, f.owner, f.postApID, true); err != nil {
+		t.Fatal(err)
+	}
+	want, err := moderationCommunityID(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if community != want || apID != f.postApID || !locked {
+		t.Fatalf("lock sent as community %d post %q locked %v", community, apID, locked)
+	}
+	if _, err := f.svc.SetLocked(ctx, f.owner, f.postApID, false); err != nil {
+		t.Fatal(err)
+	}
+	if locked {
+		t.Fatal("unlock did not reach the group")
+	}
+}
+
+func TestBanningARemotePersonTellsTheirServerAndALocalBanStaysHere(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	community, err := moderationCommunityID(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, err := actors.UpsertRemote(ctx, f.svc.Pool, actors.Remote{
+		ApID: "https://peer.test/u/spam", Kind: "person", Domain: "peer.test", Name: "spam",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []bool
+	var told string
+	f.svc.SendBlock = func(_ context.Context, _ pgx.Tx, communityID int64, personApID string, blocked bool) error {
+		calls, told = append(calls, blocked), personApID
+		return nil
+	}
+	if err := f.svc.Ban(ctx, f.owner, community, remote.ID, "Spam", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 || !calls[0] || told != remote.ApID {
+		t.Fatalf("ban of a remote person sent %v to %q", calls, told)
+	}
+	if err := f.svc.Ban(ctx, f.owner, community, f.member.ID, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 {
+		t.Fatalf("a local ban reached a peer: %v", calls)
+	}
+	if err := f.svc.Unban(ctx, f.owner, community, remote.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || calls[1] {
+		t.Fatalf("lifting the ban sent %v", calls)
+	}
+}

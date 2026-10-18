@@ -27,6 +27,12 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 	case "Update", "Delete":
 		_, err := s.planChange(ctx, s.Pool, act, nil)
 		return err
+	case "Lock":
+		_, err := s.planLock(ctx, s.Pool, act, nil)
+		return err
+	case "Block":
+		_, err := s.planBlock(ctx, s.Pool, act, nil)
+		return err
 	case "Announce":
 		_, err := s.planAnnounce(ctx, s.Pool, act)
 		return err
@@ -34,6 +40,14 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 		inner, err := act.embedded()
 		if err == nil && (inner.Type == "Like" || inner.Type == "Dislike") {
 			_, err := s.planContent(ctx, s.Pool, act, nil)
+			return err
+		}
+		if err == nil && inner.Type == "Lock" {
+			_, err := s.planLock(ctx, s.Pool, act, nil)
+			return err
+		}
+		if err == nil && inner.Type == "Block" {
+			_, err := s.planBlock(ctx, s.Pool, act, nil)
 			return err
 		}
 		if err != nil || inner.Type != "Follow" {
@@ -76,11 +90,21 @@ func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.Ra
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
 	case "Update", "Delete":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planChange(ctx, tx, act, nil) })
+	case "Lock":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planLock(ctx, tx, act, nil) })
+	case "Block":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planBlock(ctx, tx, act, nil) })
 	case "Announce":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planAnnounce(ctx, tx, act) })
 	case "Undo":
 		if inner, err := act.embedded(); err == nil && (inner.Type == "Like" || inner.Type == "Dislike") {
 			return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
+		}
+		if inner, err := act.embedded(); err == nil && inner.Type == "Lock" {
+			return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planLock(ctx, tx, act, nil) })
+		}
+		if inner, err := act.embedded(); err == nil && inner.Type == "Block" {
+			return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planBlock(ctx, tx, act, nil) })
 		}
 	}
 	follower, err := actors.ByApID(ctx, tx, act.Actor.ID)

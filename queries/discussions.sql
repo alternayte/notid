@@ -403,3 +403,8 @@ RETURNING *;
 UPDATE comments SET deleted_at = now(), body = ''
 WHERE ap_id = @ap_id AND deleted_at IS NULL
 RETURNING *;
+
+-- name: SetRemotePostLocked :one
+UPDATE posts SET locked = @locked
+WHERE ap_id = @ap_id AND deleted_at IS NULL
+RETURNING *;

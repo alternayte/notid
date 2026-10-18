@@ -23,7 +23,11 @@ type Service struct {
 	Tuning platform.Tuning
 	// IsAdmin reports whether the person holds auth-all's admin role.
 	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
-	Logger  *slog.Logger
+	// SendLock federates a local community's lock or unlock of a post.
+	SendLock func(ctx context.Context, tx pgx.Tx, communityID int64, postApID string, locked bool) error
+	// SendBlock federates a community ban or its lifting of a remote person.
+	SendBlock func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, blocked bool) error
+	Logger    *slog.Logger
 }
 
 var (
@@ -240,7 +244,13 @@ func (s *Service) SetLocked(ctx context.Context, actor actors.Actor, postApID st
 		if locked {
 			action = ActionLock
 		}
-		return writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, postApID, "", nil)
+		if err := writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, postApID, "", nil); err != nil {
+			return err
+		}
+		if s.SendLock == nil {
+			return nil
+		}
+		return s.SendLock(ctx, tx, t.Community, postApID, locked)
 	})
 	return t, err
 }
@@ -262,7 +272,10 @@ func (s *Service) Ban(ctx context.Context, actor actors.Actor, communityID, targ
 		if err := q.DeleteMembershipForBan(ctx, moderationdb.DeleteMembershipForBanParams{CommunityID: communityID, ActorID: targetID}); err != nil {
 			return fmt.Errorf("remove member: %w", err)
 		}
-		return writeLog(ctx, q, &communityID, actor.ID, ActionBan, &targetID, "", reason, expires)
+		if err := writeLog(ctx, q, &communityID, actor.ID, ActionBan, &targetID, "", reason, expires); err != nil {
+			return err
+		}
+		return s.banActivity(ctx, tx, communityID, targetID, true)
 	})
 }
 
@@ -276,8 +289,54 @@ func (s *Service) Unban(ctx context.Context, actor actors.Actor, communityID, ta
 		if err := q.DeleteBan(ctx, moderationdb.DeleteBanParams{CommunityID: &communityID, ActorID: targetID}); err != nil {
 			return fmt.Errorf("unban: %w", err)
 		}
-		return writeLog(ctx, q, &communityID, actor.ID, ActionUnban, &targetID, "", "", nil)
+		if err := writeLog(ctx, q, &communityID, actor.ID, ActionUnban, &targetID, "", "", nil); err != nil {
+			return err
+		}
+		return s.banActivity(ctx, tx, communityID, targetID, false)
 	})
+}
+
+// banActivity tells a remote person's server that the community banned or
+// released them. A local person's ban stays here.
+func (s *Service) banActivity(ctx context.Context, tx pgx.Tx, communityID, targetID int64, blocked bool) error {
+	if s.SendBlock == nil {
+		return nil
+	}
+	target, err := actors.ByID(ctx, tx, targetID)
+	if err != nil {
+		return fmt.Errorf("banned person %d: %w", targetID, err)
+	}
+	if target.Local {
+		return nil
+	}
+	return s.SendBlock(ctx, tx, communityID, target.ApID, blocked)
+}
+
+// ApplyRemoteBan stores or lifts a ban a remote group made. It writes no log
+// row: the group is the one that acted, and its own log is where it shows.
+func ApplyRemoteBan(ctx context.Context, db moderationdb.DBTX, communityID, actorID int64, blocked bool) (bool, error) {
+	q := moderationdb.New(db)
+	_, err := q.ActiveBan(ctx, moderationdb.ActiveBanParams{CommunityID: &communityID, ActorID: actorID})
+	active := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, fmt.Errorf("ban: %w", err)
+	}
+	if active == blocked {
+		return false, nil
+	}
+	if !blocked {
+		if err := q.DeleteBan(ctx, moderationdb.DeleteBanParams{CommunityID: &communityID, ActorID: actorID}); err != nil {
+			return false, fmt.Errorf("lift remote ban: %w", err)
+		}
+		return true, nil
+	}
+	if _, err := q.InsertBan(ctx, moderationdb.InsertBanParams{CommunityID: &communityID, ActorID: actorID}); err != nil {
+		return false, fmt.Errorf("remote ban: %w", err)
+	}
+	if err := q.DeleteMembershipForBan(ctx, moderationdb.DeleteMembershipForBanParams{CommunityID: communityID, ActorID: actorID}); err != nil {
+		return false, fmt.Errorf("remote ban membership: %w", err)
+	}
+	return true, nil
 }
 
 // Report is one report as moderators see it, with who reported it.

@@ -251,3 +251,22 @@ func ApplyRemoteDelete(ctx context.Context, db discussionsdb.DBTX, apID string) 
 	}
 	return false, nil
 }
+
+// ApplyRemoteLock locks or unlocks a remote post, as its group asked.
+func ApplyRemoteLock(ctx context.Context, db discussionsdb.DBTX, apID string, locked bool) (bool, error) {
+	q := discussionsdb.New(db)
+	post, err := q.PostByApID(ctx, apID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNoObject
+	}
+	if err != nil {
+		return false, fmt.Errorf("post %s: %w", apID, err)
+	}
+	if post.Locked == locked {
+		return false, nil
+	}
+	if _, err := q.SetRemotePostLocked(ctx, discussionsdb.SetRemotePostLockedParams{ApID: apID, Locked: locked}); err != nil {
+		return false, fmt.Errorf("lock %s: %w", apID, err)
+	}
+	return true, nil
+}

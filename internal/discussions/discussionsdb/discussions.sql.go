@@ -2061,6 +2061,53 @@ func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Sea
 	return items, nil
 }
 
+const setRemotePostLocked = `-- name: SetRemotePostLocked :one
+UPDATE posts SET locked = $1
+WHERE ap_id = $2 AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+type SetRemotePostLockedParams struct {
+	Locked bool
+	ApID   string
+}
+
+func (q *Queries) SetRemotePostLocked(ctx context.Context, arg SetRemotePostLockedParams) (Post, error) {
+	row := q.db.QueryRow(ctx, setRemotePostLocked, arg.Locked, arg.ApID)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
+}
+
 const tombstoneComment = `-- name: TombstoneComment :one
 UPDATE comments SET deleted_at = now(), body = ''
 WHERE id = $1 AND deleted_at IS NULL

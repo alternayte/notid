@@ -14,6 +14,7 @@ import (
 	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
 	"github.com/alternayte/notid/internal/federation/federationdb"
+	"github.com/alternayte/notid/internal/moderation"
 )
 
 // contentPlan is what an incoming Create, vote or vote Undo does, resolved
@@ -28,8 +29,11 @@ type contentPlan struct {
 	target    discussions.Target
 	value     int16
 	voteID    string
-	// changeID is the AP ID of the object an Update or Delete changes.
+	// changeID is the AP ID of the object an Update or Delete changes, or of
+	// the person a Block names.
 	changeID string
+	// targetActorID is the stored person a Block names.
+	targetActorID int64
 	// direct is true for an activity sent to a local group, which the group
 	// then announces to its followers.
 	direct bool
@@ -250,6 +254,20 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	if inner.Type == "Update" || inner.Type == "Delete" {
 		return s.planChange(ctx, db, inner, &g)
 	}
+	if inner.Type == "Lock" {
+		return s.planLock(ctx, db, inner, &g)
+	}
+	if inner.Type == "Block" {
+		return s.planBlock(ctx, db, inner, &g)
+	}
+	if inner.Type == "Undo" {
+		if undo, err := inner.embedded(); err == nil && undo.Type == "Lock" {
+			return s.planLock(ctx, db, inner, &g)
+		}
+		if undo, err := inner.embedded(); err == nil && undo.Type == "Block" {
+			return s.planBlock(ctx, db, inner, &g)
+		}
+	}
 	if inner.Type == "Page" || inner.Type == "Note" {
 		// PieFed announces a bare object to servers it does not know as Lemmy-like.
 		obj, err := decodeObject(act.Object)
@@ -342,6 +360,18 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 	case "delete":
 		var err error
 		changed, err = discussions.ApplyRemoteDelete(ctx, tx, p.changeID)
+		if err != nil {
+			return err
+		}
+	case "lock", "unlock":
+		var err error
+		changed, err = discussions.ApplyRemoteLock(ctx, tx, p.changeID, p.kind == "lock")
+		if err != nil {
+			return err
+		}
+	case "block", "unblock":
+		var err error
+		changed, err = moderation.ApplyRemoteBan(ctx, tx, p.community.ID, p.targetActorID, p.kind == "block")
 		if err != nil {
 			return err
 		}

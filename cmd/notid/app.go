@@ -134,6 +134,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("river client: %w", err)
 	}
 	fed.River = rc
+	moderationSvc.SendLock = fed.SendLock
+	moderationSvc.SendBlock = fed.SendBlock
 	communitiesSvc.Resolve = fed.Resolve
 	communitiesSvc.SendFollow = fed.SendFollow
 	communitiesSvc.SendUnfollow = fed.SendUnfollow
