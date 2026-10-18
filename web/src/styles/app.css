@@ -49,9 +49,50 @@
   color-scheme: dark;
 }
 
-/* A community's accent replaces the mark inside its pages. */
-[data-community-accent] {
-  --mark: var(--community-accent);
+/* A community's accent replaces the mark inside its pages. The presets keep
+   4.5:1 for text on the mark in both themes; communities cannot set a free colour. */
+[data-accent="moss"] {
+  --mark: oklch(0.5 0.11 140);
+  --mark-wash: oklch(0.93 0.04 140);
+}
+[data-accent="teal"] {
+  --mark: oklch(0.5 0.09 195);
+  --mark-wash: oklch(0.93 0.03 195);
+}
+[data-accent="cobalt"] {
+  --mark: oklch(0.5 0.15 260);
+  --mark-wash: oklch(0.93 0.035 260);
+}
+[data-accent="plum"] {
+  --mark: oklch(0.5 0.14 330);
+  --mark-wash: oklch(0.93 0.035 330);
+}
+[data-accent="ochre"] {
+  --mark: oklch(0.5 0.11 70);
+  --mark-wash: oklch(0.93 0.05 80);
+}
+.dark [data-accent="moss"] {
+  --mark: oklch(0.72 0.12 140);
+  --mark-wash: oklch(0.3 0.05 140);
+}
+.dark [data-accent="teal"] {
+  --mark: oklch(0.72 0.09 195);
+  --mark-wash: oklch(0.3 0.04 195);
+}
+.dark [data-accent="cobalt"] {
+  --mark: oklch(0.72 0.12 260);
+  --mark-wash: oklch(0.3 0.05 260);
+}
+.dark [data-accent="plum"] {
+  --mark: oklch(0.72 0.13 330);
+  --mark-wash: oklch(0.3 0.05 330);
+}
+.dark [data-accent="ochre"] {
+  --mark: oklch(0.76 0.13 75);
+  --mark-wash: oklch(0.3 0.05 75);
+}
+[data-accent] {
+  --focus: var(--mark);
 }
 
 /* Motion: short, purposeful, never in the way of reading. */

@@ -10,13 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SpecimenRouteImport } from './routes/specimen'
+import { Route as CHandleRouteImport } from './routes/c.$handle'
+import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
+import { Route as CHandleManageRouteImport } from './routes/c.$handle_.manage'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -29,44 +38,100 @@ const SpecimenRoute = SpecimenRouteImport.update({
   path: '/specimen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CHandleRoute = CHandleRouteImport.update({
+  id: '/c/$handle',
+  path: '/c/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunitiesNewRoute = CommunitiesNewRouteImport.update({
+  id: '/communities/new',
+  path: '/communities/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginVerifyRoute = LoginVerifyRouteImport.update({
   id: '/login_/verify',
   path: '/login/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CHandleManageRoute = CHandleManageRouteImport.update({
+  id: '/c/$handle_/manage',
+  path: '/c/$handle/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/specimen': typeof SpecimenRoute
+  '/c/$handle': typeof CHandleRoute
+  '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
+  '/c/$handle/manage': typeof CHandleManageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/specimen': typeof SpecimenRoute
+  '/c/$handle': typeof CHandleRoute
+  '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
+  '/c/$handle/manage': typeof CHandleManageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/discover': typeof DiscoverRoute
   '/login': typeof LoginRoute
   '/specimen': typeof SpecimenRoute
+  '/c/$handle': typeof CHandleRoute
+  '/communities/new': typeof CommunitiesNewRoute
   '/login_/verify': typeof LoginVerifyRoute
+  '/c/$handle_/manage': typeof CHandleManageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/specimen' | '/login/verify'
+  fullPaths:
+    | '/'
+    | '/discover'
+    | '/login'
+    | '/specimen'
+    | '/c/$handle'
+    | '/communities/new'
+    | '/login/verify'
+    | '/c/$handle/manage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/specimen' | '/login/verify'
-  id: '__root__' | '/' | '/login' | '/specimen' | '/login_/verify'
+  to:
+    | '/'
+    | '/discover'
+    | '/login'
+    | '/specimen'
+    | '/c/$handle'
+    | '/communities/new'
+    | '/login/verify'
+    | '/c/$handle/manage'
+  id:
+    | '__root__'
+    | '/'
+    | '/discover'
+    | '/login'
+    | '/specimen'
+    | '/c/$handle'
+    | '/communities/new'
+    | '/login_/verify'
+    | '/c/$handle_/manage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DiscoverRoute: typeof DiscoverRoute
   LoginRoute: typeof LoginRoute
   SpecimenRoute: typeof SpecimenRoute
+  CHandleRoute: typeof CHandleRoute
+  CommunitiesNewRoute: typeof CommunitiesNewRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
+  CHandleManageRoute: typeof CHandleManageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -76,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -92,6 +164,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpecimenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$handle': {
+      id: '/c/$handle'
+      path: '/c/$handle'
+      fullPath: '/c/$handle'
+      preLoaderRoute: typeof CHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/communities/new': {
+      id: '/communities/new'
+      path: '/communities/new'
+      fullPath: '/communities/new'
+      preLoaderRoute: typeof CommunitiesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login_/verify': {
       id: '/login_/verify'
       path: '/login/verify'
@@ -99,14 +185,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$handle_/manage': {
+      id: '/c/$handle_/manage'
+      path: '/c/$handle/manage'
+      fullPath: '/c/$handle/manage'
+      preLoaderRoute: typeof CHandleManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DiscoverRoute: DiscoverRoute,
   LoginRoute: LoginRoute,
   SpecimenRoute: SpecimenRoute,
+  CHandleRoute: CHandleRoute,
+  CommunitiesNewRoute: CommunitiesNewRoute,
   LoginVerifyRoute: LoginVerifyRoute,
+  CHandleManageRoute: CHandleManageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

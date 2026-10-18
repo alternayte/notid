@@ -145,7 +145,7 @@ function Specimen() {
             members="12,408"
             send={send}
           />
-          <div data-community-accent="" style={{ ['--community-accent' as string]: 'oklch(0.55 0.12 150)' }}>
+          <div data-accent="moss">
             <CommunityPanel
               name="birdwatching"
               about="Sightings, field notes and blurry photos, all welcome. This community lives on PieFed and sets its own green."

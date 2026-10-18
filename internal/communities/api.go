@@ -70,8 +70,8 @@ type Person struct {
 type Detail struct {
 	Summary
 	Description    string   `json:"description" doc:"Markdown"`
-	Rules          []string `json:"rules"`
-	Moderators     []Person `json:"moderators"`
+	Rules          []string `json:"rules" nullable:"false"`
+	Moderators     []Person `json:"moderators" nullable:"false"`
 	AppealsContact string   `json:"appealsContact"`
 	State          string   `json:"state" enum:"active,frozen,departed,arriving"`
 }
@@ -102,7 +102,7 @@ type handlePath struct {
 }
 
 type list struct {
-	Communities []Summary `json:"communities"`
+	Communities []Summary `json:"communities" nullable:"false"`
 }
 
 func (s *Service) Register(api huma.API) {
@@ -190,8 +190,8 @@ func (s *Service) Register(api huma.API) {
 		Summary: "Change a community's settings, rules and theme", Tags: tags,
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
 	}, func(ctx context.Context, in *struct {
-		handlePath
-		Body settingsBody
+		Handle string `path:"handle" maxLength:"300"`
+		Body   settingsBody
 	}) (*struct{ Body Detail }, error) {
 		person, err := signedIn(ctx)
 		if err != nil {

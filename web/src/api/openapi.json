@@ -324,10 +324,7 @@
             "items": {
               "$ref": "#/components/schemas/Person"
             },
-            "type": [
-              "array",
-              "null"
-            ]
+            "type": "array"
           },
           "name": {
             "type": "string"
@@ -339,10 +336,7 @@
             "items": {
               "type": "string"
             },
-            "type": [
-              "array",
-              "null"
-            ]
+            "type": "array"
           },
           "state": {
             "enum": [
@@ -499,10 +493,7 @@
             "items": {
               "$ref": "#/components/schemas/Summary"
             },
-            "type": [
-              "array",
-              "null"
-            ]
+            "type": "array"
           }
         },
         "required": [
@@ -2601,6 +2592,17 @@
       },
       "put": {
         "operationId": "updateCommunity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

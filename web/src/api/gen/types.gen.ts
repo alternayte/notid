@@ -134,10 +134,10 @@ export type Detail = {
      * The signed-in person's membership, if any
      */
     membership?: MyMembership;
-    moderators: Array<Person> | null;
+    moderators: Array<Person>;
     name: string;
     nsfw: boolean;
-    rules: Array<string> | null;
+    rules: Array<string>;
     state: 'active' | 'frozen' | 'departed' | 'arriving';
     theme: Theme;
     title: string;
@@ -201,7 +201,7 @@ export type List = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
-    communities: Array<Summary> | null;
+    communities: Array<Summary>;
 };
 
 export type MagicLinkVerifyResponse = {
@@ -462,10 +462,10 @@ export type DetailWritable = {
      * The signed-in person's membership, if any
      */
     membership?: MyMembership;
-    moderators: Array<Person> | null;
+    moderators: Array<Person>;
     name: string;
     nsfw: boolean;
-    rules: Array<string> | null;
+    rules: Array<string>;
     state: 'active' | 'frozen' | 'departed' | 'arriving';
     theme: Theme;
     title: string;
@@ -499,7 +499,7 @@ export type ErrorModelWritable = {
 };
 
 export type ListWritable = {
-    communities: Array<Summary> | null;
+    communities: Array<Summary>;
 };
 
 export type MeWritable = {
@@ -1411,7 +1411,9 @@ export type CommunityResponse = CommunityResponses[keyof CommunityResponses];
 
 export type UpdateCommunityData = {
     body: SettingsBodyWritable;
-    path?: never;
+    path: {
+        handle: string;
+    };
     query?: never;
     url: '/api/communities/{handle}';
 };
