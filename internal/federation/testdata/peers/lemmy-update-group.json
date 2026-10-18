@@ -1,0 +1,52 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/tools866dd3c2/followers"
+    ],
+    "id": "http://lemmy.test:8536/activities/announce/update/dcfd0d3f-cc81-4abb-9a62-2b4f8d27b6b2",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://lemmy.test:8536/c/tools866dd3c2",
+    "object": {
+        "cc": [
+            "http://lemmy.test:8536/c/tools866dd3c2"
+        ],
+        "id": "http://lemmy.test:8536/activities/update/04c7c211-bf5d-4973-8d19-23c09d588230",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Update",
+        "actor": "http://lemmy.test:8536/u/admin",
+        "object": {
+            "id": "http://lemmy.test:8536/c/tools866dd3c2",
+            "name": "Renamed on lemmy",
+            "type": "Group",
+            "inbox": "http://lemmy.test:8536/c/tools866dd3c2/inbox",
+            "outbox": "http://lemmy.test:8536/c/tools866dd3c2/outbox",
+            "updated": "2026-10-18T18:51:42.104967Z",
+            "featured": "http://lemmy.test:8536/c/tools866dd3c2/featured",
+            "language": [
+            ],
+            "endpoints": {
+                "sharedInbox": "http://lemmy.test:8536/inbox"
+            },
+            "followers": "http://lemmy.test:8536/c/tools866dd3c2/followers",
+            "publicKey": {
+                "id": "http://lemmy.test:8536/c/tools866dd3c2#main-key",
+                "owner": "http://lemmy.test:8536/c/tools866dd3c2",
+                "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqviAOZTv8g1+O3I0/t93\nW4EGZByKyXFjG3+Rx4l/e0KodkWdK7YKTLq40DmaANzAYgXl/JU6NGdXhiXKwEQ8\nmvpsq5yj6uMs7+9bmxa9X12/3SNIYqLPK7JBzcszKWoXDhAYQakiME1Fcp3D2b8t\n0OmMrzrFrYNHj4qijL59No4shcBT2tbNKPJ318dTKI1Zt8qAA2O5l5MczfAfNrkF\nXUM1D6UQzJ3fA0iaVRJJBeEspgY59R5+B+1yVdoIBea8fiTZ2p9anh6hv79POxFQ\npcDTYxFVyLrh6wRCOMaCPLA9FDTVOCn+sLoUlm7YNFv91ws5l8i9oKfaR/ZIff0P\nbQIDAQAB\n-----END PUBLIC KEY-----\n"
+            },
+            "published": "2026-10-18T18:51:15.846344Z",
+            "sensitive": false,
+            "attributedTo": "http://lemmy.test:8536/c/tools866dd3c2/moderators",
+            "preferredUsername": "tools866dd3c2",
+            "postingRestrictedToMods": false
+        },
+        "audience": "http://lemmy.test:8536/c/tools866dd3c2"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

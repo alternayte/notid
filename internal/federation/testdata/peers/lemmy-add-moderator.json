@@ -1,0 +1,18 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/tools866dd3c2"
+    ],
+    "id": "http://lemmy.test:8536/activities/add/085c7b96-264e-4d6f-abb7-672dc36aa2d4",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Add",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://a.notid.test:8080/u/u51c799e4",
+    "target": "http://lemmy.test:8536/c/tools866dd3c2/moderators",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://lemmy.test:8536/c/tools866dd3c2"
+}

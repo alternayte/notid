@@ -45,28 +45,44 @@ func (u *user) handle() string {
 
 func (u *user) post(path string, in, out any) {
 	u.t.Helper()
-	b, err := json.Marshal(in)
+	u.do(http.MethodPost, path, "application/json", in, out)
+}
+
+// do sends in as JSON, or as the body as it is when it is an io.Reader.
+func (u *user) do(method, path, contentType string, in, out any) {
+	u.t.Helper()
+	var body io.Reader
+	switch v := in.(type) {
+	case nil:
+	case io.Reader:
+		body = v
+	default:
+		b, err := json.Marshal(in)
+		if err != nil {
+			u.t.Fatal(err)
+		}
+		body = bytes.NewReader(b)
+	}
+	req, err := http.NewRequest(method, u.origin+path, body)
 	if err != nil {
 		u.t.Fatal(err)
 	}
-	req, err := http.NewRequest(http.MethodPost, u.origin+path, bytes.NewReader(b))
-	if err != nil {
-		u.t.Fatal(err)
+	if body != nil {
+		req.Header.Set("Content-Type", contentType)
 	}
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", u.origin)
 	resp, err := u.http.Do(req)
 	if err != nil {
-		u.t.Fatalf("POST %s: %v", path, err)
+		u.t.Fatalf("%s %s: %v", method, path, err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
-		u.t.Fatalf("POST %s: %d %.300s", path, resp.StatusCode, raw)
+		u.t.Fatalf("%s %s: %d %.300s", method, path, resp.StatusCode, raw)
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
-			u.t.Fatalf("POST %s: decode %.300s: %v", path, raw, err)
+			u.t.Fatalf("%s %s: decode %.300s: %v", method, path, raw, err)
 		}
 	}
 }

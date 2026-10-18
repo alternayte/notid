@@ -24,11 +24,11 @@ type Service struct {
 	// IsAdmin reports whether the person holds auth-all's admin role.
 	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
 	// SendLock federates a local community's lock or unlock of a post.
-	SendLock func(ctx context.Context, tx pgx.Tx, communityID int64, postApID string, locked bool) error
+	SendLock func(ctx context.Context, tx pgx.Tx, moderator actors.Actor, communityID int64, postApID string, locked bool) error
 	// SendBlock federates a community ban or its lifting of a remote person.
-	SendBlock func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, blocked bool) error
+	SendBlock func(ctx context.Context, tx pgx.Tx, moderator actors.Actor, communityID int64, personApID string, blocked bool) error
 	// SendRole federates an appointment or removal of a moderator.
-	SendRole func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, moderator bool) error
+	SendRole func(ctx context.Context, tx pgx.Tx, owner actors.Actor, communityID int64, personApID string, moderator bool) error
 	// SendFlag federates a report on content in a remote community, as its
 	// reporter, and returns the Flag's activity ID.
 	SendFlag func(ctx context.Context, tx pgx.Tx, communityID int64, reporter actors.Actor, objectApID, reason string) (string, error)
@@ -274,7 +274,7 @@ func (s *Service) SetRole(ctx context.Context, actor actors.Actor, communityID, 
 		if err != nil {
 			return fmt.Errorf("person %d: %w", targetID, err)
 		}
-		return s.SendRole(ctx, tx, communityID, person.ApID, moderator)
+		return s.SendRole(ctx, tx, actor, communityID, person.ApID, moderator)
 	})
 }
 
@@ -303,7 +303,7 @@ func (s *Service) SetLocked(ctx context.Context, actor actors.Actor, postApID st
 		if s.SendLock == nil {
 			return nil
 		}
-		return s.SendLock(ctx, tx, t.Community, postApID, locked)
+		return s.SendLock(ctx, tx, actor, t.Community, postApID, locked)
 	})
 	return t, err
 }
@@ -328,7 +328,7 @@ func (s *Service) Ban(ctx context.Context, actor actors.Actor, communityID, targ
 		if err := writeLog(ctx, q, &communityID, actor.ID, ActionBan, &targetID, "", reason, expires); err != nil {
 			return err
 		}
-		return s.banActivity(ctx, tx, communityID, targetID, true)
+		return s.banActivity(ctx, tx, actor, communityID, targetID, true)
 	})
 }
 
@@ -345,13 +345,13 @@ func (s *Service) Unban(ctx context.Context, actor actors.Actor, communityID, ta
 		if err := writeLog(ctx, q, &communityID, actor.ID, ActionUnban, &targetID, "", "", nil); err != nil {
 			return err
 		}
-		return s.banActivity(ctx, tx, communityID, targetID, false)
+		return s.banActivity(ctx, tx, actor, communityID, targetID, false)
 	})
 }
 
 // banActivity tells a remote person's server that the community banned or
 // released them. A local person's ban stays here.
-func (s *Service) banActivity(ctx context.Context, tx pgx.Tx, communityID, targetID int64, blocked bool) error {
+func (s *Service) banActivity(ctx context.Context, tx pgx.Tx, moderator actors.Actor, communityID, targetID int64, blocked bool) error {
 	if s.SendBlock == nil {
 		return nil
 	}
@@ -362,7 +362,7 @@ func (s *Service) banActivity(ctx context.Context, tx pgx.Tx, communityID, targe
 	if target.Local {
 		return nil
 	}
-	return s.SendBlock(ctx, tx, communityID, target.ApID, blocked)
+	return s.SendBlock(ctx, tx, moderator, communityID, target.ApID, blocked)
 }
 
 // ApplyRemoteBan stores or lifts a ban a remote group made. It writes no log

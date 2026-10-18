@@ -1,0 +1,17 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "id": "http://lemmy.test:8536/activities/delete/0df8c0df-3169-4a5f-ba6a-2a10515e24c2",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Delete",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://lemmy.test:8536/post/10",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

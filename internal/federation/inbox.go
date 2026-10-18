@@ -51,13 +51,13 @@ const (
 // activity in the same transaction that records its ID. It answers 2xx only
 // for an activity it queued now or queued before.
 func (s *Server) inbox(w http.ResponseWriter, r *http.Request) {
-	err := s.receive(r)
+	act, err := s.receive(r)
 	var rej rejection
 	switch {
 	case err == nil:
 		w.WriteHeader(http.StatusAccepted)
 	case errors.As(err, &rej):
-		s.Log.InfoContext(r.Context(), "inbox refused", "path", r.URL.Path, "status", rej.status, "reason", rej.msg)
+		s.Log.InfoContext(r.Context(), "inbox refused", "path", r.URL.Path, "type", act.Type, "id", act.ID, "status", rej.status, "reason", rej.msg)
 		http.Error(w, rej.msg, rej.status)
 	default:
 		s.Log.ErrorContext(r.Context(), "inbox", "path", r.URL.Path, "err", err)
@@ -65,54 +65,55 @@ func (s *Server) inbox(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) receive(r *http.Request) error {
+// receive returns the activity as far as it was read, for the log.
+func (s *Server) receive(r *http.Request) (activity, error) {
 	ctx := r.Context()
+	var act activity
 	body, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, s.Tuning.MaxInboxBytes))
 	if err != nil {
-		return reject(http.StatusRequestEntityTooLarge, "body too large or unreadable")
+		return act, reject(http.StatusRequestEntityTooLarge, "body too large or unreadable")
 	}
 	sig, err := parseSignature(r)
 	if err != nil {
-		return reject(http.StatusUnauthorized, "%v", err)
+		return act, reject(http.StatusUnauthorized, "%v", err)
 	}
 	peer := hostOf(keyOwner(sig.KeyID))
 	if peer == "" {
-		return reject(http.StatusUnauthorized, "keyId is not an http(s) URL")
+		return act, reject(http.StatusUnauthorized, "keyId is not an http(s) URL")
 	}
 	if err := s.checkPeer(ctx, peer); err != nil {
-		return err
+		return act, err
 	}
 	if err := checkSignedRequest(r, sig, body, time.Now(), s.Tuning.SignatureMaxSkew); err != nil {
-		return reject(http.StatusUnauthorized, "%v", err)
+		return act, reject(http.StatusUnauthorized, "%v", err)
 	}
 	signer, err := s.verifySigner(ctx, r, sig)
 	if err != nil {
-		return err
+		return act, err
 	}
 	// A site ban stops the person here, not only in the web app.
 	if banned, err := moderation.SiteBanned(ctx, s.Pool, signer.ID); err != nil {
-		return err
+		return act, err
 	} else if banned {
-		return reject(http.StatusForbidden, "this site banned the sender")
+		return act, reject(http.StatusForbidden, "this site banned the sender")
 	}
 
-	var act activity
 	if err := json.Unmarshal(body, &act); err != nil {
-		return reject(http.StatusBadRequest, "body is not an activity: %v", err)
+		return act, reject(http.StatusBadRequest, "body is not an activity: %v", err)
 	}
 	if act.ID == "" || act.Type == "" || act.Actor.ID == "" {
-		return reject(http.StatusBadRequest, "activity lacks id, type or actor")
+		return act, reject(http.StatusBadRequest, "activity lacks id, type or actor")
 	}
 	if act.Actor.ID != signer.ApID {
-		return reject(http.StatusUnauthorized, "activity actor %s is not the signer %s", act.Actor.ID, signer.ApID)
+		return act, reject(http.StatusUnauthorized, "activity actor %s is not the signer %s", act.Actor.ID, signer.ApID)
 	}
 	if err := checkHosts(body); err != nil {
-		return reject(http.StatusBadRequest, "%v", err)
+		return act, reject(http.StatusBadRequest, "%v", err)
 	}
 	if err := s.validate(ctx, act); err != nil {
-		return err
+		return act, err
 	}
-	return s.enqueueReceived(ctx, act.ID, body, signer.ApID, peer)
+	return act, s.enqueueReceived(ctx, act.ID, body, signer.ApID, peer)
 }
 
 func (s *Server) checkPeer(ctx context.Context, peer string) error {

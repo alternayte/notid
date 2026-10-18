@@ -1,0 +1,17 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "id": "http://piefed.test:5000/activities/delete/vadoP1KaaQOEai0",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Delete",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": "http://piefed.test:5000/c/woode910710a@a.notid.test:8080/p/5/my-bench",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

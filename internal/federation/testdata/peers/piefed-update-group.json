@@ -1,0 +1,62 @@
+{
+    "cc": [
+        "http://piefed.test:5000/c/tools9b258710"
+    ],
+    "id": "http://piefed.test:5000/activities/announce/c6EnG3Pihh9XQ16",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://piefed.test:5000/c/tools9b258710",
+    "object": {
+        "cc": [
+            "http://piefed.test:5000/c/tools9b258710"
+        ],
+        "id": "http://piefed.test:5000/activities/update/WnC04Rh85B78qTy",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Update",
+        "actor": "http://piefed.test:5000/u/admin",
+        "object": {
+            "id": "http://piefed.test:5000/c/tools9b258710",
+            "tag": [
+            ],
+            "name": "Renamed on piefed",
+            "type": "Group",
+            "inbox": "http://piefed.test:5000/c/tools9b258710/inbox",
+            "outbox": "http://piefed.test:5000/c/tools9b258710/outbox",
+            "updated": "2026-10-18T18:54:15.489384+00:00",
+            "featured": "http://piefed.test:5000/c/tools9b258710/featured",
+            "language": [
+                {
+                    "name": "Undetermined",
+                    "identifier": "und"
+                },
+                {
+                    "name": "English",
+                    "identifier": "en"
+                }
+            ],
+            "endpoints": {
+                "sharedInbox": "http://piefed.test:5000/inbox"
+            },
+            "followers": "http://piefed.test:5000/c/tools9b258710/followers",
+            "publicKey": {
+                "id": "http://piefed.test:5000/c/tools9b258710#main-key",
+                "owner": "http://piefed.test:5000/c/tools9b258710",
+                "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvLXBcSPvqgsIdcdTGPCm\ne0yMPYaa0ym7DM+VHoMvXn3woy3OIVEZJiwL89iwidgNTVMKUzPVqNl7S8m7P+0g\n+wZ3L5BvlN1h6YjYxdLrdw493x7zdjE+7guv073LJ4U7R2XybgY5PBkgZVmQSCp+\n6stKB88aK9JfqL5E/7kmHWEQsn1h1pom3Fpns2gsAr9g96y4CNYGGk9be59uuC/3\nlu19K4cI+UM27r3YrzYFuO07pjAYbw4ZlA6LzHMeQvrTehYHKA14tgYvVAZa/iVf\na86sONabm6anKf9CNr97eHTcAQ3LsZTgLTTwiO2u5XTa/kHGWwCHODMR480fhLIM\nHQIDAQAB\n-----END PUBLIC KEY-----\n"
+            },
+            "published": "2026-10-18T18:54:12.989086+00:00",
+            "sensitive": false,
+            "attributedTo": "http://piefed.test:5000/c/tools9b258710/moderators",
+            "preferredUsername": "tools9b258710",
+            "postingRestrictedToMods": false
+        },
+        "audience": "http://piefed.test:5000/c/tools9b258710"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

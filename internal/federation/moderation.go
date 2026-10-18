@@ -1,9 +1,11 @@
 package federation
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -15,8 +17,8 @@ import (
 	"github.com/alternayte/notid/internal/federation/federationdb"
 )
 
-// SendLock federates a community's lock or unlock of a post, as the group.
-func (s *Server) SendLock(ctx context.Context, tx pgx.Tx, communityID int64, postApID string, locked bool) error {
+// SendLock federates a moderator's lock or unlock of a post in a local community.
+func (s *Server) SendLock(ctx context.Context, tx pgx.Tx, moderator actors.Actor, communityID int64, postApID string, locked bool) error {
 	c, err := federationdb.New(tx).CommunityByID(ctx, communityID)
 	if err != nil {
 		return fmt.Errorf("community %d: %w", communityID, err)
@@ -25,26 +27,15 @@ func (s *Server) SendLock(ctx context.Context, tx pgx.Tx, communityID int64, pos
 		// A remote group decides for its own content; a local admin's local lock stays here.
 		return nil
 	}
-	id, err := newActivityID(c.ApID)
+	act, err := modActivity(moderator, c.ApID, "Lock", postApID, "", !locked)
 	if err != nil {
 		return err
 	}
-	act := map[string]any{
-		"@context": activityStreams, "id": id, "type": "Lock", "actor": c.ApID,
-		"object": postApID, "audience": c.ApID,
-	}
-	if !locked {
-		act = map[string]any{
-			"@context": activityStreams, "id": id, "type": "Undo", "actor": c.ApID, "audience": c.ApID,
-			"object": map[string]any{"id": id + "/lock", "type": "Lock", "actor": c.ApID, "object": postApID},
-		}
-	}
-	return s.toFollowers(ctx, tx, c, act)
+	return s.sendModAction(ctx, tx, communityRef(c), moderator, act, "")
 }
 
-// SendBlock federates a community ban or its lifting, as the group. The blocked
-// person's server gets the activity, and so do the group's followers.
-func (s *Server) SendBlock(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, blocked bool) error {
+// SendBlock federates a moderator's community ban of a remote person, or its lifting.
+func (s *Server) SendBlock(ctx context.Context, tx pgx.Tx, moderator actors.Actor, communityID int64, personApID string, blocked bool) error {
 	c, err := federationdb.New(tx).CommunityByID(ctx, communityID)
 	if err != nil {
 		return fmt.Errorf("community %d: %w", communityID, err)
@@ -52,28 +43,50 @@ func (s *Server) SendBlock(ctx context.Context, tx pgx.Tx, communityID int64, pe
 	if !c.Local {
 		return nil
 	}
-	id, err := newActivityID(c.ApID)
+	act, err := modActivity(moderator, c.ApID, "Block", personApID, c.ApID, !blocked)
 	if err != nil {
 		return err
 	}
+	return s.sendModAction(ctx, tx, communityRef(c), moderator, act, personApID)
+}
+
+// modActivity is a moderator's activity in Lemmy's shape: the moderator acts,
+// the community is its audience, and undo wraps it in an Undo.
+func modActivity(moderator actors.Actor, group, kind, object, target string, undo bool) (map[string]any, error) {
+	id, err := newActivityID(moderator.ApID)
+	if err != nil {
+		return nil, err
+	}
 	act := map[string]any{
-		"@context": activityStreams, "id": id, "type": "Block", "actor": c.ApID,
-		"object": personApID, "target": c.ApID, "audience": c.ApID,
+		"@context": activityStreams, "id": id, "type": kind, "actor": moderator.ApID,
+		"to": []string{public}, "cc": []string{group}, "object": object, "audience": group,
 	}
-	if !blocked {
-		act = map[string]any{
-			"@context": activityStreams, "id": id, "type": "Undo", "actor": c.ApID, "audience": c.ApID,
-			"object": map[string]any{
-				"id": id + "/block", "type": "Block", "actor": c.ApID, "object": personApID, "target": c.ApID,
-			},
+	if target != "" {
+		act["target"] = target
+	}
+	if !undo {
+		return act, nil
+	}
+	inner := maps.Clone(act)
+	delete(inner, "@context")
+	inner["id"] = id + "/" + strings.ToLower(kind)
+	return map[string]any{
+		"@context": activityStreams, "id": id, "type": "Undo", "actor": moderator.ApID,
+		"to": []string{public}, "cc": []string{group}, "object": inner, "audience": group,
+	}, nil
+}
+
+// sendModAction federates a moderator's activity as Lemmy does: the group
+// announces it to its followers, and the person it names gets it directly.
+func (s *Server) sendModAction(ctx context.Context, tx pgx.Tx, c communityRef, moderator actors.Actor, act map[string]any, personApID string) error {
+	if personApID != "" {
+		if person, err := actors.ByApID(ctx, tx, personApID); err == nil && !person.Local && person.Inbox != "" {
+			if err := s.deliver(ctx, tx, moderator.ID, person.Inbox, act); err != nil {
+				return err
+			}
 		}
 	}
-	if person, err := actors.ByApID(ctx, tx, personApID); err == nil && !person.Local && person.Inbox != "" {
-		if err := s.deliver(ctx, tx, c.ActorID, person.Inbox, act); err != nil {
-			return err
-		}
-	}
-	return s.toFollowers(ctx, tx, c, act)
+	return s.announce(ctx, tx, c, act, "")
 }
 
 // toFollowers delivers one copy of a group's activity to every follower inbox.
@@ -195,21 +208,8 @@ func (s *Server) planBlock(ctx context.Context, db federationdb.DBTX, act activi
 	var err error
 	if via != nil {
 		p.community = *via
-	} else {
-		c, cerr := federationdb.New(db).CommunityByGroupApID(ctx, act.Actor.ID)
-		if errors.Is(cerr, pgx.ErrNoRows) {
-			return p, reject(http.StatusNotFound, "no community %s here", act.Actor.ID)
-		}
-		if cerr != nil {
-			return p, fmt.Errorf("group %s: %w", act.Actor.ID, cerr)
-		}
-		if !c.Local {
-			return p, reject(http.StatusForbidden, "%s is not a local group", act.Actor.ID)
-		}
-		if c.State != "active" && !importing(ctx) {
-			return p, reject(http.StatusServiceUnavailable, "community %s is %s", c.ApID, c.State)
-		}
-		p.community = c
+	} else if p.community, err = s.moderatedCommunity(ctx, db, act); err != nil {
+		return p, err
 	}
 	person, err := s.knownActor(ctx, p.changeID)
 	if err != nil {
@@ -220,6 +220,56 @@ func (s *Server) planBlock(ctx context.Context, db federationdb.DBTX, act activi
 		p.kind = "block"
 	}
 	return p, nil
+}
+
+// community is the group a moderator's activity names: its audience, or the
+// target of a Block or of an Add to the group's moderators collection.
+func (a activity) community() string {
+	group := cmp.Or(a.Audience.ID, strings.TrimSuffix(a.Target.ID, "/moderators"))
+	if inner, err := a.embedded(); group == "" && a.Type == "Undo" && err == nil {
+		return inner.community()
+	}
+	return group
+}
+
+// moderatedCommunity finds the community of a Lock, Block, Add or Remove that
+// arrives without its group's Announce. Lemmy and PieFed send these as the
+// moderator, to the person they name and to the group. Only a remote group's own
+// host can vouch for its moderators; a local group needs the sender to moderate it.
+func (s *Server) moderatedCommunity(ctx context.Context, db federationdb.DBTX, act activity) (federationdb.CommunityByGroupApIDRow, error) {
+	var none federationdb.CommunityByGroupApIDRow
+	group := act.community()
+	if group == "" {
+		return none, reject(http.StatusBadRequest, "%s names no community", act.Type)
+	}
+	c, err := federationdb.New(db).CommunityByGroupApID(ctx, group)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return none, reject(http.StatusNotFound, "no community %s here", group)
+	}
+	if err != nil {
+		return none, fmt.Errorf("group %s: %w", group, err)
+	}
+	if !c.Local {
+		if !sameHost(act.Actor.ID, c.ApID) {
+			return none, reject(http.StatusForbidden, "%s may not act for %s", act.Actor.ID, c.ApID)
+		}
+		return c, nil
+	}
+	if c.State != "active" && !importing(ctx) {
+		return none, reject(http.StatusServiceUnavailable, "community %s is %s", c.ApID, c.State)
+	}
+	sender, err := s.knownActor(ctx, act.Actor.ID)
+	if err != nil {
+		return none, reject(http.StatusUnprocessableEntity, "sender %s: %v", act.Actor.ID, err)
+	}
+	role, err := federationdb.New(db).MembershipRole(ctx, federationdb.MembershipRoleParams{CommunityID: c.ID, ActorID: sender.ID})
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && role == "member") {
+		return none, reject(http.StatusForbidden, "%s does not moderate %s", act.Actor.ID, c.ApID)
+	}
+	if err != nil {
+		return none, fmt.Errorf("membership: %w", err)
+	}
+	return c, nil
 }
 
 // planLock resolves a group's Lock, or an Undo of one, on a post of its community.
@@ -240,21 +290,8 @@ func (s *Server) planLock(ctx context.Context, db federationdb.DBTX, act activit
 	var err error
 	if via != nil {
 		p.community = *via
-	} else {
-		c, cerr := federationdb.New(db).CommunityByGroupApID(ctx, act.Actor.ID)
-		if errors.Is(cerr, pgx.ErrNoRows) {
-			return p, reject(http.StatusNotFound, "no community %s here", act.Actor.ID)
-		}
-		if cerr != nil {
-			return p, fmt.Errorf("group %s: %w", act.Actor.ID, cerr)
-		}
-		if !c.Local {
-			return p, reject(http.StatusForbidden, "%s is not a local group", act.Actor.ID)
-		}
-		if c.State != "active" && !importing(ctx) {
-			return p, reject(http.StatusServiceUnavailable, "community %s is %s", c.ApID, c.State)
-		}
-		p.community = c
+	} else if p.community, err = s.moderatedCommunity(ctx, db, act); err != nil {
+		return p, err
 	}
 
 	post, err := discussionsdb.New(db).PostByApID(ctx, p.changeID)

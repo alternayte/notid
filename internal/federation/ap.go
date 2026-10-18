@@ -1,5 +1,7 @@
 package federation
 
+import "time"
+
 // activityStreams is the JSON-LD context every actor document needs.
 var activityStreams = []string{
 	"https://www.w3.org/ns/activitystreams",
@@ -40,6 +42,7 @@ type actorDoc struct {
 	Following         string     `json:"following,omitempty"`
 	Endpoints         *endpoints `json:"endpoints,omitempty"`
 	PublicKey         publicKey  `json:"publicKey"`
+	Published         *time.Time `json:"published,omitempty"`
 }
 
 func personDoc(a actorRow, url string) actorDoc {

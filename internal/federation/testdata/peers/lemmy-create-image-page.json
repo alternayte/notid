@@ -1,0 +1,50 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "id": "http://lemmy.test:8536/activities/create/2bce3991-d51b-4bab-832f-a92c832504c1",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Create",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "cc": [
+        ],
+        "id": "http://lemmy.test:8536/post/10",
+        "to": [
+            "http://a.notid.test:8080/c/woode910710a",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://lemmy.test:8536/post/10",
+                "name": "#woode910710a",
+                "type": "Hashtag"
+            }
+        ],
+        "name": "My bench",
+        "type": "Page",
+        "image": {
+            "url": "http://a.notid.test:8080/media/ztvcdvs5vhqfhx4blgez6lcm24.jpg",
+            "type": "Image"
+        },
+        "audience": "http://a.notid.test:8080/c/woode910710a",
+        "mediaType": "text/html",
+        "published": "2026-10-18T18:31:40.366120Z",
+        "sensitive": false,
+        "attachment": [
+            {
+                "url": "http://a.notid.test:8080/media/ztvcdvs5vhqfhx4blgez6lcm24.jpg",
+                "name": null,
+                "type": "Image"
+            }
+        ],
+        "attributedTo": "http://lemmy.test:8536/u/admin"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

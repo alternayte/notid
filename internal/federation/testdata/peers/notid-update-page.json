@@ -1,0 +1,38 @@
+{
+    "cc": [
+    ],
+    "id": "http://b.notid.test:8080/a/wp62b3vifrvwk4hl3yxl43ck",
+    "to": [
+        "http://a.notid.test:8080/c/wood74d16c14",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Update",
+    "actor": "http://b.notid.test:8080/u/u57ac2ffb",
+    "object": {
+        "cc": [
+        ],
+        "id": "http://b.notid.test:8080/o/svqiijlsj3s5sxua37456l5m",
+        "to": [
+            "http://a.notid.test:8080/c/wood74d16c14",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "name": "From B",
+        "type": "Page",
+        "source": {
+            "content": "planes, edited",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>planes, edited</p>\n",
+        "updated": "2026-10-18T19:04:47.115166Z",
+        "audience": "http://a.notid.test:8080/c/wood74d16c14",
+        "mediaType": "text/html",
+        "published": "2026-10-18T19:04:45.543751Z",
+        "sensitive": false,
+        "attributedTo": "http://b.notid.test:8080/u/u57ac2ffb"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood74d16c14"
+}

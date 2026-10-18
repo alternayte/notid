@@ -1,0 +1,20 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/tools866dd3c2"
+    ],
+    "id": "http://lemmy.test:8536/activities/block/f0c4e756-f438-4a0f-8b95-9a29b96a67f3",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Block",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://a.notid.test:8080/u/u51c799e4",
+    "target": "http://lemmy.test:8536/c/tools866dd3c2",
+    "summary": "interop ban",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://lemmy.test:8536/c/tools866dd3c2",
+    "removeData": false
+}

@@ -1,0 +1,16 @@
+{
+    "id": "http://lemmy.test:8536/activities/flag/2b79d363-9ec2-4bcf-97ff-9ff236b943f7",
+    "to": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "type": "Flag",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://lemmy.test:8536/post/10",
+    "content": null,
+    "summary": "not a bench",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

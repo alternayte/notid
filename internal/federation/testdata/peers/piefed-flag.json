@@ -1,0 +1,15 @@
+{
+    "id": "http://piefed.test:5000/activities/flag/xB7jhvxRru9EcIE",
+    "to": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "type": "Flag",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": "http://piefed.test:5000/c/woode910710a@a.notid.test:8080/p/5/my-bench",
+    "summary": "not a bench",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

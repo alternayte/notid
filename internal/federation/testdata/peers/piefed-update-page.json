@@ -1,0 +1,61 @@
+{
+    "cc": [
+    ],
+    "id": "http://piefed.test:5000/activities/update/ASU3KkZU79tRfDQ",
+    "to": [
+        "http://a.notid.test:8080/c/woode910710a",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Update",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": {
+        "cc": [
+        ],
+        "id": "http://piefed.test:5000/c/woode910710a@a.notid.test:8080/p/6/how-this-site-federates",
+        "to": [
+            "http://a.notid.test:8080/c/woode910710a",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+        ],
+        "name": "How this site federates",
+        "nsfl": false,
+        "type": "Page",
+        "genAI": false,
+        "source": {
+            "content": "Edited on piefed",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>Edited on piefed</p>\n",
+        "updated": "2026-10-18T18:35:11.552293+00:00",
+        "audience": "http://a.notid.test:8080/c/woode910710a",
+        "language": {
+            "name": "English",
+            "identifier": "en"
+        },
+        "stickied": false,
+        "mediaType": "text/html",
+        "published": "2026-10-18T18:35:11.221937+00:00",
+        "sensitive": false,
+        "attachment": [
+            {
+                "href": "http://a.notid.test:8080/about/federation",
+                "type": "Link"
+            }
+        ],
+        "attributedTo": "http://piefed.test:5000/u/admin",
+        "commentsEnabled": true,
+        "interactionPolicy": {
+            "canQuote": {
+                "automaticApproval": [
+                    "https://www.w3.org/ns/activitystreams#Public"
+                ]
+            }
+        }
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

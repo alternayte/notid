@@ -1,0 +1,56 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a",
+        "http://lemmy.test:8536/u/admin"
+    ],
+    "id": "http://lemmy.test:8536/activities/update/1c749ec9-2a86-46bc-a9d5-e96ef688af24",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "tag": [
+        {
+            "href": "http://lemmy.test:8536/u/admin",
+            "name": "@admin@lemmy.test",
+            "type": "Mention"
+        }
+    ],
+    "type": "Update",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "cc": [
+            "http://a.notid.test:8080/c/woode910710a",
+            "http://lemmy.test:8536/u/admin"
+        ],
+        "id": "http://lemmy.test:8536/comment/4",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://lemmy.test:8536/u/admin",
+                "name": "@admin@lemmy.test",
+                "type": "Mention"
+            }
+        ],
+        "type": "Note",
+        "source": {
+            "content": "second thought",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>second thought</p>\n",
+        "updated": "2026-10-18T18:33:10.205680Z",
+        "audience": "http://a.notid.test:8080/c/woode910710a",
+        "inReplyTo": "http://lemmy.test:8536/post/11",
+        "mediaType": "text/html",
+        "published": "2026-10-18T18:33:10.180465Z",
+        "attachment": [
+        ],
+        "attributedTo": "http://lemmy.test:8536/u/admin",
+        "distinguished": false
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

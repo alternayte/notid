@@ -72,6 +72,10 @@ func (s *Server) planContent(ctx context.Context, db federationdb.DBTX, act acti
 			}
 		case "Note":
 			p.kind = "comment"
+			if obj.InReplyTo == "" {
+				// PieFed and Lemmy send private messages as a Note that replies to nothing.
+				return p, reject(http.StatusUnprocessableEntity, "this site has no private messages")
+			}
 			if err := s.resolveParent(ctx, db, &p, obj.InReplyTo); err != nil {
 				return p, err
 			}
@@ -415,7 +419,7 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 			return err
 		}
 	}
-	if !p.direct || !changed {
+	if !p.direct || !changed || !p.community.Local {
 		return nil
 	}
 	// The origin server already has the activity, and Lemmy refuses its own objects back.

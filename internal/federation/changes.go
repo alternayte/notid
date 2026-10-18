@@ -87,6 +87,7 @@ func (s *Server) sendDelete(ctx context.Context, tx pgx.Tx, author actors.Actor,
 
 // planChange resolves an Update or a Delete of a Page or Note. The sender must
 // be its author, or for a Delete a moderator of the community that holds it.
+// An Update of an object not stored yet plans its creation.
 func (s *Server) planChange(ctx context.Context, db federationdb.DBTX, act activity, via *federationdb.CommunityByGroupApIDRow) (contentPlan, error) {
 	p := contentPlan{direct: via == nil, kind: "delete"}
 	sender, err := s.knownActor(ctx, act.Actor.ID)
@@ -109,6 +110,12 @@ func (s *Server) planChange(ctx context.Context, db federationdb.DBTX, act activ
 	isComment := false
 	if errors.Is(err, pgx.ErrNoRows) {
 		comment, cerr := q.CommentByApID(ctx, objectID)
+		if errors.Is(cerr, pgx.ErrNoRows) && act.Type == "Update" {
+			// An Update can overtake its Create; Lemmy stores it as the object.
+			create := act
+			create.Type = "Create"
+			return s.planContent(ctx, db, create, via)
+		}
 		if errors.Is(cerr, pgx.ErrNoRows) {
 			return s.planPersonDelete(ctx, db, &p, sender, objectID)
 		}

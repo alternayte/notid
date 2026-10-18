@@ -1,0 +1,18 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood74d16c14"
+    ],
+    "id": "http://a.notid.test:8080/a/o4wicw4h3rffstheqof7s4go",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Block",
+    "actor": "http://a.notid.test:8080/u/u5fd04470",
+    "object": "http://b.notid.test:8080/u/u57ac2ffb",
+    "target": "http://a.notid.test:8080/c/wood74d16c14",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood74d16c14"
+}

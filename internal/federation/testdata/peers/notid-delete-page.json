@@ -1,0 +1,20 @@
+{
+    "cc": [
+    ],
+    "id": "http://b.notid.test:8080/a/mg6kr75lolait62cxj5mgth3",
+    "to": [
+        "http://a.notid.test:8080/c/wood74d16c14",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Delete",
+    "actor": "http://b.notid.test:8080/u/u57ac2ffb",
+    "object": {
+        "id": "http://b.notid.test:8080/o/svqiijlsj3s5sxua37456l5m",
+        "type": "Tombstone"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood74d16c14"
+}

@@ -1,0 +1,16 @@
+{
+    "id": "http://b.notid.test:8080/a/uwdaddyz3p5qzqrwshefejlk",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Delete",
+    "actor": "http://b.notid.test:8080/u/u57ac2ffb",
+    "object": {
+        "id": "http://b.notid.test:8080/u/u57ac2ffb",
+        "type": "Tombstone"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

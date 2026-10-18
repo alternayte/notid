@@ -31,19 +31,8 @@ func objectType(raw json.RawMessage) string {
 	return o.Type
 }
 
-// sendGroupAction delivers a group's activity to one person's inbox and to the
-// group's followers, signed by the group.
-func (s *Server) sendGroupAction(ctx context.Context, tx pgx.Tx, c communityRef, act any, personApID string) error {
-	if person, err := actors.ByApID(ctx, tx, personApID); err == nil && !person.Local && person.Inbox != "" {
-		if err := s.deliver(ctx, tx, c.ActorID, person.Inbox, act); err != nil {
-			return err
-		}
-	}
-	return s.toFollowers(ctx, tx, c, act)
-}
-
-// SendRole federates an appointment or removal of a moderator.
-func (s *Server) SendRole(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, moderator bool) error {
+// SendRole federates a moderator appointment or removal in a local community.
+func (s *Server) SendRole(ctx context.Context, tx pgx.Tx, owner actors.Actor, communityID int64, personApID string, moderator bool) error {
 	c, err := federationdb.New(tx).CommunityByID(ctx, communityID)
 	if err != nil {
 		return fmt.Errorf("community %d: %w", communityID, err)
@@ -51,19 +40,15 @@ func (s *Server) SendRole(ctx context.Context, tx pgx.Tx, communityID int64, per
 	if !c.Local {
 		return nil
 	}
-	id, err := newActivityID(c.ApID)
-	if err != nil {
-		return err
-	}
 	kind := "Add"
 	if !moderator {
 		kind = "Remove"
 	}
-	act := map[string]any{
-		"@context": activityStreams, "id": id, "type": kind, "actor": c.ApID,
-		"object": personApID, "target": c.ApID, "audience": c.ApID,
+	act, err := modActivity(owner, c.ApID, kind, personApID, c.ApID+"/moderators", false)
+	if err != nil {
+		return err
 	}
-	return s.sendGroupAction(ctx, tx, c, act, personApID)
+	return s.sendModAction(ctx, tx, communityRef(c), owner, act, personApID)
 }
 
 // SendGroupUpdate federates a community's new name, title and description.
@@ -106,18 +91,8 @@ func (s *Server) planRole(ctx context.Context, db federationdb.DBTX, act activit
 	var err error
 	if via != nil {
 		p.community = *via
-	} else {
-		c, cerr := federationdb.New(db).CommunityByGroupApID(ctx, act.Actor.ID)
-		if errors.Is(cerr, pgx.ErrNoRows) {
-			return p, reject(http.StatusNotFound, "no community %s here", act.Actor.ID)
-		}
-		if cerr != nil {
-			return p, fmt.Errorf("group %s: %w", act.Actor.ID, cerr)
-		}
-		if !c.Local {
-			return p, reject(http.StatusForbidden, "%s is not a local group", act.Actor.ID)
-		}
-		p.community = c
+	} else if p.community, err = s.moderatedCommunity(ctx, db, act); err != nil {
+		return p, err
 	}
 	person, err := s.knownActor(ctx, p.changeID)
 	if err != nil {
@@ -137,7 +112,9 @@ func (s *Server) planGroupUpdate(ctx context.Context, db federationdb.DBTX, act 
 	if err := json.Unmarshal(act.Object, &doc); err != nil || doc.ID == "" || doc.Type != "Group" {
 		return p, reject(http.StatusBadRequest, "Update without a Group object")
 	}
-	if doc.ID != act.Actor.ID {
+	// Lemmy and PieFed send the Update as the moderator who made the change;
+	// only the group's own host can vouch for its moderators.
+	if doc.ID != act.Actor.ID && !sameHost(doc.ID, act.Actor.ID) {
 		return p, reject(http.StatusBadRequest, "Update of %s by %s", doc.ID, act.Actor.ID)
 	}
 	if via != nil {

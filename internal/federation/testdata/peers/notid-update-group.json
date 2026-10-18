@@ -1,0 +1,37 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood74d16c14/followers"
+    ],
+    "id": "http://a.notid.test:8080/a/gt637zfb3vipvcmz55xcpxu4",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Update",
+    "actor": "http://a.notid.test:8080/c/wood74d16c14",
+    "object": {
+        "id": "http://a.notid.test:8080/c/wood74d16c14",
+        "url": "http://a.notid.test:8080/c/wood74d16c14",
+        "name": "Renamed on A",
+        "type": "Group",
+        "inbox": "http://a.notid.test:8080/c/wood74d16c14/inbox",
+        "outbox": "http://a.notid.test:8080/c/wood74d16c14/outbox",
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "endpoints": {
+            "sharedInbox": "http://a.notid.test:8080/c/wood74d16c14/inbox"
+        },
+        "followers": "http://a.notid.test:8080/c/wood74d16c14/followers",
+        "publicKey": {
+            "id": "http://a.notid.test:8080/c/wood74d16c14#main-key",
+            "owner": "http://a.notid.test:8080/c/wood74d16c14",
+            "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyq1oVliGr0/aeBo67b7F\n93vnSGYGSSWURz9ScgC8gQNhHPu+EGGnJaDPrshVJmIRYpdDTDO7P+zsBuaYWPe0\n4fI8oVJmxPPuxBDKxSWrB0PcHANjPt+ABjtrhXcwJp0ck33s9jtPyE7wVnPzXG/N\n6H+S7+9K+Q/ynxYQv1LKBh40uv5FjDxYNvVEimXMnbCM5N+UIvKUr2Jikrog9W+I\nzHucmKdI02FkgxjNRMjs071l89uQWzIs0og5asKKGUbpHAGJy3astVBaWk3HVJv2\nls2iOFtVEomehBs/L7HgQgYnKAod/bL5GWnKTmpgZ9s9eX4cR1TSR3+5SvwLCHxT\njQIDAQAB\n-----END PUBLIC KEY-----\n"
+        },
+        "preferredUsername": "wood74d16c14"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

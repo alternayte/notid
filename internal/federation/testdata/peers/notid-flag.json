@@ -1,0 +1,16 @@
+{
+    "id": "http://b.notid.test:8080/a/yy2ftonwymcu2bbwzmgjxhyq",
+    "to": [
+        "http://a.notid.test:8080/c/wood74d16c14"
+    ],
+    "type": "Flag",
+    "actor": "http://b.notid.test:8080/u/u57ac2ffb",
+    "object": "http://a.notid.test:8080/o/xfjaj56jqixfzpakgqu5dpzs",
+    "content": "from B",
+    "summary": "from B",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood74d16c14"
+}

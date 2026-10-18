@@ -1,0 +1,28 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/tools866dd3c2/followers"
+    ],
+    "id": "http://lemmy.test:8536/activities/announce/lock/e31b4582-37d7-453b-a3a1-c8d971b18a74",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://lemmy.test:8536/c/tools866dd3c2",
+    "object": {
+        "cc": [
+            "http://lemmy.test:8536/c/tools866dd3c2"
+        ],
+        "id": "http://lemmy.test:8536/activities/lock/791e2de4-a5d7-446a-9927-999109fdc931",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Lock",
+        "actor": "http://lemmy.test:8536/u/admin",
+        "object": "http://a.notid.test:8080/o/6dbaaptxscitwleh4lmkizcy",
+        "audience": "http://lemmy.test:8536/c/tools866dd3c2"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

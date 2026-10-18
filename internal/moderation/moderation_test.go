@@ -377,7 +377,7 @@ func TestLockingAPostFederatesAsTheGroup(t *testing.T) {
 	var community int64
 	var apID string
 	var locked bool
-	f.svc.SendLock = func(_ context.Context, _ pgx.Tx, communityID int64, postApID string, value bool) error {
+	f.svc.SendLock = func(_ context.Context, _ pgx.Tx, _ actors.Actor, communityID int64, postApID string, value bool) error {
 		community, apID, locked = communityID, postApID, value
 		return nil
 	}
@@ -414,7 +414,7 @@ func TestBanningARemotePersonTellsTheirServerAndALocalBanStaysHere(t *testing.T)
 	}
 	var calls []bool
 	var told string
-	f.svc.SendBlock = func(_ context.Context, _ pgx.Tx, communityID int64, personApID string, blocked bool) error {
+	f.svc.SendBlock = func(_ context.Context, _ pgx.Tx, _ actors.Actor, communityID int64, personApID string, blocked bool) error {
 		calls, told = append(calls, blocked), personApID
 		return nil
 	}
@@ -449,7 +449,7 @@ func TestOnlyAnOwnerAppointsModeratorsAndTheLogAndPeersHearOfIt(t *testing.T) {
 		t.Fatalf("a member appointed a moderator: %v", err)
 	}
 	var told bool
-	f.svc.SendRole = func(_ context.Context, _ pgx.Tx, communityID int64, personApID string, moderator bool) error {
+	f.svc.SendRole = func(_ context.Context, _ pgx.Tx, _ actors.Actor, communityID int64, personApID string, moderator bool) error {
 		told = moderator
 		return nil
 	}

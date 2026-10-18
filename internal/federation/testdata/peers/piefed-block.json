@@ -1,0 +1,33 @@
+{
+    "cc": [
+        "http://piefed.test:5000/c/tools9b258710/followers"
+    ],
+    "id": "http://piefed.test:5000/activities/announce/SxrLpvmBFncDMhM",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://piefed.test:5000/c/tools9b258710",
+    "object": {
+        "cc": [
+            "http://piefed.test:5000/c/tools9b258710"
+        ],
+        "id": "http://piefed.test:5000/activities/block/6sOAQpjhOYrTlyD",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Block",
+        "actor": "http://piefed.test:5000/u/admin",
+        "object": "http://a.notid.test:8080/u/u51c799e4",
+        "target": "http://piefed.test:5000/c/tools9b258710",
+        "endTime": "2100-01-01T00:00:00+00:00",
+        "expires": "2100-01-01T00:00:00+00:00",
+        "summary": "interop ban",
+        "audience": "http://piefed.test:5000/c/tools9b258710",
+        "removeData": false
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

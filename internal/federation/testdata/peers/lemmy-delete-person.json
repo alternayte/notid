@@ -1,0 +1,14 @@
+{
+    "id": "http://lemmy.test:8536/activities/delete/bcf5914c-9e02-4632-851f-358a23cc878c",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Delete",
+    "actor": "http://lemmy.test:8536/u/gone9e83ef65",
+    "object": "http://lemmy.test:8536/u/gone9e83ef65",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "removeData": true
+}

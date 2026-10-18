@@ -18,6 +18,9 @@ type activity struct {
 	Type   string          `json:"type"`
 	Actor  ref             `json:"actor"`
 	Object json.RawMessage `json:"object"`
+	// Audience and Target name the community of a moderator's activity.
+	Audience ref `json:"audience,omitempty"`
+	Target   ref `json:"target,omitempty"`
 	// Summary and Content carry a Flag's reason: Lemmy writes the first and
 	// Mastodon the second.
 	Summary string `json:"summary,omitempty"`

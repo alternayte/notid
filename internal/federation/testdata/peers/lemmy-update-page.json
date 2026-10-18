@@ -1,0 +1,52 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a"
+    ],
+    "id": "http://lemmy.test:8536/activities/update/7fe45ff5-9fbd-45d9-a010-b7c4efdc9315",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Update",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "cc": [
+        ],
+        "id": "http://lemmy.test:8536/post/11",
+        "to": [
+            "http://a.notid.test:8080/c/woode910710a",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://lemmy.test:8536/post/11",
+                "name": "#woode910710a",
+                "type": "Hashtag"
+            }
+        ],
+        "name": "How this site federates",
+        "type": "Page",
+        "source": {
+            "content": "Edited on lemmy",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>Edited on lemmy</p>\n",
+        "updated": "2026-10-18T18:32:39.566808Z",
+        "audience": "http://a.notid.test:8080/c/woode910710a",
+        "mediaType": "text/html",
+        "published": "2026-10-18T18:32:11.111850Z",
+        "sensitive": false,
+        "attachment": [
+            {
+                "href": "http://a.notid.test:8080/about/federation",
+                "type": "Link",
+                "mediaType": "text/plain; charset=utf-8"
+            }
+        ],
+        "attributedTo": "http://lemmy.test:8536/u/admin"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}

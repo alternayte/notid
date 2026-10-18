@@ -132,6 +132,54 @@ func TestInboundUpdateAndDeleteFromTheAuthorApply(t *testing.T) {
 	}
 }
 
+// PieFed sends a Create and an Update of a new comment within milliseconds, so
+// the Update can reach the inbox before the Create is stored.
+func TestAnUpdateThatArrivesBeforeItsCreateStoresTheEditedObject(t *testing.T) {
+	ctx := context.Background()
+	s, author, _, postApID := changeServer(t)
+	commentApID := "https://peer.test/comment/" + uuid.NewString()
+	note := func(text string) json.RawMessage {
+		raw, _ := json.Marshal(map[string]any{
+			"id": commentApID, "type": "Note", "attributedTo": author.ApID, "inReplyTo": postApID,
+			"content": text, "mediaType": "text/html", "published": time.Now().UTC().Format(time.RFC3339Nano),
+		})
+		return raw
+	}
+	apply := func(kind string, raw json.RawMessage) {
+		t.Helper()
+		act := activity{ID: "https://peer.test/a/" + uuid.NewString(), Type: kind, Actor: ref{author.ApID}, Object: raw}
+		var plan contentPlan
+		var err error
+		if kind == "Update" {
+			plan, err = s.planChange(ctx, s.Pool, act, nil)
+		} else {
+			plan, err = s.planContent(ctx, s.Pool, act, nil)
+		}
+		if err != nil {
+			t.Fatalf("plan %s: %v", kind, err)
+		}
+		tx, err := s.Pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.applyContent(ctx, tx, plan, raw); err != nil {
+			t.Fatalf("apply %s: %v", kind, err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply("Update", note("second thought"))
+	apply("Create", note("first thought"))
+	var body string
+	if err := s.Pool.QueryRow(ctx, `SELECT body FROM comments WHERE ap_id = $1`, commentApID).Scan(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body != "second thought" && body != "second thought\n" {
+		t.Fatalf("stored body %q", body)
+	}
+}
+
 func TestInboundChangeFromAStrangerIsRefused(t *testing.T) {
 	ctx := context.Background()
 	s, _, _, postApID := changeServer(t)

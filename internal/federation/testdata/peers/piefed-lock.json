@@ -1,0 +1,28 @@
+{
+    "cc": [
+        "http://piefed.test:5000/c/tools9b258710/followers"
+    ],
+    "id": "http://piefed.test:5000/activities/announce/PFBXmninrlJYUhq",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://piefed.test:5000/c/tools9b258710",
+    "object": {
+        "cc": [
+            "http://piefed.test:5000/c/tools9b258710"
+        ],
+        "id": "http://piefed.test:5000/activities/lock/D6r226rTFDKIQPq",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Lock",
+        "actor": "http://piefed.test:5000/u/admin",
+        "object": "http://a.notid.test:8080/o/ryvmjxgp326f6n7elbo2pmvc",
+        "audience": "http://piefed.test:5000/c/tools9b258710"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

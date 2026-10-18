@@ -1,0 +1,56 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/woode910710a",
+        "http://piefed.test:5000/u/admin"
+    ],
+    "id": "http://piefed.test:5000/activities/update/JA0SeQmqSLEe5Ob",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Update",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": {
+        "cc": [
+            "http://a.notid.test:8080/c/woode910710a",
+            "http://piefed.test:5000/u/admin"
+        ],
+        "id": "http://piefed.test:5000/comment/2",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://piefed.test:5000/u/admin",
+                "name": "@admin@piefed.test:5000",
+                "type": "Mention"
+            }
+        ],
+        "url": "http://piefed.test:5000/comment/2",
+        "type": "Note",
+        "flair": "",
+        "source": {
+            "content": "second thought",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>second thought</p>\n",
+        "updated": "2026-10-18T18:35:11.947618+00:00",
+        "audience": "http://a.notid.test:8080/c/woode910710a",
+        "language": {
+            "name": "English",
+            "identifier": "en"
+        },
+        "inReplyTo": "http://piefed.test:5000/c/woode910710a@a.notid.test:8080/p/6/how-this-site-federates",
+        "mediaType": "text/html",
+        "published": "2026-10-18T18:35:11.834189+00:00",
+        "contentMap": {
+            "en": "<p>second thought</p>\n"
+        },
+        "attributedTo": "http://piefed.test:5000/u/admin",
+        "distinguished": false
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/woode910710a"
+}
