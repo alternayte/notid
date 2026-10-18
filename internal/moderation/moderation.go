@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,10 +21,14 @@ type Service struct {
 	Pool   *pgxpool.Pool
 	Local  actors.Local
 	Tuning platform.Tuning
+	// IsAdmin reports whether the person holds auth-all's admin role.
+	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
+	Logger  *slog.Logger
 }
 
 var (
 	ErrNotModerator = errors.New("only a community's owners and moderators can do that")
+	ErrNotAdmin     = errors.New("only a site admin can do that")
 	ErrNoObject     = errors.New("no post, comment or report at that address")
 	ErrAlreadyDone  = errors.New("that action was already taken")
 	ErrBanned       = errors.New("you are banned from this community")
@@ -40,6 +45,8 @@ const (
 	ActionUnlock          = "unlock"
 	ActionBan             = "ban"
 	ActionUnban           = "unban"
+	ActionSiteBan         = "site_ban"
+	ActionSiteUnban       = "site_unban"
 	ActionReportUpheld    = "report_upheld"
 	ActionReportDismissed = "report_dismissed"
 )
@@ -51,6 +58,8 @@ type Target struct {
 	Community int64
 	AuthorID  int64
 	PostApID  string
+	// Local is true when a person on this installation wrote the target.
+	Local bool
 }
 
 func (s *Service) inTx(ctx context.Context, fn func(tx pgx.Tx) error) error {
@@ -99,9 +108,9 @@ func Banned(ctx context.Context, db moderationdb.DBTX, communityID, actorID int6
 }
 
 // writeLog records one action. The caller has already checked the role.
-func writeLog(ctx context.Context, q *moderationdb.Queries, communityID, moderatorID int64, action string, targetActor *int64, targetApID, reason string, expires *time.Time) error {
+func writeLog(ctx context.Context, q *moderationdb.Queries, communityID *int64, moderatorID int64, action string, targetActor *int64, targetApID, reason string, expires *time.Time) error {
 	params := moderationdb.InsertModerationLogParams{
-		CommunityID: &communityID, ModeratorID: moderatorID, Action: action,
+		CommunityID: communityID, ModeratorID: moderatorID, Action: action,
 		TargetActorID: targetActor, Reason: reason, ExpiresAt: expires,
 	}
 	if targetApID != "" {
@@ -117,7 +126,7 @@ func writeLog(ctx context.Context, q *moderationdb.Queries, communityID, moderat
 func locate(ctx context.Context, q *moderationdb.Queries, objectApID string) (Target, bool, error) {
 	p, err := q.PostForModeration(ctx, objectApID)
 	if err == nil {
-		return Target{ApID: p.ApID, Ref: p.Ref, Community: p.CommunityID, AuthorID: p.AuthorID}, false, nil
+		return Target{ApID: p.ApID, Ref: p.Ref, Community: p.CommunityID, AuthorID: p.AuthorID, Local: p.Local}, false, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Target{}, false, fmt.Errorf("post: %w", err)
@@ -129,7 +138,27 @@ func locate(ctx context.Context, q *moderationdb.Queries, objectApID string) (Ta
 	if err != nil {
 		return Target{}, false, fmt.Errorf("comment: %w", err)
 	}
-	return Target{ApID: c.ApID, Ref: c.Ref, Community: c.CommunityID, AuthorID: c.AuthorID, PostApID: c.PostApID}, true, nil
+	return Target{ApID: c.ApID, Ref: c.Ref, Community: c.CommunityID, AuthorID: c.AuthorID, PostApID: c.PostApID, Local: c.Local}, true, nil
+}
+
+// mayModerate allows a community's moderators, and a site admin acting on local
+// content in a remote community.
+func (s *Service) mayModerate(ctx context.Context, q *moderationdb.Queries, actor actors.Actor, communityID int64, local bool) error {
+	err := moderator(ctx, q, communityID, actor.ID)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, ErrNotModerator) || !local || s.IsAdmin == nil {
+		return err
+	}
+	admin, aerr := s.IsAdmin(ctx, actor)
+	if aerr != nil {
+		return aerr
+	}
+	if !admin {
+		return err
+	}
+	return nil
 }
 
 // Remove hides a post or a comment for everyone and records why.
@@ -141,7 +170,7 @@ func (s *Service) Remove(ctx context.Context, actor actors.Actor, objectApID, re
 		if err != nil {
 			return err
 		}
-		if err := moderator(ctx, q, t.Community, actor.ID); err != nil {
+		if err := s.mayModerate(ctx, q, actor, t.Community, t.Local); err != nil {
 			return err
 		}
 		action := ActionRemovePost
@@ -157,7 +186,7 @@ func (s *Service) Remove(ctx context.Context, actor actors.Actor, objectApID, re
 		if err != nil {
 			return fmt.Errorf("remove: %w", err)
 		}
-		return writeLog(ctx, q, t.Community, actor.ID, action, &t.AuthorID, objectApID, reason, nil)
+		return writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, objectApID, reason, nil)
 	})
 	return t, err
 }
@@ -171,7 +200,7 @@ func (s *Service) Restore(ctx context.Context, actor actors.Actor, objectApID st
 		if err != nil {
 			return err
 		}
-		if err := moderator(ctx, q, t.Community, actor.ID); err != nil {
+		if err := s.mayModerate(ctx, q, actor, t.Community, t.Local); err != nil {
 			return err
 		}
 		action := ActionRestorePost
@@ -187,7 +216,7 @@ func (s *Service) Restore(ctx context.Context, actor actors.Actor, objectApID st
 		if err != nil {
 			return fmt.Errorf("restore: %w", err)
 		}
-		return writeLog(ctx, q, t.Community, actor.ID, action, &t.AuthorID, objectApID, "", nil)
+		return writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, objectApID, "", nil)
 	})
 	return t, err
 }
@@ -201,7 +230,7 @@ func (s *Service) SetLocked(ctx context.Context, actor actors.Actor, postApID st
 		if err != nil {
 			return err
 		}
-		if err := moderator(ctx, q, t.Community, actor.ID); err != nil {
+		if err := s.mayModerate(ctx, q, actor, t.Community, t.Local); err != nil {
 			return err
 		}
 		if _, err := q.SetPostLocked(ctx, moderationdb.SetPostLockedParams{ApID: postApID, Locked: locked}); err != nil {
@@ -211,7 +240,7 @@ func (s *Service) SetLocked(ctx context.Context, actor actors.Actor, postApID st
 		if locked {
 			action = ActionLock
 		}
-		return writeLog(ctx, q, t.Community, actor.ID, action, &t.AuthorID, postApID, "", nil)
+		return writeLog(ctx, q, &t.Community, actor.ID, action, &t.AuthorID, postApID, "", nil)
 	})
 	return t, err
 }
@@ -233,7 +262,7 @@ func (s *Service) Ban(ctx context.Context, actor actors.Actor, communityID, targ
 		if err := q.DeleteMembershipForBan(ctx, moderationdb.DeleteMembershipForBanParams{CommunityID: communityID, ActorID: targetID}); err != nil {
 			return fmt.Errorf("remove member: %w", err)
 		}
-		return writeLog(ctx, q, communityID, actor.ID, ActionBan, &targetID, "", reason, expires)
+		return writeLog(ctx, q, &communityID, actor.ID, ActionBan, &targetID, "", reason, expires)
 	})
 }
 
@@ -247,7 +276,7 @@ func (s *Service) Unban(ctx context.Context, actor actors.Actor, communityID, ta
 		if err := q.DeleteBan(ctx, moderationdb.DeleteBanParams{CommunityID: &communityID, ActorID: targetID}); err != nil {
 			return fmt.Errorf("unban: %w", err)
 		}
-		return writeLog(ctx, q, communityID, actor.ID, ActionUnban, &targetID, "", "", nil)
+		return writeLog(ctx, q, &communityID, actor.ID, ActionUnban, &targetID, "", "", nil)
 	})
 }
 
@@ -255,9 +284,10 @@ func (s *Service) Unban(ctx context.Context, actor actors.Actor, communityID, ta
 type Report struct {
 	ID          int64     `json:"id"`
 	Reason      string    `json:"reason"`
-	State       string    `json:"state" enum:"open,upheld,dismissed"`
+	State       string    `json:"state"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Reporter    string    `json:"reporter" doc:"Who reported it; shown to moderators only"`
+	Community   string    `json:"community" doc:"Handle of the community the content is in"`
 	PostRef     string    `json:"postRef,omitempty"`
 	PostApID    string    `json:"postApId,omitempty"`
 	PostTitle   string    `json:"postTitle,omitempty"`
@@ -315,7 +345,38 @@ func (s *Service) Queue(ctx context.Context, actor actors.Actor, handle string) 
 	for _, r := range rows {
 		rep := Report{
 			ID: r.ID, Reason: r.Reason, State: r.State, CreatedAt: r.CreatedAt,
-			Reporter: s.Local.Handle(r.ReporterName, r.ReporterDomain),
+			Reporter:  s.Local.Handle(r.ReporterName, r.ReporterDomain),
+			Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
+		}
+		if r.PostRef != nil {
+			rep.PostRef, rep.PostApID, rep.PostTitle = *r.PostRef, *r.PostApID, *r.PostTitle
+		}
+		if r.CommentRef != nil {
+			rep.CommentRef = *r.CommentRef
+			if r.CommentBody != nil {
+				rep.CommentBody = *r.CommentBody
+			}
+		}
+		out = append(out, rep)
+	}
+	return out, nil
+}
+
+// SiteQueue lists every open report on local content, for site admins.
+func (s *Service) SiteQueue(ctx context.Context, actor actors.Actor) ([]Report, error) {
+	if err := s.requireAdmin(ctx, actor); err != nil {
+		return nil, err
+	}
+	rows, err := moderationdb.New(s.Pool).SiteReportQueue(ctx, s.Tuning.ReportQueueSize)
+	if err != nil {
+		return nil, fmt.Errorf("report queue: %w", err)
+	}
+	out := make([]Report, 0, len(rows))
+	for _, r := range rows {
+		rep := Report{
+			ID: r.ID, Reason: r.Reason, State: r.State, CreatedAt: r.CreatedAt,
+			Reporter:  s.Local.Handle(r.ReporterName, r.ReporterDomain),
+			Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
 		}
 		if r.PostRef != nil {
 			rep.PostRef, rep.PostApID, rep.PostTitle = *r.PostRef, *r.PostApID, *r.PostTitle
@@ -339,14 +400,14 @@ func (s *Service) Resolve(ctx context.Context, actor actors.Actor, reportID int6
 	}
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		q := moderationdb.New(tx)
-		communityID, err := q.ReportCommunity(ctx, reportID)
+		report, err := q.ReportForModeration(ctx, reportID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoObject
 		}
 		if err != nil {
 			return fmt.Errorf("report: %w", err)
 		}
-		if err := moderator(ctx, q, communityID, actor.ID); err != nil {
+		if err := s.mayModerate(ctx, q, actor, report.CommunityID, report.Local); err != nil {
 			return err
 		}
 		if _, err := q.ResolveReport(ctx, moderationdb.ResolveReportParams{ID: reportID, State: state, ResolvedBy: &actor.ID}); errors.Is(err, pgx.ErrNoRows) {
@@ -354,7 +415,7 @@ func (s *Service) Resolve(ctx context.Context, actor actors.Actor, reportID int6
 		} else if err != nil {
 			return fmt.Errorf("resolve report: %w", err)
 		}
-		return writeLog(ctx, q, communityID, actor.ID, action, nil, "", "", nil)
+		return writeLog(ctx, q, &report.CommunityID, actor.ID, action, nil, "", "", nil)
 	})
 }
 

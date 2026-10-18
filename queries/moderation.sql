@@ -6,11 +6,11 @@ WHERE community_id = @community_id AND actor_id = @actor_id AND state = 'accepte
 SELECT c.id FROM communities c WHERE c.domain = @domain AND lower(c.name) = lower(@name);
 
 -- name: PostForModeration :one
-SELECT p.id, p.ap_id, p.ref, p.community_id, p.author_id
+SELECT p.id, p.ap_id, p.ref, p.community_id, p.author_id, p.local
 FROM posts p WHERE p.ap_id = @ap_id;
 
 -- name: CommentForModeration :one
-SELECT m.id, m.ap_id, m.ref, p.community_id, m.author_id, p.ap_id AS post_ap_id
+SELECT m.id, m.ap_id, m.ref, p.community_id, m.author_id, m.local, p.ap_id AS post_ap_id
 FROM comments m JOIN posts p ON p.id = m.post_id WHERE m.ap_id = @ap_id;
 
 -- name: RemovePost :one
@@ -47,11 +47,17 @@ DELETE FROM bans WHERE community_id = @community_id AND actor_id = @actor_id;
 
 -- name: ActiveBan :one
 SELECT * FROM bans
-WHERE community_id = @community_id AND actor_id = @actor_id
+WHERE community_id IS NOT DISTINCT FROM @community_id AND actor_id = @actor_id
   AND (expires_at IS NULL OR expires_at > now());
 
 -- name: DeleteMembershipForBan :exec
 DELETE FROM memberships WHERE community_id = @community_id AND actor_id = @actor_id;
+
+-- name: DeleteAllMembershipsForBan :exec
+DELETE FROM memberships WHERE actor_id = @actor_id;
+
+-- name: DeleteSiteBan :exec
+DELETE FROM bans WHERE community_id IS NULL AND actor_id = @actor_id;
 
 -- name: InsertReport :one
 INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason)
@@ -78,6 +84,45 @@ LIMIT @lim;
 
 -- name: ReportCommunity :one
 SELECT community_id FROM reports WHERE id = @id;
+
+-- ReportForModeration reads a report with whether its target is local content.
+-- name: ReportForModeration :one
+SELECT r.community_id, coalesce(p.local, m.local, false)::boolean AS local
+FROM reports r
+LEFT JOIN posts p ON p.id = r.post_id
+LEFT JOIN comments m ON m.id = r.comment_id
+WHERE r.id = @id;
+
+-- The site queue holds open reports on content a local person wrote, in any community.
+-- name: SiteReportQueue :many
+SELECT
+    r.id, r.reason, r.created_at, r.state,
+    r.post_id, r.comment_id,
+    ra.name AS reporter_name, ra.domain AS reporter_domain,
+    p.ref AS post_ref, p.ap_id AS post_ap_id, p.title AS post_title,
+    m.ref AS comment_ref, m.body AS comment_body,
+    c.name AS community_name, c.domain AS community_domain
+FROM reports r
+JOIN actors ra ON ra.id = r.reporter_id
+JOIN communities c ON c.id = r.community_id
+LEFT JOIN posts p ON p.id = r.post_id
+LEFT JOIN comments m ON m.id = r.comment_id
+WHERE r.state = 'open'
+  AND ((p.local) OR (m.local))
+ORDER BY r.created_at
+LIMIT @lim;
+
+-- Site bans have no community, and their reason is the newest site_ban log line.
+-- name: SiteBans :many
+SELECT b.actor_id, a.name, a.domain, b.expires_at, b.created_at,
+       coalesce((
+         SELECT l.reason FROM moderation_log l
+         WHERE l.community_id IS NULL AND l.target_actor_id = b.actor_id AND l.action = 'site_ban'
+         ORDER BY l.created_at DESC, l.id DESC LIMIT 1
+       ), '')::text AS reason
+FROM bans b JOIN actors a ON a.id = b.actor_id
+WHERE b.community_id IS NULL AND (b.expires_at IS NULL OR b.expires_at > now())
+ORDER BY b.created_at DESC;
 
 -- name: ResolveReport :one
 UPDATE reports SET state = @state, resolved_by = @resolved_by, resolved_at = now()

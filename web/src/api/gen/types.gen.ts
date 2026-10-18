@@ -551,6 +551,10 @@ export type Report = {
      */
     commentBody?: string;
     commentRef?: string;
+    /**
+     * Handle of the community the content is in
+     */
+    community: string;
     createdAt: string;
     id: number;
     postApId?: string;
@@ -561,7 +565,7 @@ export type Report = {
      * Who reported it; shown to moderators only
      */
     reporter: string;
-    state: 'open' | 'upheld' | 'dismissed';
+    state: string;
 };
 
 export type ReportBody = {
@@ -692,6 +696,43 @@ export type SignupMode = {
      */
     readonly $schema?: string;
     mode: 'open' | 'invite' | 'closed';
+};
+
+export type SiteBanBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    /**
+     * 0 bans until a site admin lifts it
+     */
+    days?: number;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
+};
+
+export type SiteBanView = {
+    createdAt: string;
+    expiresAt?: string;
+    /**
+     * Handle of the banned person
+     */
+    person: string;
+    reason: string;
+};
+
+export type SiteBansOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    bans: Array<SiteBanView>;
 };
 
 export type SuccessResponse = {
@@ -1142,6 +1183,25 @@ export type SignupModeWritable = {
     mode: 'open' | 'invite' | 'closed';
 };
 
+export type SiteBanBodyWritable = {
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    /**
+     * 0 bans until a site admin lifts it
+     */
+    days?: number;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
+};
+
+export type SiteBansOutWritable = {
+    bans: Array<SiteBanView>;
+};
+
 export type ThreadViewWritable = {
     comments: Array<CommentView>;
     post: PostView;
@@ -1171,6 +1231,162 @@ export type VoteBodyWritable = {
      */
     value: -1 | 0 | 1;
 };
+
+export type SiteBansData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/bans';
+};
+
+export type SiteBansErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SiteBansError = SiteBansErrors[keyof SiteBansErrors];
+
+export type SiteBansResponses = {
+    /**
+     * OK
+     */
+    200: SiteBansOut;
+};
+
+export type SiteBansResponse = SiteBansResponses[keyof SiteBansResponses];
+
+export type SiteBanData = {
+    body: SiteBanBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/bans';
+};
+
+export type SiteBanErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SiteBanError = SiteBanErrors[keyof SiteBanErrors];
+
+export type SiteBanResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SiteBanResponse = SiteBanResponses[keyof SiteBanResponses];
+
+export type SiteUnbanData = {
+    body: SiteBanBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/bans/lift';
+};
+
+export type SiteUnbanErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SiteUnbanError = SiteUnbanErrors[keyof SiteUnbanErrors];
+
+export type SiteUnbanResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SiteUnbanResponse = SiteUnbanResponses[keyof SiteUnbanResponses];
+
+export type SiteReportsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/reports';
+};
+
+export type SiteReportsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SiteReportsError = SiteReportsErrors[keyof SiteReportsErrors];
+
+export type SiteReportsResponses = {
+    /**
+     * OK
+     */
+    200: QueueOut;
+};
+
+export type SiteReportsResponse = SiteReportsResponses[keyof SiteReportsResponses];
 
 export type AdminListUsersData = {
     body?: never;

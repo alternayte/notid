@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -237,5 +238,135 @@ func TestARemovedPostShowsOnlyToItsAuthorAndTheModerators(t *testing.T) {
 	}
 	if _, err := thread.Thread(ctx, f.post.Ref, nil); !errors.Is(err, discussions.ErrNoObject) {
 		t.Fatalf("a signed-out reader saw a removed post: %v", err)
+	}
+}
+
+// asAdmin makes the fixture treat owner as a site admin until the test ends.
+func asAdmin(t *testing.T, f fixture) {
+	t.Helper()
+	f.svc.IsAdmin = func(_ context.Context, a actors.Actor) (bool, error) { return a.ID == f.owner.ID, nil }
+	f.svc.Logger = slog.New(slog.DiscardHandler)
+}
+
+func TestSiteBanOnlyByAnAdminStopsEveryCommunityAndIsLogged(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	if err := f.svc.SiteBan(ctx, f.member, f.member.ID, "Spam", nil); !errors.Is(err, moderation.ErrNotAdmin) {
+		t.Fatalf("a non-admin banned someone: %v", err)
+	}
+	asAdmin(t, f)
+	if err := f.svc.SiteBan(ctx, f.owner, f.member.ID, "Spam", nil); err != nil {
+		t.Fatal(err)
+	}
+	if banned, err := moderation.SiteBanned(ctx, f.svc.Pool, f.member.ID); err != nil || !banned {
+		t.Fatalf("site ban does not apply: %v %v", banned, err)
+	}
+	community, err := moderationCommunityID(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if banned, err := moderation.Banned(ctx, f.svc.Pool, community, f.member.ID); err != nil || banned {
+		t.Fatalf("a site ban became a community ban: %v %v", banned, err)
+	}
+	var memberships int
+	if err := f.svc.Pool.QueryRow(ctx, `SELECT count(*) FROM memberships WHERE actor_id = $1`, f.member.ID).Scan(&memberships); err != nil || memberships != 0 {
+		t.Fatalf("memberships %d: %v", memberships, err)
+	}
+	bans, err := f.svc.SiteBans(ctx, f.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bans) != 1 || bans[0].Person != f.member.Name || bans[0].Reason != "Spam" {
+		t.Fatalf("site bans %+v", bans)
+	}
+	// A site ban is not part of a community's public log.
+	if entries, err := f.svc.Log(ctx, f.name); err != nil || len(entries) != 0 {
+		t.Fatalf("site ban leaked into the community log: %+v %v", entries, err)
+	}
+	if err := f.svc.SiteUnban(ctx, f.owner, f.member.ID); err != nil {
+		t.Fatal(err)
+	}
+	if banned, err := moderation.SiteBanned(ctx, f.svc.Pool, f.member.ID); err != nil || banned {
+		t.Fatalf("lifted ban still applies: %v %v", banned, err)
+	}
+}
+
+func TestAnAdminModeratesLocalContentInARemoteCommunityOnly(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	asAdmin(t, f)
+	tx, err := f.svc.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	remoteName := "rg" + uuid.NewString()[:8]
+	var remote int64
+	if err := tx.QueryRow(ctx,
+		`WITH g AS (
+		   INSERT INTO actors (ap_id, kind, local, domain, name) VALUES ('https://lemmy.test/c/' || $1, 'group', false, 'lemmy.test', $1) RETURNING id
+		 )
+		 INSERT INTO communities (actor_id, domain, name) SELECT id, 'lemmy.test', $1 FROM g RETURNING id`, remoteName).Scan(&remote); err != nil {
+		t.Fatal(err)
+	}
+	localPost, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{
+		CommunityID: remote, Author: f.member, Title: "Local voice", Body: "Written here", Published: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteActor, err := actors.UpsertRemote(ctx, tx, actors.Remote{
+		ApID: "https://lemmy.test/u/sam", Kind: "person", Domain: "lemmy.test", Name: "sam",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A known AP ID marks the post as remote.
+	remotePost, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{
+		ApID: "https://lemmy.test/o/" + uuid.NewString(), CommunityID: remote, Author: remoteActor,
+		Title: "Their voice", Body: "Written there", Published: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.svc.Remove(ctx, f.owner, localPost.ApID, "Off topic"); err != nil {
+		t.Fatalf("an admin cannot moderate local content in a remote community: %v", err)
+	}
+	if _, err := f.svc.Remove(ctx, f.owner, remotePost.ApID, "Off topic"); !errors.Is(err, moderation.ErrNotModerator) {
+		t.Fatalf("an admin moderated remote content: %v", err)
+	}
+	f.svc.IsAdmin = func(context.Context, actors.Actor) (bool, error) { return false, nil }
+	if _, err := f.svc.Remove(ctx, f.owner, localPost.ApID, "Off topic"); err == nil {
+		t.Fatal("a non-admin moderated a remote community's content")
+	}
+
+	f.svc.IsAdmin = func(_ context.Context, a actors.Actor) (bool, error) { return a.ID == f.owner.ID, nil }
+	if _, err := f.svc.File(ctx, f.member, localPost.ApID, "Please look"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.File(ctx, f.member, remotePost.ApID, "Also this"); err != nil {
+		t.Fatal(err)
+	}
+	reports, err := f.svc.SiteQueue(ctx, f.owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The queue is installation-wide, so it must hold this report and not the
+	// report on content a remote person wrote.
+	var local, remoteSeen bool
+	for _, r := range reports {
+		if r.PostApID == localPost.ApID && r.Community == remoteName+"@lemmy.test" {
+			local = true
+		}
+		if r.PostApID == remotePost.ApID {
+			remoteSeen = true
+		}
+	}
+	if !local || remoteSeen {
+		t.Fatalf("site queue local %v remote %v: %+v", local, remoteSeen, reports)
 	}
 }

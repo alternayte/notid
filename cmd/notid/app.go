@@ -95,13 +95,13 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	}
 	mediaSvc := &media.Service{Pool: pool, Store: store, Tuning: t, AppOrigin: cfg.AppOrigin, Log: log}
 	mediaSvc.Register(api)
-	moderationSvc := &moderation.Service{Pool: pool, Local: local, Tuning: t}
+	moderationSvc := &moderation.Service{Pool: pool, Local: local, Tuning: t, IsAdmin: accountsSvc.IsAdmin, Logger: log}
 	moderationSvc.Register(api)
 	discussionsSvc := &discussions.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t}
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
-	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(mux)))
+	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(mux))))
 	fed := &federation.Server{
 		Pool:         pool,
 		AppDomain:    cfg.AppDomain,

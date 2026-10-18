@@ -61,6 +61,16 @@ type queueOut struct {
 	Reports []Report `json:"reports" nullable:"false"`
 }
 
+type siteBanBody struct {
+	Actor  string `json:"actor" maxLength:"300" doc:"Person's handle: name on this site, else name@domain"`
+	Reason string `json:"reason,omitempty" maxLength:"500" doc:"Shown in the public moderation log"`
+	Days   int    `json:"days,omitempty" minimum:"0" maximum:"3650" doc:"0 bans until a site admin lifts it"`
+}
+
+type siteBansOut struct {
+	Bans []SiteBanView `json:"bans" nullable:"false"`
+}
+
 func signedIn(ctx context.Context) (actors.Actor, error) {
 	a := accounts.ActorFrom(ctx)
 	if a == nil {
@@ -75,7 +85,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoObject):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrNotModerator):
+	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone):
 		return huma.Error409Conflict(err.Error())
@@ -206,6 +216,72 @@ func (s *Service) Register(api huma.API) {
 	}) (*struct{ Body logOut }, error) {
 		entries, err := s.Log(ctx, in.Handle)
 		return &struct{ Body logOut }{logOut{Entries: entries}}, apiError(err)
+	})
+	s.registerSiteAdmin(api)
+}
+
+// registerSiteAdmin adds the site-wide operations. Only auth-all admins pass.
+func (s *Service) registerSiteAdmin(api huma.API) {
+	tags := []string{"admin"}
+	errs := []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict}
+	huma.Register(api, huma.Operation{
+		OperationID: "siteBan", Method: http.MethodPost, Path: "/api/admin/bans",
+		Summary: "Ban a person from the whole site", Tags: tags,
+		DefaultStatus: http.StatusNoContent, Errors: errs,
+	}, func(ctx context.Context, in *struct{ Body siteBanBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		target, err := s.SitePerson(ctx, in.Body.Actor)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		var expires *time.Time
+		if in.Body.Days > 0 {
+			t := time.Now().Add(time.Duration(in.Body.Days) * 24 * time.Hour)
+			expires = &t
+		}
+		return nil, apiError(s.SiteBan(ctx, a, target, in.Body.Reason, expires))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "siteUnban", Method: http.MethodPost, Path: "/api/admin/bans/lift",
+		Summary: "Lift a site ban", Tags: tags,
+		DefaultStatus: http.StatusNoContent, Errors: errs,
+	}, func(ctx context.Context, in *struct{ Body siteBanBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		target, err := s.SitePerson(ctx, in.Body.Actor)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return nil, apiError(s.SiteUnban(ctx, a, target))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "siteBans", Method: http.MethodGet, Path: "/api/admin/bans",
+		Summary: "List the active site bans", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body siteBansOut }, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		bans, err := s.SiteBans(ctx, a)
+		return &struct{ Body siteBansOut }{siteBansOut{Bans: bans}}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "siteReports", Method: http.MethodGet, Path: "/api/admin/reports",
+		Summary: "List open reports on content written on this site", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body queueOut }, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		reports, err := s.SiteQueue(ctx, a)
+		return &struct{ Body queueOut }{queueOut{Reports: reports}}, apiError(err)
 	})
 }
 

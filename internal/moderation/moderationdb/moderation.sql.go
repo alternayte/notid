@@ -12,7 +12,7 @@ import (
 
 const activeBan = `-- name: ActiveBan :one
 SELECT id, community_id, actor_id, expires_at, created_at FROM bans
-WHERE community_id = $1 AND actor_id = $2
+WHERE community_id IS NOT DISTINCT FROM $1 AND actor_id = $2
   AND (expires_at IS NULL OR expires_at > now())
 `
 
@@ -52,7 +52,7 @@ func (q *Queries) ActorIDByHandle(ctx context.Context, arg ActorIDByHandleParams
 }
 
 const commentForModeration = `-- name: CommentForModeration :one
-SELECT m.id, m.ap_id, m.ref, p.community_id, m.author_id, p.ap_id AS post_ap_id
+SELECT m.id, m.ap_id, m.ref, p.community_id, m.author_id, m.local, p.ap_id AS post_ap_id
 FROM comments m JOIN posts p ON p.id = m.post_id WHERE m.ap_id = $1
 `
 
@@ -62,6 +62,7 @@ type CommentForModerationRow struct {
 	Ref         string
 	CommunityID int64
 	AuthorID    int64
+	Local       bool
 	PostApID    string
 }
 
@@ -74,6 +75,7 @@ func (q *Queries) CommentForModeration(ctx context.Context, apID string) (Commen
 		&i.Ref,
 		&i.CommunityID,
 		&i.AuthorID,
+		&i.Local,
 		&i.PostApID,
 	)
 	return i, err
@@ -93,6 +95,15 @@ func (q *Queries) CommunityIDByHandle(ctx context.Context, arg CommunityIDByHand
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const deleteAllMembershipsForBan = `-- name: DeleteAllMembershipsForBan :exec
+DELETE FROM memberships WHERE actor_id = $1
+`
+
+func (q *Queries) DeleteAllMembershipsForBan(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, deleteAllMembershipsForBan, actorID)
+	return err
 }
 
 const deleteBan = `-- name: DeleteBan :exec
@@ -120,6 +131,15 @@ type DeleteMembershipForBanParams struct {
 
 func (q *Queries) DeleteMembershipForBan(ctx context.Context, arg DeleteMembershipForBanParams) error {
 	_, err := q.db.Exec(ctx, deleteMembershipForBan, arg.CommunityID, arg.ActorID)
+	return err
+}
+
+const deleteSiteBan = `-- name: DeleteSiteBan :exec
+DELETE FROM bans WHERE community_id IS NULL AND actor_id = $1
+`
+
+func (q *Queries) DeleteSiteBan(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, deleteSiteBan, actorID)
 	return err
 }
 
@@ -314,7 +334,7 @@ func (q *Queries) ModeratorOf(ctx context.Context, arg ModeratorOfParams) (strin
 }
 
 const postForModeration = `-- name: PostForModeration :one
-SELECT p.id, p.ap_id, p.ref, p.community_id, p.author_id
+SELECT p.id, p.ap_id, p.ref, p.community_id, p.author_id, p.local
 FROM posts p WHERE p.ap_id = $1
 `
 
@@ -324,6 +344,7 @@ type PostForModerationRow struct {
 	Ref         string
 	CommunityID int64
 	AuthorID    int64
+	Local       bool
 }
 
 func (q *Queries) PostForModeration(ctx context.Context, apID string) (PostForModerationRow, error) {
@@ -335,6 +356,7 @@ func (q *Queries) PostForModeration(ctx context.Context, apID string) (PostForMo
 		&i.Ref,
 		&i.CommunityID,
 		&i.AuthorID,
+		&i.Local,
 	)
 	return i, err
 }
@@ -424,6 +446,27 @@ func (q *Queries) ReportCommunity(ctx context.Context, id int64) (int64, error) 
 	var community_id int64
 	err := row.Scan(&community_id)
 	return community_id, err
+}
+
+const reportForModeration = `-- name: ReportForModeration :one
+SELECT r.community_id, coalesce(p.local, m.local, false)::boolean AS local
+FROM reports r
+LEFT JOIN posts p ON p.id = r.post_id
+LEFT JOIN comments m ON m.id = r.comment_id
+WHERE r.id = $1
+`
+
+type ReportForModerationRow struct {
+	CommunityID int64
+	Local       bool
+}
+
+// ReportForModeration reads a report with whether its target is local content.
+func (q *Queries) ReportForModeration(ctx context.Context, id int64) (ReportForModerationRow, error) {
+	row := q.db.QueryRow(ctx, reportForModeration, id)
+	var i ReportForModerationRow
+	err := row.Scan(&i.CommunityID, &i.Local)
+	return i, err
 }
 
 const reportQueue = `-- name: ReportQueue :many
@@ -654,4 +697,127 @@ func (q *Queries) SetPostLocked(ctx context.Context, arg SetPostLockedParams) (P
 		&i.ActiveAt,
 	)
 	return i, err
+}
+
+const siteBans = `-- name: SiteBans :many
+SELECT b.actor_id, a.name, a.domain, b.expires_at, b.created_at,
+       coalesce((
+         SELECT l.reason FROM moderation_log l
+         WHERE l.community_id IS NULL AND l.target_actor_id = b.actor_id AND l.action = 'site_ban'
+         ORDER BY l.created_at DESC, l.id DESC LIMIT 1
+       ), '')::text AS reason
+FROM bans b JOIN actors a ON a.id = b.actor_id
+WHERE b.community_id IS NULL AND (b.expires_at IS NULL OR b.expires_at > now())
+ORDER BY b.created_at DESC
+`
+
+type SiteBansRow struct {
+	ActorID   int64
+	Name      string
+	Domain    string
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+	Reason    string
+}
+
+// Site bans have no community, and their reason is the newest site_ban log line.
+func (q *Queries) SiteBans(ctx context.Context) ([]SiteBansRow, error) {
+	rows, err := q.db.Query(ctx, siteBans)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SiteBansRow
+	for rows.Next() {
+		var i SiteBansRow
+		if err := rows.Scan(
+			&i.ActorID,
+			&i.Name,
+			&i.Domain,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const siteReportQueue = `-- name: SiteReportQueue :many
+SELECT
+    r.id, r.reason, r.created_at, r.state,
+    r.post_id, r.comment_id,
+    ra.name AS reporter_name, ra.domain AS reporter_domain,
+    p.ref AS post_ref, p.ap_id AS post_ap_id, p.title AS post_title,
+    m.ref AS comment_ref, m.body AS comment_body,
+    c.name AS community_name, c.domain AS community_domain
+FROM reports r
+JOIN actors ra ON ra.id = r.reporter_id
+JOIN communities c ON c.id = r.community_id
+LEFT JOIN posts p ON p.id = r.post_id
+LEFT JOIN comments m ON m.id = r.comment_id
+WHERE r.state = 'open'
+  AND ((p.local) OR (m.local))
+ORDER BY r.created_at
+LIMIT $1
+`
+
+type SiteReportQueueRow struct {
+	ID              int64
+	Reason          string
+	CreatedAt       time.Time
+	State           string
+	PostID          *int64
+	CommentID       *int64
+	ReporterName    string
+	ReporterDomain  string
+	PostRef         *string
+	PostApID        *string
+	PostTitle       *string
+	CommentRef      *string
+	CommentBody     *string
+	CommunityName   string
+	CommunityDomain string
+}
+
+// The site queue holds open reports on content a local person wrote, in any community.
+func (q *Queries) SiteReportQueue(ctx context.Context, lim int32) ([]SiteReportQueueRow, error) {
+	rows, err := q.db.Query(ctx, siteReportQueue, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SiteReportQueueRow
+	for rows.Next() {
+		var i SiteReportQueueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.State,
+			&i.PostID,
+			&i.CommentID,
+			&i.ReporterName,
+			&i.ReporterDomain,
+			&i.PostRef,
+			&i.PostApID,
+			&i.PostTitle,
+			&i.CommentRef,
+			&i.CommentBody,
+			&i.CommunityName,
+			&i.CommunityDomain,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

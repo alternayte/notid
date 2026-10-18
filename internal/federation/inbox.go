@@ -14,6 +14,7 @@ import (
 
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/federation/federationdb"
+	"github.com/alternayte/notid/internal/moderation"
 )
 
 // rejection is an activity the inbox refuses, with the status it answers.
@@ -87,6 +88,12 @@ func (s *Server) receive(r *http.Request) error {
 	signer, err := s.verifySigner(ctx, r, sig)
 	if err != nil {
 		return err
+	}
+	// A site ban stops the person here, not only in the web app.
+	if banned, err := moderation.SiteBanned(ctx, s.Pool, signer.ID); err != nil {
+		return err
+	} else if banned {
+		return reject(http.StatusForbidden, "this site banned the sender")
 	}
 
 	var act activity
