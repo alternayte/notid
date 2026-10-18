@@ -59,7 +59,7 @@ export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, childr
   }
 
   return (
-    <form onSubmit={submit} className="flex max-w-(--container-measure) flex-col gap-6">
+    <form onSubmit={submit} data-accent={accent} className="flex max-w-(--container-measure) flex-col gap-6">
       {children}
       <div className="flex flex-col gap-2">
         <label htmlFor="title" className={label}>
@@ -104,7 +104,7 @@ export function SettingsForm({ initial, submitLabel, busyLabel, onSubmit, childr
           {accents.map((a) => (
             <label
               key={a.value}
-              data-accent={a.value === 'vermilion' ? undefined : a.value}
+              data-accent={a.value}
               className="flex cursor-pointer items-center gap-2 rounded-pill py-1.5 pr-3 pl-1.5 font-sans text-sm shadow-[inset_0_0_0_1px_var(--rule)] has-checked:shadow-[inset_0_0_0_2px_var(--mark)] has-focus-visible:outline-2 has-focus-visible:outline-focus"
             >
               <input

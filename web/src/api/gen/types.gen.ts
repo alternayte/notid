@@ -88,9 +88,24 @@ export type CreateBody = {
      */
     readonly $schema?: string;
     /**
+     * Where members appeal a removal: an email address or URL
+     */
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    /**
      * Fixed forever; part of the community's address
      */
     name: string;
+    nsfw: boolean;
+    /**
+     * One rule per item, in order
+     */
+    rules: Array<string> | null;
+    theme: Theme;
+    title: string;
 };
 
 export type Created = {
@@ -424,9 +439,24 @@ export type CommentBodyWritable = {
 
 export type CreateBodyWritable = {
     /**
+     * Where members appeal a removal: an email address or URL
+     */
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    /**
      * Fixed forever; part of the community's address
      */
     name: string;
+    nsfw: boolean;
+    /**
+     * One rule per item, in order
+     */
+    rules: Array<string> | null;
+    theme: Theme;
+    title: string;
 };
 
 export type CreatedWritable = {

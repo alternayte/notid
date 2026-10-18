@@ -3,13 +3,18 @@ package communities_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities"
 	"github.com/alternayte/notid/internal/communities/communitiesdb"
@@ -165,5 +170,57 @@ func TestDiscoverListsLocalAndDirectoryCommunitiesOnly(t *testing.T) {
 	}
 	if _, ok := seen[unlisted]; ok {
 		t.Fatal("a remote community outside the directory is listed")
+	}
+}
+
+// The request body shape is checked through the real Huma API, because Huma
+// drops fields of an unexported embedded struct without a compile error.
+func TestCreateAndUpdateThroughTheAPI(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := person(t, tx, "trusted")
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	svc := &communities.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown()}
+	mux := http.NewServeMux()
+	svc.Register(platform.NewAPI(mux, "test"))
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.ServeHTTP(w, r.WithContext(accounts.WithActor(r.Context(), &owner)))
+	})
+	send := func(method, path string, body any) communities.Detail {
+		t.Helper()
+		b, _ := json.Marshal(body)
+		r := httptest.NewRequest(method, path, bytes.NewReader(b))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code >= 300 {
+			t.Fatalf("%s %s: %d %s", method, path, w.Code, w.Body)
+		}
+		var d communities.Detail
+		if err := json.Unmarshal(w.Body.Bytes(), &d); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	n := name()
+	d := send(http.MethodPost, "/api/communities", map[string]any{
+		"name": n, "title": "Woodworking", "description": "Hand **tools**", "rules": []string{"Be kind"},
+		"theme": map[string]string{"accent": "moss"}, "appealsContact": "mods@example.org", "nsfw": false,
+	})
+	if d.Handle != n || d.Title != "Woodworking" || d.Theme.Accent != "moss" || len(d.Rules) != 1 ||
+		d.Membership == nil || d.Membership.Role != "owner" || !strings.Contains(d.DescriptionHTML, "<strong>tools</strong>") {
+		t.Fatalf("created %+v", d)
+	}
+	d = send(http.MethodPut, "/api/communities/"+n, map[string]any{
+		"title": "Joinery", "description": "", "rules": []string{}, "theme": map[string]string{}, "appealsContact": "", "nsfw": true,
+	})
+	if d.Title != "Joinery" || !d.NSFW || len(d.Rules) != 0 {
+		t.Fatalf("updated %+v", d)
 	}
 }

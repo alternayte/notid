@@ -238,14 +238,52 @@
             "readOnly": true,
             "type": "string"
           },
+          "appealsContact": {
+            "description": "Where members appeal a removal: an email address or URL",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "description": {
+            "description": "Markdown",
+            "maxLength": 10000,
+            "type": "string"
+          },
           "name": {
             "description": "Fixed forever; part of the community's address",
             "pattern": "^[a-z][a-z0-9_]{2,19}$",
             "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "rules": {
+            "description": "One rule per item, in order",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 15,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          },
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
-          "name"
+          "name",
+          "title",
+          "description",
+          "rules",
+          "theme",
+          "appealsContact",
+          "nsfw"
         ],
         "type": "object"
       },

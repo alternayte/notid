@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 import type { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext, HeadContent, Link, Outlet, Scripts } from '@tanstack/react-router'
+import { createRootRouteWithContext, HeadContent, Link, Outlet, ScriptOnce, Scripts } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { meOptions } from '~/api/gen/@tanstack/react-query.gen'
 import appCss from '~/styles/app.css?url'
@@ -57,8 +57,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a fixed inline script that sets the theme before paint */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ScriptOnce>{themeScript}</ScriptOnce>
         <HeadContent />
       </head>
       <body>

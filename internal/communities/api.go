@@ -76,7 +76,7 @@ type Detail struct {
 	State          string   `json:"state" enum:"active,frozen,departed,arriving"`
 }
 
-type settingsBody struct {
+type SettingsBody struct {
 	Title          string   `json:"title" minLength:"1" maxLength:"100"`
 	Description    string   `json:"description" maxLength:"10000" doc:"Markdown"`
 	Rules          []string `json:"rules" maxItems:"15" doc:"One rule per item, in order"`
@@ -85,7 +85,7 @@ type settingsBody struct {
 	NSFW           bool     `json:"nsfw"`
 }
 
-func (b settingsBody) settings() Settings {
+func (b SettingsBody) settings() Settings {
 	return Settings{
 		Title: b.Title, Description: b.Description, Rules: b.Rules, Theme: b.Theme,
 		AppealsContact: b.AppealsContact, NSFW: b.NSFW,
@@ -94,7 +94,7 @@ func (b settingsBody) settings() Settings {
 
 type createBody struct {
 	Name string `json:"name" pattern:"^[a-z][a-z0-9_]{2,19}$" doc:"Fixed forever; part of the community's address"`
-	settingsBody
+	SettingsBody
 }
 
 type handlePath struct {
@@ -191,7 +191,7 @@ func (s *Service) Register(api huma.API) {
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
 	}, func(ctx context.Context, in *struct {
 		Handle string `path:"handle" maxLength:"300"`
-		Body   settingsBody
+		Body   SettingsBody
 	}) (*struct{ Body Detail }, error) {
 		person, err := signedIn(ctx)
 		if err != nil {

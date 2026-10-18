@@ -31,7 +31,6 @@ export function Join({ community, signedIn }: { community: Summary; signedIn: bo
   const initial = !m ? 'out' : m.state === 'accepted' ? 'in' : 'pending'
   return (
     <JoinButton
-      key={initial}
       community={community.title || community.name}
       initial={initial}
       send={async (join) => {

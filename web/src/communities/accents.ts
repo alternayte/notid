@@ -11,7 +11,7 @@ export const accents: { value: Accent; label: string }[] = [
   { value: 'ochre', label: 'Ochre' },
 ]
 
-// accentAttr gives the data-accent value for a community's pages; vermilion is the site's own mark.
+// accentAttr gives the data-accent value for a community's pages; without one they keep the site's mark.
 export function accentAttr(theme: Theme): Accent | undefined {
-  return theme.accent && theme.accent !== 'vermilion' ? theme.accent : undefined
+  return theme.accent
 }
