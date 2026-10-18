@@ -12,7 +12,7 @@ import {
 import { About } from '~/communities/About'
 import { accentAttr } from '~/communities/accents'
 import { Age } from '~/discussions/Age'
-import { splitAuthor } from '~/discussions/PostItem'
+import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
 import { SaveButton } from '~/discussions/SaveButton'
 import { type Node, tree } from '~/discussions/tree'
 import { Votes } from '~/discussions/Votes'
@@ -47,7 +47,6 @@ function ThreadPage() {
   const comment = useMutation(createCommentMutation())
   const comments = useMemo(() => tree(t.comments), [t.comments])
   const p = t.post
-  const author = splitAuthor(p.author.handle)
   const open = c.state === 'active' || !c.local
 
   async function reply(inReplyTo: string, text: string) {
@@ -77,8 +76,7 @@ function ThreadPage() {
               </Kicker>
               <h1 className="font-display text-3xl tracking-tight text-balance sm:text-4xl">{p.title}</h1>
               <p className="font-sans text-xs text-ink-faint">
-                by <span className="font-semibold text-ink-soft">{p.author.displayName || author.name}</span>
-                {author.host && <span>@{author.host}</span>}
+                by <AuthorLink author={p.author} />
                 {p.author.bot && <BotLabel />}
                 <span aria-hidden="true"> · </span>
                 <Age iso={p.published} />
@@ -152,7 +150,7 @@ function ThreadPage() {
 type ThreadNode = CommentNode & Pick<Node, 'apId' | 'score' | 'viewer'> & { replies: ThreadNode[] }
 
 function node(n: Node): ThreadNode {
-  const a = splitAuthor(n.author.handle)
+  const a = splitHandle(n.author.handle)
   return {
     apId: n.apId,
     score: n.score,
@@ -160,6 +158,7 @@ function node(n: Node): ThreadNode {
     gone: n.gone,
     id: n.ref,
     author: n.author.displayName || a.name,
+    authorLink: <AuthorLink author={n.author} />,
     authorHost: a.host,
     bot: n.author.bot,
     age: <Age iso={n.published} />,

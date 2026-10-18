@@ -7,6 +7,8 @@ import { Textarea } from './primitives/textarea'
 export type CommentNode = {
   id: string
   author: string
+  // Replaces the plain author name, for a link to the profile.
+  authorLink?: ReactNode
   authorHost?: string
   bot?: boolean
   age: ReactNode
@@ -57,8 +59,12 @@ function Comment<T extends CommentNode>({ comment, ...actions }: { comment: T } 
           <span className="italic">Deleted</span>
         ) : (
           <span>
-            <span className="font-semibold text-ink-soft">{comment.author}</span>
-            {comment.authorHost && <span>@{comment.authorHost}</span>}
+            {comment.authorLink ?? (
+              <>
+                <span className="font-semibold text-ink-soft">{comment.author}</span>
+                {comment.authorHost && <span>@{comment.authorHost}</span>}
+              </>
+            )}
             {comment.bot && <BotLabel />}
           </span>
         )}

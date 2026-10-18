@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import type { PostView } from '~/api/gen/types.gen'
 import { PostCard } from '~/ui/PostCard'
 import { Age } from './Age'
+import { AuthorLink } from './AuthorLink'
 import { SaveButton } from './SaveButton'
 import { Votes } from './Votes'
 
@@ -10,14 +11,8 @@ export function threadPath(p: { community: string; ref: string }) {
   return `/c/${p.community}/p/${p.ref}`
 }
 
-export function splitAuthor(handle: string): { name: string; host?: string } {
-  const [name = handle, host] = handle.split('@')
-  return { name, host }
-}
-
 // PostItem is one post in a list, linked to its thread.
 export function PostItem({ post: p, showCommunity = true }: { post: PostView; showCommunity?: boolean }) {
-  const author = splitAuthor(p.author.handle)
   return (
     <PostCard
       community={showCommunity ? p.communityTitle || p.community : ''}
@@ -28,8 +23,7 @@ export function PostItem({ post: p, showCommunity = true }: { post: PostView; sh
           {children}
         </Link>
       )}
-      author={p.author.displayName || author.name}
-      authorHost={author.host}
+      author={<AuthorLink author={p.author} />}
       bot={p.author.bot}
       age={<Age iso={p.published} />}
       comments={p.comments}

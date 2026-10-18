@@ -2,13 +2,9 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { meOptions, savedInfiniteOptions } from '~/api/gen/@tanstack/react-query.gen'
 import type { SavedItem } from '~/api/gen/types.gen'
-import { Age } from '~/discussions/Age'
-import { PostItem, splitAuthor } from '~/discussions/PostItem'
-import { SaveButton } from '~/discussions/SaveButton'
-import { Votes } from '~/discussions/Votes'
-import { Kicker } from '~/ui/Kicker'
+import { CommentItem } from '~/discussions/CommentItem'
+import { PostItem } from '~/discussions/PostItem'
 import { Button } from '~/ui/primitives/button'
-import { fromRenderer, Rendered } from '~/ui/RenderedHtml'
 import { Page } from './__root'
 
 const savedOptions = () => ({
@@ -70,31 +66,12 @@ function Saved() {
 }
 
 function Item({ item }: { item: SavedItem }) {
-  const c = item.comment
-  if (!c) return <PostItem post={item.post} />
-  const a = splitAuthor(c.author.handle)
-  const label = `${c.author.displayName || a.name}'s comment`
+  if (!item.comment) return <PostItem post={item.post} />
   return (
-    <article className="flex flex-col gap-2 border-t border-rule py-6 first:border-t-0">
-      <Kicker>Reply in {item.post.communityTitle || item.post.community}</Kicker>
-      <p className="font-sans text-xs text-ink-faint">
-        <span className="font-semibold text-ink-soft">{c.author.displayName || a.name}</span>
-        {a.host && <span>@{a.host}</span>} on{' '}
-        <Link
-          to="/c/$handle/p/$ref"
-          params={{ handle: item.post.community, ref: item.post.ref }}
-          hash={`c-${c.ref}`}
-          className="font-semibold text-ink-soft hover:text-mark"
-        >
-          {item.post.title}
-        </Link>{' '}
-        · <Age iso={c.published} />
-      </p>
-      <Rendered html={fromRenderer(c.bodyHtml)} className="prose-news text-base" />
-      <div className="flex flex-wrap items-center gap-4">
-        <Votes apId={c.apId} score={c.score} viewer={c.viewer} label={label} />
-        <SaveButton apId={c.apId} initial label={label} />
-      </div>
-    </article>
+    <CommentItem
+      comment={item.comment}
+      post={item.post}
+      kicker={`Reply in ${item.post.communityTitle || item.post.community}`}
+    />
   )
 }

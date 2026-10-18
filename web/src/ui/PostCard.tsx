@@ -5,7 +5,7 @@ type Props = {
   community: string
   title: string
   href: string
-  author: string
+  author: ReactNode
   authorHost?: string
   bot?: boolean
   age: ReactNode

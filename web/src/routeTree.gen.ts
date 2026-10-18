@@ -18,6 +18,7 @@ import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as CHandleRouteImport } from './routes/c.$handle'
 import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
+import { Route as UHandleRouteImport } from './routes/u.$handle'
 import { Route as CHandleManageRouteImport } from './routes/c.$handle_.manage'
 import { Route as CHandlePRefRouteImport } from './routes/c.$handle_.p.$ref'
 
@@ -66,6 +67,11 @@ const LoginVerifyRoute = LoginVerifyRouteImport.update({
   path: '/login/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UHandleRoute = UHandleRouteImport.update({
+  id: '/u/$handle',
+  path: '/u/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CHandleManageRoute = CHandleManageRouteImport.update({
   id: '/c/$handle_/manage',
   path: '/c/$handle/manage',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
+  '/u/$handle': typeof UHandleRoute
   '/c/$handle/manage': typeof CHandleManageRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
+  '/u/$handle': typeof UHandleRoute
   '/c/$handle/manage': typeof CHandleManageRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login_/verify': typeof LoginVerifyRoute
+  '/u/$handle': typeof UHandleRoute
   '/c/$handle_/manage': typeof CHandleManageRoute
   '/c/$handle_/p/$ref': typeof CHandlePRefRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
+    | '/u/$handle'
     | '/c/$handle/manage'
     | '/c/$handle/p/$ref'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
+    | '/u/$handle'
     | '/c/$handle/manage'
     | '/c/$handle/p/$ref'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/c/$handle'
     | '/communities/new'
     | '/login_/verify'
+    | '/u/$handle'
     | '/c/$handle_/manage'
     | '/c/$handle_/p/$ref'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   CHandleRoute: typeof CHandleRoute
   CommunitiesNewRoute: typeof CommunitiesNewRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
+  UHandleRoute: typeof UHandleRoute
   CHandleManageRoute: typeof CHandleManageRoute
   CHandlePRefRoute: typeof CHandlePRefRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/u/$handle': {
+      id: '/u/$handle'
+      path: '/u/$handle'
+      fullPath: '/u/$handle'
+      preLoaderRoute: typeof UHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$handle_/manage': {
       id: '/c/$handle_/manage'
       path: '/c/$handle/manage'
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   CHandleRoute: CHandleRoute,
   CommunitiesNewRoute: CommunitiesNewRoute,
   LoginVerifyRoute: LoginVerifyRoute,
+  UHandleRoute: UHandleRoute,
   CHandleManageRoute: CHandleManageRoute,
   CHandlePRefRoute: CHandlePRefRoute,
 }
