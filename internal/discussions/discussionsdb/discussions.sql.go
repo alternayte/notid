@@ -144,6 +144,46 @@ func (q *Queries) CommentVote(ctx context.Context, arg CommentVoteParams) (Vote,
 	return i, err
 }
 
+const communityByGroupApID = `-- name: CommunityByGroupApID :one
+SELECT c.id, c.state, a.local
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE a.ap_id = $1
+`
+
+type CommunityByGroupApIDRow struct {
+	ID    int64
+	State string
+	Local bool
+}
+
+func (q *Queries) CommunityByGroupApID(ctx context.Context, apID string) (CommunityByGroupApIDRow, error) {
+	row := q.db.QueryRow(ctx, communityByGroupApID, apID)
+	var i CommunityByGroupApIDRow
+	err := row.Scan(&i.ID, &i.State, &i.Local)
+	return i, err
+}
+
+const communityByID = `-- name: CommunityByID :one
+SELECT c.id, c.state, a.local
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE c.id = $1
+`
+
+type CommunityByIDRow struct {
+	ID    int64
+	State string
+	Local bool
+}
+
+func (q *Queries) CommunityByID(ctx context.Context, id int64) (CommunityByIDRow, error) {
+	row := q.db.QueryRow(ctx, communityByID, id)
+	var i CommunityByIDRow
+	err := row.Scan(&i.ID, &i.State, &i.Local)
+	return i, err
+}
+
 const deleteVote = `-- name: DeleteVote :exec
 DELETE FROM votes
 WHERE actor_id = $1 AND post_id IS NOT DISTINCT FROM $2 AND comment_id IS NOT DISTINCT FROM $3

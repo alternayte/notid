@@ -32,7 +32,8 @@ type Server struct {
 	HTTP  *http.Client
 	River *river.Client[pgx.Tx]
 	// Limits holds the per-peer inbox rate limits.
-	Limits *PeerLimits
+	Limits   *PeerLimits
+	Markdown *platform.Markdown
 }
 
 // Handler routes the ActivityPub endpoints. The edge sends only ActivityPub
@@ -50,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /u/{name}/outbox", s.emptyCollection)
 	mux.HandleFunc("GET /u/{name}/followers", s.emptyCollection)
 	mux.HandleFunc("GET /u/{name}/following", s.emptyCollection)
+	mux.HandleFunc("GET /o/{id}", s.object)
 	mux.HandleFunc("GET /c/{name}", s.group)
 	mux.HandleFunc("GET /c/{name}/outbox", s.emptyCollection)
 	mux.HandleFunc("GET /c/{name}/followers", s.emptyCollection)

@@ -130,10 +130,16 @@ type Target struct {
 	CommentID *int64
 }
 
+// Previous is a vote as it was before SetVote changed it.
+type Previous struct {
+	Value int16
+	ApID  string
+}
+
 // SetVote records voter's vote on t: 1, -1, or 0 to remove it. Scores change
 // in the same transaction, and only for a vote that counts. It reports the
-// previous value.
-func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value int16, apID *string) (int16, error) {
+// previous vote, with value 0 when there was none.
+func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value int16, apID *string) (Previous, error) {
 	q := discussionsdb.New(tx)
 	var old discussionsdb.Vote
 	var err error
@@ -144,16 +150,20 @@ func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value
 	}
 	exists := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return 0, fmt.Errorf("read vote: %w", err)
+		return Previous{}, fmt.Errorf("read vote: %w", err)
+	}
+	prev := Previous{Value: old.Value}
+	if old.ApID != nil {
+		prev.ApID = *old.ApID
 	}
 	if exists && old.Value == value {
-		return old.Value, nil
+		return prev, nil
 	}
 	switch {
 	case value == 0 && exists:
 		err = q.DeleteVote(ctx, discussionsdb.DeleteVoteParams{ActorID: voter.ID, PostID: t.PostID, CommentID: t.CommentID})
 	case value == 0:
-		return 0, nil
+		return prev, nil
 	case exists:
 		err = q.UpdateVote(ctx, discussionsdb.UpdateVoteParams{Value: value, ApID: apID, ActorID: voter.ID, PostID: t.PostID, CommentID: t.CommentID})
 	default:
@@ -162,7 +172,7 @@ func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value
 		})
 	}
 	if err != nil {
-		return 0, fmt.Errorf("write vote: %w", err)
+		return Previous{}, fmt.Errorf("write vote: %w", err)
 	}
 	// A vote keeps the counted flag it was cast with, so a promotion never counts earlier votes.
 	counted := Counts(voter)
@@ -170,7 +180,7 @@ func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value
 		counted = old.Counted
 	}
 	if !counted {
-		return old.Value, nil
+		return prev, nil
 	}
 	up, down := tally(value)
 	oldUp, oldDown := tally(old.Value)
@@ -180,9 +190,9 @@ func SetVote(ctx context.Context, tx pgx.Tx, voter actors.Actor, t Target, value
 		err = q.AdjustCommentScore(ctx, discussionsdb.AdjustCommentScoreParams{ID: *t.CommentID, UpDelta: up - oldUp, DownDelta: down - oldDown})
 	}
 	if err != nil {
-		return 0, fmt.Errorf("adjust score: %w", err)
+		return Previous{}, fmt.Errorf("adjust score: %w", err)
 	}
-	return old.Value, nil
+	return prev, nil
 }
 
 func tally(v int16) (up, down int32) {

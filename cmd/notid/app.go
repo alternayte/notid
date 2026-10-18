@@ -19,6 +19,7 @@ import (
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities"
+	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/federation"
 	"github.com/alternayte/notid/internal/platform"
 )
@@ -80,6 +81,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	accountsSvc.Register(api)
 	communitiesSvc := &communities.Service{Pool: pool}
 	communitiesSvc.Register(api)
+	discussionsSvc := &discussions.Service{Pool: pool}
+	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
 	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(mux)))
@@ -94,6 +97,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Tuning:       t,
 		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
 		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
+		Markdown:     platform.NewMarkdown(),
 	}
 	workers := river.NewWorkers()
 	fed.AddWorkers(workers)
@@ -108,6 +112,10 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	fed.River = rc
 	communitiesSvc.Resolve = fed.Resolve
 	communitiesSvc.SendFollow = fed.SendFollow
+	discussionsSvc.SendPost = fed.SendPost
+	discussionsSvc.SendComment = fed.SendComment
+	discussionsSvc.SendVote = fed.SendVote
+	discussionsSvc.NewActivityID = federation.NewActivityID
 	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api, river: rc}, nil
 }
 

@@ -125,7 +125,8 @@ func testServer(t *testing.T, peer *fakePeer) *Server {
 		Log:    slog.New(slog.DiscardHandler),
 		Local:  actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: sealer},
 		Tuning: tuning, HTTP: peer.client(),
-		Limits: NewPeerLimits(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
+		Limits:   NewPeerLimits(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
+		Markdown: platform.NewMarkdown(),
 	}
 	workers := river.NewWorkers()
 	s.AddWorkers(workers)
@@ -472,5 +473,66 @@ func TestRemoteGroupAcceptsAFollowFromALocalPerson(t *testing.T) {
 	var state string
 	if err := s.Pool.QueryRow(ctx, `SELECT state FROM memberships WHERE follow_ap_id = $1`, followID).Scan(&state); err != nil || state != "accepted" {
 		t.Fatalf("membership %q %v", state, err)
+	}
+}
+
+// receive posts an activity signed by bob and runs the queued inbox job.
+func receive(t *testing.T, s *Server, peer *fakePeer, activity map[string]any) {
+	t.Helper()
+	if w := post(s, peer.signedBy(peer.key, "/inbox", activity)); w.Code != http.StatusAccepted {
+		t.Fatalf("%s: %d %s", activity["type"], w.Code, w.Body)
+	}
+	in := jobs(t, s, "inbox", "activity,id", activity["id"].(string))
+	if err := (&inboxWorker{s: s}).Work(context.Background(), job[InboxArgs](t, in[0])); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRemotePersonPostsCommentsAndVotesInALocalGroup(t *testing.T) {
+	ctx := context.Background()
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	g := testGroup(t, s)
+	receive(t, s, peer, follow(peer, g))
+
+	act := func(kind string, object any) map[string]any {
+		return map[string]any{
+			"id": "http://" + peer.host + "/activities/" + uuid.NewString(), "type": kind, "actor": peer.bob(),
+			"to": []string{g.apID, public}, "audience": g.apID, "object": object,
+		}
+	}
+	pageID := "http://" + peer.host + "/post/" + uuid.NewString()
+	receive(t, s, peer, act("Create", map[string]any{
+		"id": pageID, "type": "Page", "attributedTo": peer.bob(), "to": []string{g.apID, public}, "audience": g.apID,
+		"name": "A dovetail", "content": "<p>cut <b>slowly</b></p><script>x()</script>", "mediaType": "text/html",
+	}))
+	noteID := "http://" + peer.host + "/comment/" + uuid.NewString()
+	receive(t, s, peer, act("Create", map[string]any{
+		"id": noteID, "type": "Note", "attributedTo": peer.bob(), "to": []string{public}, "cc": []string{g.apID},
+		"audience": g.apID, "inReplyTo": pageID, "content": "<p>agreed</p>", "mediaType": "text/html",
+	}))
+	receive(t, s, peer, act("Like", pageID))
+
+	var title, body string
+	var score, comments int
+	if err := s.Pool.QueryRow(ctx, `SELECT title, body, score, comment_count FROM posts WHERE ap_id = $1`, pageID).
+		Scan(&title, &body, &score, &comments); err != nil {
+		t.Fatal(err)
+	}
+	if title != "A dovetail" || !strings.Contains(body, "**slowly**") || strings.Contains(body, "x()") || score != 1 || comments != 1 {
+		t.Fatalf("post %q %q score %d comments %d", title, body, score, comments)
+	}
+	// The group announces each accepted activity to its follower, bob's server.
+	announces := jobs(t, s, "deliver", "activity,type", "Announce")
+	n := 0
+	for _, j := range announces {
+		var a DeliverArgs
+		_ = json.Unmarshal(j.EncodedArgs, &a)
+		if strings.Contains(string(a.Activity), pageID) && a.Inbox == "http://"+peer.host+"/inbox" {
+			n++
+		}
+	}
+	if n != 3 {
+		t.Fatalf("%d announces mention the post, want the post, the reply and the Like", n)
 	}
 }

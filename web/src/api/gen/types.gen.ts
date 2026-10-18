@@ -56,6 +56,30 @@ export type AdminUserResponse = {
     user: AdminUser;
 };
 
+export type CommentBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    body: string;
+    /**
+     * AP ID of the post or comment
+     */
+    inReplyTo: string;
+};
+
+export type Created = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    apId: string;
+    ref: string;
+};
+
 export type ErrorDetail = {
     /**
      * Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
@@ -155,6 +179,23 @@ export type MessageResponse = {
     message: string;
 };
 
+export type PostBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    body?: string;
+    /**
+     * AP ID of the community
+     */
+    community: string;
+    title: string;
+    url?: string;
+};
+
 export type RevokeAllResponse = {
     revoked: number;
 };
@@ -222,6 +263,37 @@ export type User = {
     updatedAt: string;
 };
 
+export type VoteBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * 1 up, -1 down, 0 removes the vote
+     */
+    value: -1 | 0 | 1;
+};
+
+export type CommentBodyWritable = {
+    /**
+     * Markdown
+     */
+    body: string;
+    /**
+     * AP ID of the post or comment
+     */
+    inReplyTo: string;
+};
+
+export type CreatedWritable = {
+    apId: string;
+    ref: string;
+};
+
 export type ErrorModelWritable = {
     /**
      * A human-readable explanation specific to this occurrence of the problem.
@@ -275,6 +347,19 @@ export type MembershipWritable = {
     state: 'pending' | 'accepted';
 };
 
+export type PostBodyWritable = {
+    /**
+     * Markdown
+     */
+    body?: string;
+    /**
+     * AP ID of the community
+     */
+    community: string;
+    title: string;
+    url?: string;
+};
+
 export type SignUpBodyWritable = {
     displayName?: string;
     email: string;
@@ -290,6 +375,17 @@ export type SignUpBodyWritable = {
 
 export type SignupModeWritable = {
     mode: 'open' | 'invite' | 'closed';
+};
+
+export type VoteBodyWritable = {
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * 1 up, -1 down, 0 removes the vote
+     */
+    value: -1 | 0 | 1;
 };
 
 export type AdminListUsersData = {
@@ -857,6 +953,47 @@ export type SignOutResponses = {
 
 export type SignOutResponse = SignOutResponses[keyof SignOutResponses];
 
+export type CreateCommentData = {
+    body: CommentBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/comments';
+};
+
+export type CreateCommentErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CreateCommentError = CreateCommentErrors[keyof CreateCommentErrors];
+
+export type CreateCommentResponses = {
+    /**
+     * Created
+     */
+    201: Created;
+};
+
+export type CreateCommentResponse = CreateCommentResponses[keyof CreateCommentResponses];
+
 export type FollowCommunityData = {
     body: FollowBodyWritable;
     path?: never;
@@ -923,6 +1060,47 @@ export type MeResponses = {
 
 export type MeResponse = MeResponses[keyof MeResponses];
 
+export type CreatePostData = {
+    body: PostBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/posts';
+};
+
+export type CreatePostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CreatePostError = CreatePostErrors[keyof CreatePostErrors];
+
+export type CreatePostResponses = {
+    /**
+     * Created
+     */
+    201: Created;
+};
+
+export type CreatePostResponse = CreatePostResponses[keyof CreatePostResponses];
+
 export type SignupModeData = {
     body?: never;
     path?: never;
@@ -988,3 +1166,44 @@ export type SignUpResponses = {
 };
 
 export type SignUpResponse = SignUpResponses[keyof SignUpResponses];
+
+export type VoteData = {
+    body: VoteBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/votes';
+};
+
+export type VoteErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type VoteError = VoteErrors[keyof VoteErrors];
+
+export type VoteResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type VoteResponse = VoteResponses[keyof VoteResponses];

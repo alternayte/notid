@@ -63,3 +63,45 @@ UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = @follow_ap_id;
 
 -- name: DeleteMembershipByFollow :exec
 DELETE FROM memberships WHERE follow_ap_id = @follow_ap_id AND role = 'member';
+
+-- name: CommunityByGroupApID :one
+SELECT c.id, c.state, a.id AS actor_id, a.ap_id, a.local, a.inbox
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE a.ap_id = @ap_id;
+
+-- name: CommunityByID :one
+SELECT c.id, c.state, a.id AS actor_id, a.ap_id, a.local, a.inbox
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE c.id = @id;
+
+-- name: FollowerInboxes :many
+SELECT DISTINCT coalesce(nullif(a.shared_inbox, ''), a.inbox)::text AS inbox
+FROM memberships m
+JOIN actors a ON a.id = m.actor_id
+WHERE m.community_id = @community_id AND m.state = 'accepted' AND NOT a.local
+    AND coalesce(nullif(a.shared_inbox, ''), a.inbox) <> '';
+
+-- name: PostDoc :one
+SELECT p.*, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
+FROM posts p
+JOIN actors au ON au.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors g ON g.id = c.actor_id
+WHERE p.ap_id = @ap_id AND p.deleted_at IS NULL;
+
+-- name: CommentDoc :one
+SELECT cm.*, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id, p.ap_id AS post_ap_id,
+    p.community_id,
+    coalesce(pc.ap_id, p.ap_id)::text AS in_reply_to,
+    coalesce(pca.ap_id, pa.ap_id)::text AS parent_author_ap_id
+FROM comments cm
+JOIN actors au ON au.id = cm.author_id
+JOIN posts p ON p.id = cm.post_id
+JOIN actors pa ON pa.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors g ON g.id = c.actor_id
+LEFT JOIN comments pc ON pc.id = cm.parent_id
+LEFT JOIN actors pca ON pca.id = pc.author_id
+WHERE cm.ap_id = @ap_id AND cm.deleted_at IS NULL;

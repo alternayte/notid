@@ -61,6 +61,85 @@ func (q *Queries) ActorByApID(ctx context.Context, apID string) (Actor, error) {
 	return i, err
 }
 
+const commentDoc = `-- name: CommentDoc :one
+SELECT cm.id, cm.ap_id, cm.ref, cm.local, cm.post_id, cm.parent_id, cm.author_id, cm.body, cm.published, cm.received_at, cm.updated, cm.held, cm.deleted_at, cm.removed_at, cm.score, cm.up, cm.down, cm.delivery_state, cm.delivery_error, cm.search, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id, p.ap_id AS post_ap_id,
+    p.community_id,
+    coalesce(pc.ap_id, p.ap_id)::text AS in_reply_to,
+    coalesce(pca.ap_id, pa.ap_id)::text AS parent_author_ap_id
+FROM comments cm
+JOIN actors au ON au.id = cm.author_id
+JOIN posts p ON p.id = cm.post_id
+JOIN actors pa ON pa.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors g ON g.id = c.actor_id
+LEFT JOIN comments pc ON pc.id = cm.parent_id
+LEFT JOIN actors pca ON pca.id = pc.author_id
+WHERE cm.ap_id = $1 AND cm.deleted_at IS NULL
+`
+
+type CommentDocRow struct {
+	ID               int64
+	ApID             string
+	Ref              string
+	Local            bool
+	PostID           int64
+	ParentID         *int64
+	AuthorID         int64
+	Body             string
+	Published        time.Time
+	ReceivedAt       time.Time
+	Updated          *time.Time
+	Held             bool
+	DeletedAt        *time.Time
+	RemovedAt        *time.Time
+	Score            int32
+	Up               int32
+	Down             int32
+	DeliveryState    *string
+	DeliveryError    string
+	Search           interface{}
+	AuthorApID       string
+	GroupApID        string
+	PostApID         string
+	CommunityID      int64
+	InReplyTo        string
+	ParentAuthorApID string
+}
+
+func (q *Queries) CommentDoc(ctx context.Context, apID string) (CommentDocRow, error) {
+	row := q.db.QueryRow(ctx, commentDoc, apID)
+	var i CommentDocRow
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.AuthorApID,
+		&i.GroupApID,
+		&i.PostApID,
+		&i.CommunityID,
+		&i.InReplyTo,
+		&i.ParentAuthorApID,
+	)
+	return i, err
+}
+
 const communityByDomainName = `-- name: CommunityByDomainName :one
 SELECT
     c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme,
@@ -119,6 +198,66 @@ func (q *Queries) CommunityByDomainName(ctx context.Context, arg CommunityByDoma
 	return i, err
 }
 
+const communityByGroupApID = `-- name: CommunityByGroupApID :one
+SELECT c.id, c.state, a.id AS actor_id, a.ap_id, a.local, a.inbox
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE a.ap_id = $1
+`
+
+type CommunityByGroupApIDRow struct {
+	ID      int64
+	State   string
+	ActorID int64
+	ApID    string
+	Local   bool
+	Inbox   string
+}
+
+func (q *Queries) CommunityByGroupApID(ctx context.Context, apID string) (CommunityByGroupApIDRow, error) {
+	row := q.db.QueryRow(ctx, communityByGroupApID, apID)
+	var i CommunityByGroupApIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.ActorID,
+		&i.ApID,
+		&i.Local,
+		&i.Inbox,
+	)
+	return i, err
+}
+
+const communityByID = `-- name: CommunityByID :one
+SELECT c.id, c.state, a.id AS actor_id, a.ap_id, a.local, a.inbox
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE c.id = $1
+`
+
+type CommunityByIDRow struct {
+	ID      int64
+	State   string
+	ActorID int64
+	ApID    string
+	Local   bool
+	Inbox   string
+}
+
+func (q *Queries) CommunityByID(ctx context.Context, id int64) (CommunityByIDRow, error) {
+	row := q.db.QueryRow(ctx, communityByID, id)
+	var i CommunityByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.ActorID,
+		&i.ApID,
+		&i.Local,
+		&i.Inbox,
+	)
+	return i, err
+}
+
 const deleteMembershipByFollow = `-- name: DeleteMembershipByFollow :exec
 DELETE FROM memberships WHERE follow_ap_id = $1 AND role = 'member'
 `
@@ -126,6 +265,34 @@ DELETE FROM memberships WHERE follow_ap_id = $1 AND role = 'member'
 func (q *Queries) DeleteMembershipByFollow(ctx context.Context, followApID *string) error {
 	_, err := q.db.Exec(ctx, deleteMembershipByFollow, followApID)
 	return err
+}
+
+const followerInboxes = `-- name: FollowerInboxes :many
+SELECT DISTINCT coalesce(nullif(a.shared_inbox, ''), a.inbox)::text AS inbox
+FROM memberships m
+JOIN actors a ON a.id = m.actor_id
+WHERE m.community_id = $1 AND m.state = 'accepted' AND NOT a.local
+    AND coalesce(nullif(a.shared_inbox, ''), a.inbox) <> ''
+`
+
+func (q *Queries) FollowerInboxes(ctx context.Context, communityID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, followerInboxes, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var inbox string
+		if err := rows.Scan(&inbox); err != nil {
+			return nil, err
+		}
+		items = append(items, inbox)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const localActorByName = `-- name: LocalActorByName :one
@@ -268,6 +435,84 @@ ON CONFLICT (domain) DO UPDATE SET last_ok_at = now(), failing_since = NULL
 func (q *Queries) PeerOK(ctx context.Context, domain string) error {
 	_, err := q.db.Exec(ctx, peerOK, domain)
 	return err
+}
+
+const postDoc = `-- name: PostDoc :one
+SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
+FROM posts p
+JOIN actors au ON au.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors g ON g.id = c.actor_id
+WHERE p.ap_id = $1 AND p.deleted_at IS NULL
+`
+
+type PostDocRow struct {
+	ID            int64
+	ApID          string
+	Ref           string
+	Local         bool
+	CommunityID   int64
+	AuthorID      int64
+	Title         string
+	Body          string
+	Url           string
+	MediaID       *int64
+	Nsfw          bool
+	Published     time.Time
+	ReceivedAt    time.Time
+	SortAt        time.Time
+	Updated       *time.Time
+	Locked        bool
+	Held          bool
+	DeletedAt     *time.Time
+	RemovedAt     *time.Time
+	Score         int32
+	Up            int32
+	Down          int32
+	CommentCount  int32
+	LastCommentAt *time.Time
+	DeliveryState *string
+	DeliveryError string
+	Search        interface{}
+	AuthorApID    string
+	GroupApID     string
+}
+
+func (q *Queries) PostDoc(ctx context.Context, apID string) (PostDocRow, error) {
+	row := q.db.QueryRow(ctx, postDoc, apID)
+	var i PostDocRow
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.AuthorApID,
+		&i.GroupApID,
+	)
+	return i, err
 }
 
 const recordActivity = `-- name: RecordActivity :one

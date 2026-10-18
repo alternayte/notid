@@ -61,3 +61,15 @@ UPDATE posts SET up = up + @up_delta, down = down + @down_delta, score = score +
 
 -- name: AdjustCommentScore :exec
 UPDATE comments SET up = up + @up_delta, down = down + @down_delta, score = score + (@up_delta::int) - (@down_delta::int) WHERE id = @id;
+
+-- name: CommunityByGroupApID :one
+SELECT c.id, c.state, a.local
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE a.ap_id = @ap_id;
+
+-- name: CommunityByID :one
+SELECT c.id, c.state, a.local
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE c.id = @id;

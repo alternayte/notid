@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/federation/federationdb"
@@ -20,10 +21,20 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 	case "Follow":
 		_, err := s.activeGroup(ctx, s.Pool, act.objectRef())
 		return err
+	case "Create", "Like", "Dislike":
+		_, err := s.planContent(ctx, s.Pool, act, nil)
+		return err
+	case "Announce":
+		_, err := s.planAnnounce(ctx, s.Pool, act)
+		return err
 	case "Undo":
 		inner, err := act.embedded()
+		if err == nil && (inner.Type == "Like" || inner.Type == "Dislike") {
+			_, err := s.planContent(ctx, s.Pool, act, nil)
+			return err
+		}
 		if err != nil || inner.Type != "Follow" {
-			return reject(http.StatusUnprocessableEntity, "only Undo of an embedded Follow is supported")
+			return reject(http.StatusUnprocessableEntity, "only Undo of an embedded Follow, Like or Dislike is supported")
 		}
 		if inner.Actor.ID != act.Actor.ID {
 			return reject(http.StatusBadRequest, "Undo of another actor's Follow")
@@ -57,6 +68,16 @@ func (s *Server) followAnswered(ctx context.Context, db federationdb.DBTX, act a
 
 // apply acts on a validated activity inside tx.
 func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.RawMessage) error {
+	switch act.Type {
+	case "Create", "Like", "Dislike":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
+	case "Announce":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planAnnounce(ctx, tx, act) })
+	case "Undo":
+		if inner, err := act.embedded(); err == nil && (inner.Type == "Like" || inner.Type == "Dislike") {
+			return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
+		}
+	}
 	follower, err := actors.ByApID(ctx, tx, act.Actor.ID)
 	if err != nil {
 		return fmt.Errorf("actor %s: %w", act.Actor.ID, err)
@@ -128,4 +149,20 @@ func (s *Server) acceptFollow(ctx context.Context, tx pgx.Tx, follower actors.Ac
 		"object":   raw,
 	}
 	return s.deliver(ctx, tx, g.ActorID, follower.Inbox, accept)
+}
+
+// applyPlanned resolves a content activity again inside tx and applies it. A
+// refusal at this point cannot reach the sender any more, so it is logged and
+// the job stops.
+func (s *Server) applyPlanned(ctx context.Context, tx pgx.Tx, raw json.RawMessage, plan func() (contentPlan, error)) error {
+	p, err := plan()
+	var rej rejection
+	if errors.As(err, &rej) {
+		s.Log.WarnContext(ctx, "activity refused after acceptance", "reason", rej.msg)
+		return river.JobCancel(err)
+	}
+	if err != nil {
+		return err
+	}
+	return s.applyContent(ctx, tx, p, raw)
 }

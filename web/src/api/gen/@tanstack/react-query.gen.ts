@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, createApiKey, followCommunity, getSession, listApiKeys, listSessions, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, type Options, revokeAllSessions, revokeApiKey, revokeSession, signOut, signUp, signupMode } from '../sdk.gen';
-import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse } from '../types.gen';
+import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, createApiKey, createComment, createPost, followCommunity, getSession, listApiKeys, listSessions, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, type Options, revokeAllSessions, revokeApiKey, revokeSession, signOut, signUp, signupMode, vote } from '../sdk.gen';
+import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreatePostData, CreatePostError, CreatePostResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -340,6 +340,23 @@ export const signOutMutation = (options?: Partial<Options<SignOutData>>): UseMut
 };
 
 /**
+ * Reply to a post or a comment
+ */
+export const createCommentMutation = (options?: Partial<Options<CreateCommentData>>): UseMutationOptions<CreateCommentResponse, CreateCommentError, Options<CreateCommentData>> => {
+    const mutationOptions: UseMutationOptions<CreateCommentResponse, CreateCommentError, Options<CreateCommentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createComment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Join a community on this site or on another server
  */
 export const followCommunityMutation = (options?: Partial<Options<FollowCommunityData>>): UseMutationOptions<FollowCommunityResponse, FollowCommunityError, Options<FollowCommunityData>> => {
@@ -374,6 +391,23 @@ export const meOptions = (options?: Options<MeData>) => queryOptions<MeResponse,
     queryKey: meQueryKey(options)
 });
 
+/**
+ * Post in a community
+ */
+export const createPostMutation = (options?: Partial<Options<CreatePostData>>): UseMutationOptions<CreatePostResponse, CreatePostError, Options<CreatePostData>> => {
+    const mutationOptions: UseMutationOptions<CreatePostResponse, CreatePostError, Options<CreatePostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const signupModeQueryKey = (options?: Options<SignupModeData>) => createQueryKey('signupMode', options);
 
 /**
@@ -399,6 +433,23 @@ export const signUpMutation = (options?: Partial<Options<SignUpData>>): UseMutat
     const mutationOptions: UseMutationOptions<SignUpResponse, SignUpError, Options<SignUpData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await signUp({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Vote on a post or a comment
+ */
+export const voteMutation = (options?: Partial<Options<VoteData>>): UseMutationOptions<VoteResponse, VoteError, Options<VoteData>> => {
+    const mutationOptions: UseMutationOptions<VoteResponse, VoteError, Options<VoteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await vote({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
