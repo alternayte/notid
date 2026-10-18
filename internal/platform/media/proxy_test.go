@@ -179,3 +179,18 @@ func TestTheProxyRefusesAPrivateAddress(t *testing.T) {
 	}
 	_, _ = io.Copy(io.Discard, w.Body)
 }
+
+func TestOnlyRemoteImagesInBodiesGoThroughTheProxy(t *testing.T) {
+	p := newProxy(nil)
+	for src, proxied := range map[string]bool{
+		"https://peer.example/a.png":        true,
+		"//peer.example/a.png":              true,
+		"https://notid.test/media/abc.jpg":  false,
+		"/media/abc.jpg":                    false,
+		"https://notid.test.evil.example/x": true,
+	} {
+		if got := strings.HasPrefix(p.Image(src), "https://notid.test/proxy?"); got != proxied {
+			t.Errorf("%s: proxied %v, want %v", src, got, proxied)
+		}
+	}
+}

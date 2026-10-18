@@ -23,7 +23,7 @@ func Serve(ctx context.Context, cfg platform.Config, t platform.Tuning, hosts Ho
 		servers = append(servers, newServer(cfg.HTTPAddr, public, t))
 	case platform.TLSACME:
 		magic, issuer := newCertMagic(cfg, hosts, log)
-		tlsServer = newServer(":443", public, t)
+		tlsServer = newServer(":443", withHSTS(public), t)
 		tlsServer.TLSConfig = magic.TLSConfig()
 		tlsServer.TLSConfig.NextProtos = append([]string{"h2", "http/1.1"}, tlsServer.TLSConfig.NextProtos...)
 		servers = append(servers, newServer(":80", issuer.HTTPChallengeHandler(redirectHTTPS(hosts)), t), tlsServer)

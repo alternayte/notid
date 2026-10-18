@@ -39,3 +39,15 @@ func TestTextIsPlainAndCutAtAWord(t *testing.T) {
 		t.Fatalf("cut %q", got)
 	}
 }
+
+func TestImageSourcesAreRewrittenForReadersOnly(t *testing.T) {
+	src := "Look ![bench](https://peer.example/a.png) here"
+	m := NewMarkdown()
+	if out := m.HTML(src); !strings.Contains(out, `src="https://peer.example/a.png"`) {
+		t.Fatalf("a renderer without ImageURL changed the source: %s", out)
+	}
+	m.ImageURL = func(s string) string { return "/proxy?u=" + s }
+	if out := m.HTML(src); !strings.Contains(out, `src="/proxy?u=https://peer.example/a.png"`) {
+		t.Fatalf("the image was not rewritten: %s", out)
+	}
+}

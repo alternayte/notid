@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -162,5 +163,29 @@ func TestWebProxyUpstreamDown(t *testing.T) {
 	NewWebProxy(u, slog.New(slog.DiscardHandler)).ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
 	if w.Code != http.StatusBadGateway {
 		t.Fatalf("got %d", w.Code)
+	}
+}
+
+func TestPagesGetANonceCSPAndEveryResponseRefusesFraming(t *testing.T) {
+	var seen string
+	h := Handler(testHosts(), Routes{
+		API: named("api"),
+		Web: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = r.Header.Get(NonceHeader) }),
+	}, slog.New(slog.DiscardHandler))
+
+	r := httptest.NewRequest(http.MethodGet, "/c/wood", nil)
+	r.Host = "app.test"
+	r.Header.Set(NonceHeader, "chosen-by-the-client")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	csp := w.Header().Get("Content-Security-Policy")
+	if seen == "" || seen == "chosen-by-the-client" || !strings.Contains(csp, "'nonce-"+seen+"'") {
+		t.Fatalf("page nonce %q, CSP %q", seen, csp)
+	}
+	for _, res := range []*httptest.ResponseRecorder{w, serve(h, http.MethodGet, "/api/me", "app.test", "")} {
+		if res.Header().Get("X-Frame-Options") != "DENY" || !strings.Contains(res.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") ||
+			res.Header().Get("X-Content-Type-Options") != "nosniff" {
+			t.Fatalf("headers %v", res.Header())
+		}
 	}
 }

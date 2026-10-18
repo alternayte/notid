@@ -116,7 +116,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
 		Limits:       platform.NewBuckets(t.PeerInboxPerMinute, t.PeerInboxBurst),
 		KeyFetches:   platform.NewBuckets(t.KeyFetchesPerMinute, t.KeyFetchesBurst),
-		Markdown:     markdown,
+		// Peers get image sources as written; only readers' HTML is proxied.
+		Markdown: platform.NewMarkdown(),
 	}
 	probes := &portability.Service{Pool: pool, Local: local, HTTP: fed.HTTP, Tuning: t, Log: log}
 	fed.WellKnown = probes.WellKnown
@@ -167,6 +168,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	proxyGuard.MaxBytes = t.ProxyMaxBytes + 1
 	proxy := media.NewProxy(cfg.SecretKey, proxyGuard.Client(), cfg.AppOrigin, t.ProxyMaxBytes, t.ProxyMaxAge, log)
 	discussionsSvc.ProxyURL = proxy.URL
+	markdown.ImageURL = proxy.Image
 	mediaMux := http.NewServeMux()
 	mediaMux.Handle("/media/", mediaSvc.Handler())
 	mediaMux.Handle("/proxy", proxy)

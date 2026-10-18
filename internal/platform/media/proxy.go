@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,6 +48,19 @@ func (p *Proxy) sign(remote string) string {
 // URL is where a reader loads the remote image at remote.
 func (p *Proxy) URL(remote string) string {
 	return p.AppOrigin + "/proxy?" + url.Values{"u": {remote}, "s": {p.sign(remote)}}.Encode()
+}
+
+// Image is where a reader loads an image a post or profile body shows: this
+// site's own and relative images stay, remote ones go through the proxy, so a
+// peer never learns who reads what.
+func (p *Proxy) Image(src string) string {
+	if strings.HasPrefix(src, "//") {
+		src = "https:" + src
+	}
+	if !strings.HasPrefix(src, "http://") && !strings.HasPrefix(src, "https://") || strings.HasPrefix(src, p.AppOrigin+"/") {
+		return src
+	}
+	return p.URL(src)
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {

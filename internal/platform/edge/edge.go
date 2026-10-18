@@ -75,7 +75,10 @@ type Routes struct {
 
 // Handler serves /healthz for any host, answers 421 for unknown hosts and dispatches the rest.
 func Handler(hosts Hosts, routes Routes, log *slog.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	if routes.Web != nil {
+		routes.Web = withPageCSP(routes.Web)
+	}
+	return withSecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
 			healthz(w, r)
 			return
@@ -99,7 +102,7 @@ func Handler(hosts Hosts, routes Routes, log *slog.Logger) http.Handler {
 			return
 		}
 		orNotFound(route(r, routes)).ServeHTTP(w, r)
-	})
+	}))
 }
 
 // InternalHandler serves the API to the SSR runtime on the internal listener.
