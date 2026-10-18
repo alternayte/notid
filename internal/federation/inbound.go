@@ -248,6 +248,23 @@ func (s *Server) resolveTarget(ctx context.Context, db federationdb.DBTX, p *con
 // planAnnounce resolves a remote group's Announce of an activity in it. When
 // the announced activity comes from another host, the object is fetched from
 // its origin instead of trusting the group's copy.
+// fromOrigin fetches an announced object from its own host. A group passes on
+// what others wrote, so only the author's host is trusted for the content.
+func (s *Server) fromOrigin(ctx context.Context, embedded json.RawMessage) (json.RawMessage, error) {
+	obj, err := decodeObject(embedded)
+	if err != nil {
+		return nil, reject(http.StatusBadRequest, "%v", err)
+	}
+	var fetched json.RawMessage
+	if err := s.fetch(ctx, obj.ID, &fetched); err != nil {
+		return nil, reject(http.StatusUnprocessableEntity, "fetch announced object: %v", err)
+	}
+	if f, err := decodeObject(fetched); err != nil || f.ID != obj.ID {
+		return nil, reject(http.StatusUnprocessableEntity, "announced object %s does not match its origin", obj.ID)
+	}
+	return fetched, nil
+}
+
 func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act activity) (contentPlan, error) {
 	g, err := federationdb.New(db).CommunityByGroupApID(ctx, act.Actor.ID)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && g.Local) {
@@ -262,6 +279,11 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	}
 	if inner.Type == "Update" && objectType(inner.Object) == "Group" {
 		return s.planGroupUpdate(ctx, db, inner, &g)
+	}
+	if inner.Type == "Update" && !sameHost(inner.Actor.ID, g.ApID) {
+		if inner.Object, err = s.fromOrigin(ctx, inner.Object); err != nil {
+			return contentPlan{}, err
+		}
 	}
 	if inner.Type == "Update" || inner.Type == "Delete" {
 		return s.planChange(ctx, db, inner, &g)
@@ -292,18 +314,9 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 		inner = activity{ID: obj.ID, Type: "Create", Actor: obj.AttributedTo, Object: act.Object}
 	}
 	if inner.Type == "Create" && !sameHost(inner.Actor.ID, g.ApID) {
-		obj, err := decodeObject(inner.Object)
-		if err != nil {
-			return contentPlan{}, reject(http.StatusBadRequest, "%v", err)
+		if inner.Object, err = s.fromOrigin(ctx, inner.Object); err != nil {
+			return contentPlan{}, err
 		}
-		var fetched json.RawMessage
-		if err := s.fetch(ctx, obj.ID, &fetched); err != nil {
-			return contentPlan{}, reject(http.StatusUnprocessableEntity, "fetch announced object: %v", err)
-		}
-		if f, err := decodeObject(fetched); err != nil || f.ID != obj.ID {
-			return contentPlan{}, reject(http.StatusUnprocessableEntity, "announced object %s does not match its origin", obj.ID)
-		}
-		inner.Object = fetched
 	}
 	return s.planContent(ctx, db, inner, &g)
 }

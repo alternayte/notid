@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -506,5 +507,47 @@ func TestInboundGroupUpdateChangesTheCommunity(t *testing.T) {
 	var title, description string
 	if err := pool.QueryRow(ctx, `SELECT title, description FROM communities WHERE id = $1`, communityID).Scan(&title, &description); err != nil || title != "After" || description != "New about" {
 		t.Fatalf("community %q %q: %v", title, description, err)
+	}
+}
+
+// A group may only pass on what the author's own host serves; an announced
+// Update would otherwise let a group write in anyone's name.
+func TestAnAnnouncedUpdateByAnotherHostIsReadFromItsOrigin(t *testing.T) {
+	ctx := context.Background()
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	group := "http://" + peer.host + "/c/wood"
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx,
+		`WITH g AS (
+		   INSERT INTO actors (ap_id, kind, local, domain, name, inbox) VALUES ($1, 'group', false, $2, 'wood', $1 || '/inbox') RETURNING id
+		 )
+		 INSERT INTO communities (actor_id, domain, name) SELECT id, $2, 'wood' FROM g`, group, peer.host); err != nil {
+		t.Fatal(err)
+	}
+	other := "other-" + uuid.NewString()[:8] + ".test"
+	alice, err := actors.UpsertRemote(ctx, tx, actors.Remote{
+		ApID: "https://" + other + "/u/alice", Kind: "person", Domain: other, Name: "alice",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	postID := strings.TrimSuffix(alice.ApID, "/u/alice") + "/post/1"
+	page, _ := json.Marshal(map[string]any{
+		"id": postID, "type": "Page", "attributedTo": alice.ApID, "name": "Not by alice",
+		"content": "forged", "mediaType": "text/html", "audience": group, "to": []string{group},
+	})
+	update, _ := json.Marshal(map[string]any{
+		"id": strings.TrimSuffix(alice.ApID, "/u/alice") + "/a/1", "type": "Update", "actor": alice.ApID, "object": json.RawMessage(page), "audience": group,
+	})
+	ann := activity{ID: group + "/a/" + uuid.NewString(), Type: "Announce", Actor: ref{group}, Object: update}
+	if _, err := s.planAnnounce(ctx, s.Pool, ann); err == nil {
+		t.Fatal("an announced Update from another host was planned without its origin serving the object")
 	}
 }
