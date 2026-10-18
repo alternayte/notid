@@ -11,7 +11,7 @@ import (
 )
 
 const communityByActorID = `-- name: CommunityByActorID :one
-SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at FROM communities WHERE actor_id = $1
+SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search FROM communities WHERE actor_id = $1
 `
 
 func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Community, error) {
@@ -30,13 +30,14 @@ func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Commun
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 	)
 	return i, err
 }
 
 const communityByHandle = `-- name: CommunityByHandle :one
 SELECT
-    c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, a.ap_id, a.local,
+    c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, c.search, a.ap_id, a.local,
     (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
@@ -61,6 +62,7 @@ type CommunityByHandleRow struct {
 	Nsfw           bool
 	HoldNewPosts   bool
 	CreatedAt      time.Time
+	Search         interface{}
 	ApID           string
 	Local          bool
 	Members        int64
@@ -82,6 +84,7 @@ func (q *Queries) CommunityByHandle(ctx context.Context, arg CommunityByHandlePa
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 		&i.ApID,
 		&i.Local,
 		&i.Members,
@@ -90,7 +93,7 @@ func (q *Queries) CommunityByHandle(ctx context.Context, arg CommunityByHandlePa
 }
 
 const communityByID = `-- name: CommunityByID :one
-SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at FROM communities WHERE id = $1
+SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search FROM communities WHERE id = $1
 `
 
 func (q *Queries) CommunityByID(ctx context.Context, id int64) (Community, error) {
@@ -109,6 +112,7 @@ func (q *Queries) CommunityByID(ctx context.Context, id int64) (Community, error
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 	)
 	return i, err
 }
@@ -256,7 +260,7 @@ func (q *Queries) DomainState(ctx context.Context, domain string) (string, error
 const insertCommunity = `-- name: InsertCommunity :one
 INSERT INTO communities (actor_id, domain, name, title, description)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at
+RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search
 `
 
 type InsertCommunityParams struct {
@@ -289,6 +293,7 @@ func (q *Queries) InsertCommunity(ctx context.Context, arg InsertCommunityParams
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 	)
 	return i, err
 }
@@ -312,7 +317,7 @@ const insertRemoteCommunity = `-- name: InsertRemoteCommunity :one
 INSERT INTO communities (actor_id, domain, name, title, description)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description
-RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at
+RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search
 `
 
 type InsertRemoteCommunityParams struct {
@@ -345,6 +350,7 @@ func (q *Queries) InsertRemoteCommunity(ctx context.Context, arg InsertRemoteCom
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 	)
 	return i, err
 }
@@ -535,12 +541,86 @@ func (q *Queries) Rules(ctx context.Context, communityID int64) ([]string, error
 	return items, nil
 }
 
+const searchCommunities = `-- name: SearchCommunities :many
+SELECT
+    c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    my.state AS my_state, my.role AS my_role
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = $1::bigint
+WHERE c.state = 'active'
+  AND c.search @@ websearch_to_tsquery('simple', $2)
+  AND (a.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+ORDER BY members DESC, c.id
+LIMIT $3
+`
+
+type SearchCommunitiesParams struct {
+	ViewerID *int64
+	Query    string
+	Lim      int32
+}
+
+type SearchCommunitiesRow struct {
+	ID          int64
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	Theme       []byte
+	Nsfw        bool
+	ApID        string
+	Local       bool
+	Members     int64
+	MyState     *string
+	MyRole      *string
+}
+
+// Search finds communities that live here, are in the directory, or have a
+// local member; communities no one here follows stay out (federation policy).
+func (q *Queries) SearchCommunities(ctx context.Context, arg SearchCommunitiesParams) ([]SearchCommunitiesRow, error) {
+	rows, err := q.db.Query(ctx, searchCommunities, arg.ViewerID, arg.Query, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchCommunitiesRow
+	for rows.Next() {
+		var i SearchCommunitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Description,
+			&i.Theme,
+			&i.Nsfw,
+			&i.ApID,
+			&i.Local,
+			&i.Members,
+			&i.MyState,
+			&i.MyRole,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateCommunity = `-- name: UpdateCommunity :one
 UPDATE communities SET
     title = $1, description = $2, theme = $3,
     appeals_contact = $4, nsfw = $5
 WHERE id = $6
-RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at
+RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search
 `
 
 type UpdateCommunityParams struct {
@@ -575,6 +655,7 @@ func (q *Queries) UpdateCommunity(ctx context.Context, arg UpdateCommunityParams
 		&i.Nsfw,
 		&i.HoldNewPosts,
 		&i.CreatedAt,
+		&i.Search,
 	)
 	return i, err
 }

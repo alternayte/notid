@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, community, communityPosts, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, homeFeed, leaveCommunity, listApiKeys, listSessions, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, myCommunities, type Options, previewMarkdown, revokeAllSessions, revokeApiKey, revokeSession, save, saved, signOut, signUp, signupMode, thread, updateCommunity, uploadImage, vote } from '../sdk.gen';
-import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, ThreadData, ThreadError, ThreadResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
+import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, community, communityPosts, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, homeFeed, leaveCommunity, listApiKeys, listSessions, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, signOut, signUp, signupMode, thread, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
+import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, ThreadData, ThreadError, ThreadResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -685,6 +685,23 @@ export const myCommunitiesOptions = (options?: Options<MyCommunitiesData>) => qu
     queryKey: myCommunitiesQueryKey(options)
 });
 
+/**
+ * Change my display name, bio and bot flag
+ */
+export const updateProfileMutation = (options?: Partial<Options<UpdateProfileData>>): UseMutationOptions<UpdateProfileResponse, UpdateProfileError, Options<UpdateProfileData>> => {
+    const mutationOptions: UseMutationOptions<UpdateProfileResponse, UpdateProfileError, Options<UpdateProfileData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateProfile({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const savedQueryKey = (options?: Options<SavedData>) => createQueryKey('saved', options);
 
 /**
@@ -750,6 +767,120 @@ export const uploadImageMutation = (options?: Partial<Options<UploadImageData>>)
     return mutationOptions;
 };
 
+export const personQueryKey = (options: Options<PersonData>) => createQueryKey('person', options);
+
+/**
+ * Read a person's profile
+ */
+export const personOptions = (options: Options<PersonData>) => queryOptions<PersonResponse, PersonError, PersonResponse, ReturnType<typeof personQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await person({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: personQueryKey(options)
+});
+
+export const personCommentsQueryKey = (options: Options<PersonCommentsData>) => createQueryKey('personComments', options);
+
+/**
+ * List a person's comments, newest first
+ */
+export const personCommentsOptions = (options: Options<PersonCommentsData>) => queryOptions<PersonCommentsResponse, PersonCommentsError, PersonCommentsResponse, ReturnType<typeof personCommentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await personComments({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: personCommentsQueryKey(options)
+});
+
+export const personCommentsInfiniteQueryKey = (options: Options<PersonCommentsData>): QueryKey<Options<PersonCommentsData>> => createQueryKey('personComments', options, true);
+
+/**
+ * List a person's comments, newest first
+ */
+export const personCommentsInfiniteOptions = (options: Options<PersonCommentsData>) => {
+    const opts = infiniteQueryOptions<PersonCommentsResponse, PersonCommentsError, InfiniteData<PersonCommentsResponse>, QueryKey<Options<PersonCommentsData>>, string | Pick<QueryKey<Options<PersonCommentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<PersonCommentsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await personComments({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: personCommentsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const personPostsQueryKey = (options: Options<PersonPostsData>) => createQueryKey('personPosts', options);
+
+/**
+ * List a person's posts, newest first
+ */
+export const personPostsOptions = (options: Options<PersonPostsData>) => queryOptions<PersonPostsResponse, PersonPostsError, PersonPostsResponse, ReturnType<typeof personPostsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await personPosts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: personPostsQueryKey(options)
+});
+
+export const personPostsInfiniteQueryKey = (options: Options<PersonPostsData>): QueryKey<Options<PersonPostsData>> => createQueryKey('personPosts', options, true);
+
+/**
+ * List a person's posts, newest first
+ */
+export const personPostsInfiniteOptions = (options: Options<PersonPostsData>) => {
+    const opts = infiniteQueryOptions<PersonPostsResponse, PersonPostsError, InfiniteData<PersonPostsResponse>, QueryKey<Options<PersonPostsData>>, string | Pick<QueryKey<Options<PersonPostsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<PersonPostsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await personPosts({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: personPostsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
 /**
  * Post in a community
  */
@@ -800,6 +931,120 @@ export const saveMutation = (options?: Partial<Options<SaveData>>): UseMutationO
         }
     };
     return mutationOptions;
+};
+
+export const searchCommentsQueryKey = (options?: Options<SearchCommentsData>) => createQueryKey('searchComments', options);
+
+/**
+ * Search comments, newest first
+ */
+export const searchCommentsOptions = (options?: Options<SearchCommentsData>) => queryOptions<SearchCommentsResponse, SearchCommentsError, SearchCommentsResponse, ReturnType<typeof searchCommentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await searchComments({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: searchCommentsQueryKey(options)
+});
+
+export const searchCommentsInfiniteQueryKey = (options?: Options<SearchCommentsData>): QueryKey<Options<SearchCommentsData>> => createQueryKey('searchComments', options, true);
+
+/**
+ * Search comments, newest first
+ */
+export const searchCommentsInfiniteOptions = (options?: Options<SearchCommentsData>) => {
+    const opts = infiniteQueryOptions<SearchCommentsResponse, SearchCommentsError, InfiniteData<SearchCommentsResponse>, QueryKey<Options<SearchCommentsData>>, string | Pick<QueryKey<Options<SearchCommentsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<SearchCommentsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await searchComments({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: searchCommentsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const searchCommunitiesQueryKey = (options?: Options<SearchCommunitiesData>) => createQueryKey('searchCommunities', options);
+
+/**
+ * Search communities on this site, in the directory, or followed by someone here, largest first
+ */
+export const searchCommunitiesOptions = (options?: Options<SearchCommunitiesData>) => queryOptions<SearchCommunitiesResponse, SearchCommunitiesError, SearchCommunitiesResponse, ReturnType<typeof searchCommunitiesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await searchCommunities({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: searchCommunitiesQueryKey(options)
+});
+
+export const searchPostsQueryKey = (options?: Options<SearchPostsData>) => createQueryKey('searchPosts', options);
+
+/**
+ * Search post titles and bodies, newest first
+ */
+export const searchPostsOptions = (options?: Options<SearchPostsData>) => queryOptions<SearchPostsResponse, SearchPostsError, SearchPostsResponse, ReturnType<typeof searchPostsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await searchPosts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: searchPostsQueryKey(options)
+});
+
+export const searchPostsInfiniteQueryKey = (options?: Options<SearchPostsData>): QueryKey<Options<SearchPostsData>> => createQueryKey('searchPosts', options, true);
+
+/**
+ * Search post titles and bodies, newest first
+ */
+export const searchPostsInfiniteOptions = (options?: Options<SearchPostsData>) => {
+    const opts = infiniteQueryOptions<SearchPostsResponse, SearchPostsError, InfiniteData<SearchPostsResponse>, QueryKey<Options<SearchPostsData>>, string | Pick<QueryKey<Options<SearchPostsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<SearchPostsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await searchPosts({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: searchPostsInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
 };
 
 export const signupModeQueryKey = (options?: Options<SignupModeData>) => createQueryKey('signupMode', options);

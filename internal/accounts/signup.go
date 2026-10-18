@@ -34,6 +34,8 @@ type Service struct {
 	Limiter ratelimit.Limiter
 	Local   actors.Local
 	Mode    platform.SignupMode
+	// Markdown renders profile bios.
+	Markdown *platform.Markdown
 }
 
 type SignUpInput struct {

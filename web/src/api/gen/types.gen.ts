@@ -91,6 +91,28 @@ export type CommentBody = {
     inReplyTo: string;
 };
 
+export type CommentInPost = {
+    comment: CommentView;
+    /**
+     * Handle of the community
+     */
+    community: string;
+    postRef: string;
+    postTitle: string;
+};
+
+export type CommentPage = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    comments: Array<CommentInPost>;
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
+};
+
 export type CommentView = {
     apId: string;
     author: Author;
@@ -378,6 +400,56 @@ export type PreviewOut = {
     html: string;
 };
 
+export type Profile = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    bio: string;
+    /**
+     * Sanitized HTML from bio
+     */
+    bioHtml: string;
+    /**
+     * An automated account; its posts carry a label
+     */
+    bot: boolean;
+    displayName: string;
+    domain: string;
+    /**
+     * name for people on this site, else name@domain
+     */
+    handle: string;
+    /**
+     * When this site first knew the person
+     */
+    joined: string;
+    /**
+     * true for people who signed up on this site
+     */
+    local: boolean;
+    name: string;
+};
+
+export type ProfileBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    bio: string;
+    /**
+     * Mark the account as automated. Only bot accounts can create API keys
+     */
+    bot: boolean;
+    displayName: string;
+};
+
 export type RevokeAllResponse = {
     revoked: number;
 };
@@ -610,6 +682,14 @@ export type CommentBodyWritable = {
     inReplyTo: string;
 };
 
+export type CommentPageWritable = {
+    comments: Array<CommentInPost>;
+    /**
+     * Cursor for the next page; empty on the last page
+     */
+    next: string;
+};
+
 export type CreateBodyWritable = {
     /**
      * Where members appeal a removal: an email address or URL
@@ -762,6 +842,48 @@ export type PreviewOutWritable = {
      * Sanitized HTML, as the post or comment will show
      */
     html: string;
+};
+
+export type ProfileWritable = {
+    /**
+     * Markdown
+     */
+    bio: string;
+    /**
+     * Sanitized HTML from bio
+     */
+    bioHtml: string;
+    /**
+     * An automated account; its posts carry a label
+     */
+    bot: boolean;
+    displayName: string;
+    domain: string;
+    /**
+     * name for people on this site, else name@domain
+     */
+    handle: string;
+    /**
+     * When this site first knew the person
+     */
+    joined: string;
+    /**
+     * true for people who signed up on this site
+     */
+    local: boolean;
+    name: string;
+};
+
+export type ProfileBodyWritable = {
+    /**
+     * Markdown
+     */
+    bio: string;
+    /**
+     * Mark the account as automated. Only bot accounts can create API keys
+     */
+    bot: boolean;
+    displayName: string;
 };
 
 export type SaveBodyWritable = {
@@ -1889,6 +2011,39 @@ export type MyCommunitiesResponses = {
 
 export type MyCommunitiesResponse = MyCommunitiesResponses[keyof MyCommunitiesResponses];
 
+export type UpdateProfileData = {
+    body: ProfileBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/me/profile';
+};
+
+export type UpdateProfileErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type UpdateProfileError = UpdateProfileErrors[keyof UpdateProfileErrors];
+
+export type UpdateProfileResponses = {
+    /**
+     * OK
+     */
+    200: Profile;
+};
+
+export type UpdateProfileResponse = UpdateProfileResponses[keyof UpdateProfileResponses];
+
 export type SavedData = {
     body?: never;
     path?: never;
@@ -1962,6 +2117,121 @@ export type UploadImageResponses = {
 };
 
 export type UploadImageResponse = UploadImageResponses[keyof UploadImageResponses];
+
+export type PersonData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/people/{handle}';
+};
+
+export type PersonErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type PersonError = PersonErrors[keyof PersonErrors];
+
+export type PersonResponses = {
+    /**
+     * OK
+     */
+    200: Profile;
+};
+
+export type PersonResponse = PersonResponses[keyof PersonResponses];
+
+export type PersonCommentsData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/people/{handle}/comments';
+};
+
+export type PersonCommentsErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type PersonCommentsError = PersonCommentsErrors[keyof PersonCommentsErrors];
+
+export type PersonCommentsResponses = {
+    /**
+     * OK
+     */
+    200: CommentPage;
+};
+
+export type PersonCommentsResponse = PersonCommentsResponses[keyof PersonCommentsResponses];
+
+export type PersonPostsData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/people/{handle}/posts';
+};
+
+export type PersonPostsErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type PersonPostsError = PersonPostsErrors[keyof PersonPostsErrors];
+
+export type PersonPostsResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type PersonPostsResponse = PersonPostsResponses[keyof PersonPostsResponses];
 
 export type CreatePostData = {
     body: PostBodyWritable;
@@ -2075,6 +2345,112 @@ export type SaveResponses = {
 };
 
 export type SaveResponse = SaveResponses[keyof SaveResponses];
+
+export type SearchCommentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Words to find; quotes match a phrase, a leading - excludes a word
+         */
+        q?: string;
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/search/comments';
+};
+
+export type SearchCommentsErrors = {
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SearchCommentsError = SearchCommentsErrors[keyof SearchCommentsErrors];
+
+export type SearchCommentsResponses = {
+    /**
+     * OK
+     */
+    200: CommentPage;
+};
+
+export type SearchCommentsResponse = SearchCommentsResponses[keyof SearchCommentsResponses];
+
+export type SearchCommunitiesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Words to find; quotes match a phrase, a leading - excludes a word
+         */
+        q?: string;
+    };
+    url: '/api/search/communities';
+};
+
+export type SearchCommunitiesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SearchCommunitiesError = SearchCommunitiesErrors[keyof SearchCommunitiesErrors];
+
+export type SearchCommunitiesResponses = {
+    /**
+     * OK
+     */
+    200: List;
+};
+
+export type SearchCommunitiesResponse = SearchCommunitiesResponses[keyof SearchCommunitiesResponses];
+
+export type SearchPostsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Words to find; quotes match a phrase, a leading - excludes a word
+         */
+        q?: string;
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/search/posts';
+};
+
+export type SearchPostsErrors = {
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SearchPostsError = SearchPostsErrors[keyof SearchPostsErrors];
+
+export type SearchPostsResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type SearchPostsResponse = SearchPostsResponses[keyof SearchPostsResponses];
 
 export type SignupModeData = {
     body?: never;

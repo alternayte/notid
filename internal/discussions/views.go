@@ -363,3 +363,136 @@ func (s *Service) SetSaved(ctx context.Context, actor actors.Actor, objectApID s
 	}
 	return q.UnsaveComment(ctx, discussionsdb.UnsaveCommentParams(args))
 }
+
+// CommentInPost is a comment listed outside its thread, with where it was written.
+type CommentInPost struct {
+	Comment   CommentView `json:"comment"`
+	PostRef   string      `json:"postRef"`
+	PostTitle string      `json:"postTitle"`
+	Community string      `json:"community" doc:"Handle of the community"`
+}
+
+type CommentPage struct {
+	Comments []CommentInPost `json:"comments" nullable:"false"`
+	Next     string          `json:"next" doc:"Cursor for the next page; empty on the last page"`
+}
+
+func (s *Service) commentPage(rows []discussionsdb.SearchCommentsRow, limit int32) CommentPage {
+	page := CommentPage{Comments: make([]CommentInPost, 0, min(len(rows), int(limit)))}
+	for i, r := range rows {
+		if int32(i) == limit {
+			last := rows[i-1]
+			page.Next = encodeCursor(last.Published.UnixMicro(), last.ID)
+			break
+		}
+		page.Comments = append(page.Comments, CommentInPost{
+			Comment: CommentView{
+				ApID: r.ApID, Ref: r.Ref, BodyHTML: s.Markdown.HTML(r.Body), Published: r.Published, Score: r.Score,
+				Author: s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
+				Viewer: Viewer{Vote: r.MyVote, VoteCounted: r.MyVoteCounted, Saved: r.Saved},
+			},
+			PostRef: r.PostRef, PostTitle: r.PostTitle, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
+		})
+	}
+	return page
+}
+
+func newKey(r discussionsdb.CommunityPostsNewRow) int64 { return r.SortAt.UnixMicro() }
+
+// SearchPosts finds posts whose title or body match query, newest first.
+func (s *Service) SearchPosts(ctx context.Context, query, before string, viewer *actors.Actor) (PostPage, error) {
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return PostPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).SearchPosts(ctx, discussionsdb.SearchPostsParams{
+		Viewer: viewerID(viewer), Query: query, BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return PostPage{}, fmt.Errorf("search posts: %w", err)
+	}
+	rows := make([]discussionsdb.CommunityPostsNewRow, 0, len(rs))
+	for _, r := range rs {
+		rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+	}
+	return s.page(rows, limit, newKey), nil
+}
+
+// SearchComments finds comments whose body matches query, newest first.
+func (s *Service) SearchComments(ctx context.Context, query, before string, viewer *actors.Actor) (CommentPage, error) {
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return CommentPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rows, err := discussionsdb.New(s.Pool).SearchComments(ctx, discussionsdb.SearchCommentsParams{
+		Viewer: viewerID(viewer), Query: query, BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return CommentPage{}, fmt.Errorf("search comments: %w", err)
+	}
+	return s.commentPage(rows, limit), nil
+}
+
+var ErrNoPerson = errors.New("no person at that address")
+
+func (s *Service) personID(ctx context.Context, handle string) (int64, error) {
+	domain, name := s.Local.SplitHandle(handle)
+	id, err := discussionsdb.New(s.Pool).PersonIDByHandle(ctx, discussionsdb.PersonIDByHandleParams{Domain: domain, Name: name})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNoPerson
+	}
+	if err != nil {
+		return 0, fmt.Errorf("person %s: %w", handle, err)
+	}
+	return id, nil
+}
+
+// AuthorPosts lists a person's posts, newest first.
+func (s *Service) AuthorPosts(ctx context.Context, handle, before string, viewer *actors.Actor) (PostPage, error) {
+	authorID, err := s.personID(ctx, handle)
+	if err != nil {
+		return PostPage{}, err
+	}
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return PostPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).AuthorPosts(ctx, discussionsdb.AuthorPostsParams{
+		Viewer: viewerID(viewer), AuthorID: authorID, BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return PostPage{}, fmt.Errorf("posts by %s: %w", handle, err)
+	}
+	rows := make([]discussionsdb.CommunityPostsNewRow, 0, len(rs))
+	for _, r := range rs {
+		rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+	}
+	return s.page(rows, limit, newKey), nil
+}
+
+// AuthorComments lists a person's comments, newest first.
+func (s *Service) AuthorComments(ctx context.Context, handle, before string, viewer *actors.Actor) (CommentPage, error) {
+	authorID, err := s.personID(ctx, handle)
+	if err != nil {
+		return CommentPage{}, err
+	}
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return CommentPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).AuthorComments(ctx, discussionsdb.AuthorCommentsParams{
+		Viewer: viewerID(viewer), AuthorID: authorID, BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return CommentPage{}, fmt.Errorf("comments by %s: %w", handle, err)
+	}
+	rows := make([]discussionsdb.SearchCommentsRow, 0, len(rs))
+	for _, r := range rs {
+		rows = append(rows, discussionsdb.SearchCommentsRow(r))
+	}
+	return s.commentPage(rows, limit), nil
+}

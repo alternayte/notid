@@ -22,6 +22,88 @@ func (q *Queries) LockUnusedInvite(ctx context.Context, codeHash []byte) ([]byte
 	return code_hash, err
 }
 
+const personByHandle = `-- name: PersonByHandle :one
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+WHERE kind = 'person' AND domain = $1 AND lower(name) = lower($2) AND deleted_at IS NULL
+`
+
+type PersonByHandleParams struct {
+	Domain string
+	Name   string
+}
+
+func (q *Queries) PersonByHandle(ctx context.Context, arg PersonByHandleParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, personByHandle, arg.Domain, arg.Name)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE actors SET display_name = $1, summary = $2, bot = $3
+WHERE id = $4 AND local AND kind = 'person'
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type UpdateProfileParams struct {
+	DisplayName string
+	Summary     string
+	Bot         bool
+	ID          int64
+}
+
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
+		arg.DisplayName,
+		arg.Summary,
+		arg.Bot,
+		arg.ID,
+	)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const useInvite = `-- name: UseInvite :exec
 UPDATE invites SET used_by = $1, used_at = now()
 WHERE code_hash = $2 AND used_at IS NULL

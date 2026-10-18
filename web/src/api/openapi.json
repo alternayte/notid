@@ -247,6 +247,60 @@
         ],
         "type": "object"
       },
+      "CommentInPost": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/CommentView"
+          },
+          "community": {
+            "description": "Handle of the community",
+            "type": "string"
+          },
+          "postRef": {
+            "type": "string"
+          },
+          "postTitle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "comment",
+          "postRef",
+          "postTitle",
+          "community"
+        ],
+        "type": "object"
+      },
+      "CommentPage": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/CommentPage.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/CommentInPost"
+            },
+            "type": "array"
+          },
+          "next": {
+            "description": "Cursor for the next page; empty on the last page",
+            "type": "string"
+          }
+        },
+        "required": [
+          "comments",
+          "next"
+        ],
+        "type": "object"
+      },
       "CommentView": {
         "additionalProperties": false,
         "properties": {
@@ -946,6 +1000,99 @@
         },
         "required": [
           "html"
+        ],
+        "type": "object"
+      },
+      "Profile": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/Profile.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "bio": {
+            "description": "Markdown",
+            "type": "string"
+          },
+          "bioHtml": {
+            "description": "Sanitized HTML from bio",
+            "type": "string"
+          },
+          "bot": {
+            "description": "An automated account; its posts carry a label",
+            "type": "boolean"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "handle": {
+            "description": "name for people on this site, else name@domain",
+            "type": "string"
+          },
+          "joined": {
+            "description": "When this site first knew the person",
+            "format": "date-time",
+            "type": "string"
+          },
+          "local": {
+            "description": "true for people who signed up on this site",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "name",
+          "domain",
+          "displayName",
+          "bio",
+          "bioHtml",
+          "bot",
+          "local",
+          "joined"
+        ],
+        "type": "object"
+      },
+      "ProfileBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/ProfileBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "bio": {
+            "description": "Markdown",
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "bot": {
+            "description": "Mark the account as automated. Only bot accounts can create API keys",
+            "type": "boolean"
+          },
+          "displayName": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "displayName",
+          "bio",
+          "bot"
         ],
         "type": "object"
       },
@@ -3417,6 +3564,67 @@
         ]
       }
     },
+    "/api/me/profile": {
+      "put": {
+        "operationId": "updateProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Change my display name, bio and bot flag",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
     "/api/me/saved": {
       "get": {
         "operationId": "saved",
@@ -3562,6 +3770,214 @@
         "summary": "Upload an image. EXIF, GPS and other metadata are removed before it is stored",
         "tags": [
           "media"
+        ]
+      }
+    },
+    "/api/people/{handle}": {
+      "get": {
+        "operationId": "person",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Read a person's profile",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/people/{handle}/comments": {
+      "get": {
+        "operationId": "personComments",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cursor from the previous page's next",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Cursor from the previous page's next",
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List a person's comments, newest first",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/people/{handle}/posts": {
+      "get": {
+        "operationId": "personPosts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cursor from the previous page's next",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Cursor from the previous page's next",
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List a person's posts, newest first",
+        "tags": [
+          "discussions"
         ]
       }
     },
@@ -3767,6 +4183,183 @@
           }
         },
         "summary": "Save or unsave a post or a comment",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/search/comments": {
+      "get": {
+        "operationId": "searchComments",
+        "parameters": [
+          {
+            "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cursor from the previous page's next",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Cursor from the previous page's next",
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Search comments, newest first",
+        "tags": [
+          "discussions"
+        ]
+      }
+    },
+    "/api/search/communities": {
+      "get": {
+        "operationId": "searchCommunities",
+        "parameters": [
+          {
+            "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Search communities on this site, in the directory, or followed by someone here, largest first",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/search/posts": {
+      "get": {
+        "operationId": "searchPosts",
+        "parameters": [
+          {
+            "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cursor from the previous page's next",
+            "explode": false,
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "description": "Cursor from the previous page's next",
+              "maxLength": 60,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Search post titles and bodies, newest first",
         "tags": [
           "discussions"
         ]

@@ -141,6 +141,42 @@ func (s *Service) registerReads(api huma.API) {
 		p, err := s.CommunityPosts(ctx, in.Handle, in.Sort, in.Before, accounts.ActorFrom(ctx))
 		return &struct{ Body PostPage }{p}, apiError(err)
 	})
+	type query struct {
+		Q      string `query:"q" minLength:"1" maxLength:"200" doc:"Words to find; quotes match a phrase, a leading - excludes a word"`
+		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
+	}
+	huma.Register(api, huma.Operation{
+		OperationID: "searchPosts", Method: http.MethodGet, Path: "/api/search/posts",
+		Summary: "Search post titles and bodies, newest first", Tags: tags, Errors: []int{http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *query) (*struct{ Body PostPage }, error) {
+		p, err := s.SearchPosts(ctx, in.Q, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "searchComments", Method: http.MethodGet, Path: "/api/search/comments",
+		Summary: "Search comments, newest first", Tags: tags, Errors: []int{http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *query) (*struct{ Body CommentPage }, error) {
+		p, err := s.SearchComments(ctx, in.Q, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body CommentPage }{p}, apiError(err)
+	})
+	type byPerson struct {
+		Handle string `path:"handle" maxLength:"300"`
+		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
+	}
+	huma.Register(api, huma.Operation{
+		OperationID: "personPosts", Method: http.MethodGet, Path: "/api/people/{handle}/posts",
+		Summary: "List a person's posts, newest first", Tags: tags, Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *byPerson) (*struct{ Body PostPage }, error) {
+		p, err := s.AuthorPosts(ctx, in.Handle, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "personComments", Method: http.MethodGet, Path: "/api/people/{handle}/comments",
+		Summary: "List a person's comments, newest first", Tags: tags, Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *byPerson) (*struct{ Body CommentPage }, error) {
+		p, err := s.AuthorComments(ctx, in.Handle, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body CommentPage }{p}, apiError(err)
+	})
 	huma.Register(api, huma.Operation{
 		OperationID: "homeFeed", Method: http.MethodGet, Path: "/api/feed",
 		Summary: "List posts from my communities, newest first by feed time", Tags: tags,
@@ -200,7 +236,7 @@ func apiError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject):
+	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject), errors.Is(err, ErrNoPerson):
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())

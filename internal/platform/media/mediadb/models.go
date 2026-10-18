@@ -90,6 +90,7 @@ type Community struct {
 	Nsfw           bool
 	HoldNewPosts   bool
 	CreatedAt      time.Time
+	Search         interface{}
 }
 
 type CommunityDomain struct {

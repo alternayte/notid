@@ -107,3 +107,22 @@ SELECT * FROM communities WHERE id = @id;
 
 -- name: CommunityIsLocal :one
 SELECT a.local FROM communities c JOIN actors a ON a.id = c.actor_id WHERE c.id = @id;
+
+-- Search finds communities that live here, are in the directory, or have a
+-- local member; communities no one here follows stay out (federation policy).
+-- name: SearchCommunities :many
+SELECT
+    c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    my.state AS my_state, my.role AS my_role
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = sqlc.narg(viewer_id)::bigint
+WHERE c.state = 'active'
+  AND c.search @@ websearch_to_tsquery('simple', @query)
+  AND (a.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+ORDER BY members DESC, c.id
+LIMIT @lim;

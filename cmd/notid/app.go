@@ -76,6 +76,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Local:   local,
 		Mode:    cfg.Signup,
 	}
+	markdown := platform.NewMarkdown()
+	accountsSvc.Markdown = markdown
 
 	mux := http.NewServeMux()
 	api := platform.NewAPI(mux, version)
@@ -83,7 +85,6 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("merge auth routes: %w", err)
 	}
 	accountsSvc.Register(api)
-	markdown := platform.NewMarkdown()
 	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown}
 	communitiesSvc.Register(api)
 	store, err := media.NewStore(cfg)

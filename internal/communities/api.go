@@ -158,6 +158,30 @@ func (s *Service) Register(api huma.API) {
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "searchCommunities", Method: http.MethodGet, Path: "/api/search/communities",
+		Summary: "Search communities on this site, in the directory, or followed by someone here, largest first", Tags: tags,
+	}, func(ctx context.Context, in *struct {
+		Q string `query:"q" minLength:"1" maxLength:"200" doc:"Words to find; quotes match a phrase, a leading - excludes a word"`
+	}) (*struct{ Body list }, error) {
+		var viewer *int64
+		if a := accounts.ActorFrom(ctx); a != nil {
+			viewer = &a.ID
+		}
+		rows, err := communitiesdb.New(s.Pool).SearchCommunities(ctx, communitiesdb.SearchCommunitiesParams{ViewerID: viewer, Query: in.Q, Lim: 20})
+		if err != nil {
+			return nil, fmt.Errorf("search communities: %w", err)
+		}
+		out := list{Communities: make([]Summary, 0, len(rows))}
+		for _, r := range rows {
+			out.Communities = append(out.Communities, s.summary(communitiesdb.JoinedRow{
+				ID: r.ID, Domain: r.Domain, Name: r.Name, Title: r.Title, Description: r.Description, Theme: r.Theme,
+				Nsfw: r.Nsfw, ApID: r.ApID, Local: r.Local, Members: r.Members,
+			}, membership(r.MyState, r.MyRole)))
+		}
+		return &struct{ Body list }{out}, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID: "myCommunities", Method: http.MethodGet, Path: "/api/me/communities",
 		Summary: "List the communities the signed-in person joined or asked to join", Tags: tags,
 		Errors: []int{http.StatusUnauthorized},

@@ -102,4 +102,5 @@ func (s *Service) Register(api huma.API) {
 			Trust:       trust,
 		}}, nil
 	})
+	s.registerProfiles(api)
 }

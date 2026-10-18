@@ -225,3 +225,89 @@ WHERE s.actor_id = @viewer
   AND s.created_at < @before::timestamptz
 ORDER BY s.created_at DESC
 LIMIT @lim;
+
+-- Search lists matching posts newest first. Content from communities no one
+-- here follows stays out of search (federation policy), as it does from Discover.
+-- name: SearchPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND p.search @@ websearch_to_tsquery('simple', @query)
+  AND (EXISTS (SELECT 1 FROM actors ga WHERE ga.id = c.actor_id AND ga.local)
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT @lim;
+
+-- Every comment list selects the same columns, so its rows convert to SearchCommentsRow.
+-- name: SearchComments :many
+SELECT
+    m.id, m.ap_id, m.ref, m.body, m.published, m.score,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    p.ref AS post_ref, p.title AS post_title, c.name AS community_name, c.domain AS community_domain,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM comments m
+JOIN actors a ON a.id = m.author_id
+JOIN posts p ON p.id = m.post_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE m.deleted_at IS NULL AND m.removed_at IS NULL AND NOT m.held AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND m.search @@ websearch_to_tsquery('simple', @query)
+  AND (EXISTS (SELECT 1 FROM actors ga WHERE ga.id = c.actor_id AND ga.local)
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (m.published, m.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY m.published DESC, m.id DESC
+LIMIT @lim;
+
+-- name: PersonIDByHandle :one
+SELECT id FROM actors WHERE kind = 'person' AND domain = @domain AND lower(name) = lower(@name) AND deleted_at IS NULL;
+
+-- name: AuthorPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.author_id = @author_id AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT @lim;
+
+-- name: AuthorComments :many
+SELECT
+    m.id, m.ap_id, m.ref, m.body, m.published, m.score,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    p.ref AS post_ref, p.title AS post_title, c.name AS community_name, c.domain AS community_domain,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM comments m
+JOIN actors a ON a.id = m.author_id
+JOIN posts p ON p.id = m.post_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE m.author_id = @author_id AND m.deleted_at IS NULL AND m.removed_at IS NULL AND NOT m.held AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (m.published, m.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY m.published DESC, m.id DESC
+LIMIT @lim;

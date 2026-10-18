@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -356,5 +357,60 @@ func TestImagePostUsesOnlyTheAuthorsOwnUpload(t *testing.T) {
 	}
 	if !th.Post.Image || th.Post.URL != up.URL {
 		t.Fatalf("image post %+v, upload %+v", th.Post, up)
+	}
+}
+
+func TestSearchLeavesOutCommunitiesNoOneHereFollows(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
+	word := "w" + strings.ReplaceAll(uuid.NewString()[:8], "-", "")
+	var followed, unfollowed discussions.Post
+	committed(t, pool, func(tx pgx.Tx) {
+		reader := trustedPerson(t, tx)
+		community := func(follow bool) int64 {
+			g := remoteActor(t, tx, "group")
+			var id int64
+			if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, 'peer.example', $2) RETURNING id`, g.ID, g.Name).Scan(&id); err != nil {
+				t.Fatal(err)
+			}
+			if follow {
+				if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state) VALUES ($1, $2, 'accepted')`, id, reader.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			return id
+		}
+		post := func(communityID int64) discussions.Post {
+			p, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{
+				ApID: "https://peer.example/post/" + uuid.NewString(), CommunityID: communityID, Author: remoteActor(t, tx, "person"),
+				Title: "About " + word, Published: time.Now(),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := discussions.InsertComment(ctx, tx, discussions.NewComment{
+				ApID: "https://peer.example/comment/" + uuid.NewString(), PostID: p.ID, Author: remoteActor(t, tx, "person"),
+				Body: "More " + word, Published: time.Now(),
+			}); err != nil {
+				t.Fatal(err)
+			}
+			return p
+		}
+		followed, unfollowed = post(community(true)), post(community(false))
+	})
+	posts, err := svc.SearchPosts(ctx, word, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := refs(posts); !slices.Equal(got, []string{followed.Ref}) {
+		t.Fatalf("posts %v, want only %s (not %s)", got, followed.Ref, unfollowed.Ref)
+	}
+	comments, err := svc.SearchComments(ctx, word, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(comments.Comments) != 1 || comments.Comments[0].PostRef != followed.Ref {
+		t.Fatalf("comments %+v", comments.Comments)
 	}
 }
