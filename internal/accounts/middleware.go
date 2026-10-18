@@ -39,6 +39,11 @@ func (s *Service) LoadActor(log *slog.Logger) func(http.Handler) http.Handler {
 			}
 			a, err := s.ensureActor(r.Context(), p.User.ID, p.User.DisplayName)
 			if err != nil {
+				if errors.Is(err, actors.ErrNotFound) {
+					// The account was deleted; the request continues without an actor.
+					next.ServeHTTP(w, r)
+					return
+				}
 				log.ErrorContext(r.Context(), "load actor", "user", p.User.ID, "err", err)
 				http.Error(w, "your profile could not be loaded", http.StatusInternalServerError)
 				return
@@ -54,7 +59,13 @@ func (s *Service) ensureActor(ctx context.Context, userID, displayName string) (
 		return actors.Actor{}, fmt.Errorf("auth-all user id %q: %w", userID, err)
 	}
 	a, err := actors.ByUserID(ctx, s.Pool, id)
-	if err == nil || !errors.Is(err, actors.ErrNotFound) {
+	if err == nil {
+		if a.DeletedAt != nil {
+			return actors.Actor{}, actors.ErrNotFound
+		}
+		return a, nil
+	}
+	if !errors.Is(err, actors.ErrNotFound) {
 		return a, err
 	}
 	for range 5 {

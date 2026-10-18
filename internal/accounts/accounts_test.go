@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -300,5 +301,147 @@ func TestAPIKeysOnlyForBots(t *testing.T) {
 	}
 	if c := serve(&actors.Actor{Bot: false}, "GET", "/api/auth/api-keys"); c != 201 {
 		t.Fatalf("list: %d", c)
+	}
+}
+
+func TestAdminCreateGrantsTheRoleAndSignUpDoesNot(t *testing.T) {
+	e := newEnv(t, platform.SignupOpen)
+	ctx := context.Background()
+	admin, err := e.svc.CreateAdmin(ctx, unique("root")+"@example.org", unique("root"), "The editor")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := e.svc.IsAdmin(ctx, admin); err != nil || !ok {
+		t.Fatalf("created admin: %v %v", ok, err)
+	}
+	if err := signUp(e, unique("meg")+"@example.org", unique("meg"), ""); err != nil {
+		t.Fatal(err)
+	}
+	// The second user is the newest row in auth_users.
+	var newest string
+	if err := e.svc.Pool.QueryRow(ctx, `SELECT id::text FROM auth_users ORDER BY created_at DESC LIMIT 1`).Scan(&newest); err != nil {
+		t.Fatal(err)
+	}
+	person, err := actors.ByUserID(ctx, e.svc.Pool, uuid.MustParse(newest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := e.svc.IsAdmin(ctx, person); err != nil || ok {
+		t.Fatalf("a signed-up person is an admin: %v %v", ok, err)
+	}
+}
+
+// tmpRef is a unique 12-character permalink key for a row a test inserts.
+func tmpRef() string { return strings.ReplaceAll(uuid.NewString(), "-", "")[:12] }
+
+func TestDeleteAccountErasesContentAndProfile(t *testing.T) {
+	e := newEnv(t, platform.SignupInvite)
+	ctx := context.Background()
+	email := unique("del") + "@example.org"
+	if err := signUp(e, email, unique("del"), newInvite(t, e)); err != nil {
+		t.Fatal(err)
+	}
+	user, err := e.auth.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	person, err := actors.ByUserID(ctx, e.svc.Pool, uuid.MustParse(user.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := e.svc.Local.CreateGroup(ctx, e.svc.Pool, e.cfg.AppDomain, unique("com"), "Community", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var communityID int64
+	if err := e.svc.Pool.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, $3) RETURNING id`,
+		group.ID, e.cfg.AppDomain, unique("com")).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Pool.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state) VALUES ($1, $2, 'accepted')`, communityID, person.ID); err != nil {
+		t.Fatal(err)
+	}
+	var postID int64
+	if err := e.svc.Pool.QueryRow(ctx,
+		`INSERT INTO posts (ap_id, ref, local, community_id, author_id, title, body, published, sort_at)
+		 VALUES ($1, $2, true, $3, $4, 'A title', 'A body', now(), now()) RETURNING id`,
+		"https://"+e.cfg.AppDomain+"/posts/"+tmpRef(), tmpRef(), communityID, person.ID).Scan(&postID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Pool.Exec(ctx,
+		`INSERT INTO comments (ap_id, ref, local, post_id, author_id, body, published)
+		 VALUES ($1, $2, true, $3, $4, 'A reply', now())`,
+		"https://"+e.cfg.AppDomain+"/comments/"+tmpRef(), tmpRef(), postID, person.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.svc.DeleteAccount(ctx, person); err != nil {
+		t.Fatal(err)
+	}
+
+	var title, body string
+	var deleted bool
+	if err := e.svc.Pool.QueryRow(ctx, `SELECT title, body, deleted_at IS NOT NULL FROM posts WHERE id = $1`, postID).
+		Scan(&title, &body, &deleted); err != nil || title != "" || body != "" || !deleted {
+		t.Fatalf("post title %q body %q deleted %v: %v", title, body, deleted, err)
+	}
+	if err := e.svc.Pool.QueryRow(ctx, `SELECT body, deleted_at IS NOT NULL FROM comments WHERE author_id = $1`, person.ID).
+		Scan(&body, &deleted); err != nil || body != "" || !deleted {
+		t.Fatalf("comment body %q deleted %v: %v", body, deleted, err)
+	}
+	var name, displayName, key string
+	var privateKey []byte
+	var userID *uuid.UUID
+	if err := e.svc.Pool.QueryRow(ctx,
+		`SELECT name, display_name, public_key_pem, private_key_enc, user_id, deleted_at IS NOT NULL FROM actors WHERE id = $1`, person.ID).
+		Scan(&name, &displayName, &key, &privateKey, &userID, &deleted); err != nil {
+		t.Fatal(err)
+	}
+	if name != "deleted_"+strconv.FormatInt(person.ID, 10) || displayName != "" || key != "" || privateKey != nil || userID != nil || !deleted {
+		t.Fatalf("actor %q %q %q %v %v %v", name, displayName, key, privateKey, userID, deleted)
+	}
+	var memberships int
+	if err := e.svc.Pool.QueryRow(ctx, `SELECT count(*) FROM memberships WHERE actor_id = $1`, person.ID).Scan(&memberships); err != nil || memberships != 0 {
+		t.Fatalf("memberships %d: %v", memberships, err)
+	}
+	if _, err := e.auth.GetUser(ctx, user.ID); err == nil {
+		t.Fatal("the auth-all user survived deletion")
+	}
+}
+
+func TestDeleteAccountRefusesTheSoleOwnerOfACommunity(t *testing.T) {
+	e := newEnv(t, platform.SignupInvite)
+	ctx := context.Background()
+	email := unique("own") + "@example.org"
+	if err := signUp(e, email, unique("own"), newInvite(t, e)); err != nil {
+		t.Fatal(err)
+	}
+	user, err := e.auth.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	person, err := actors.ByUserID(ctx, e.svc.Pool, uuid.MustParse(user.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := e.svc.Local.CreateGroup(ctx, e.svc.Pool, e.cfg.AppDomain, unique("own"), "Community", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := unique("own")
+	var communityID int64
+	if err := e.svc.Pool.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, $3) RETURNING id`,
+		group.ID, e.cfg.AppDomain, name).Scan(&communityID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Pool.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, role, state) VALUES ($1, $2, 'owner', 'accepted')`, communityID, person.ID); err != nil {
+		t.Fatal(err)
+	}
+	var sole accounts.ErrSoleOwner
+	if err := e.svc.DeleteAccount(ctx, person); !errors.As(err, &sole) || sole.Community != name {
+		t.Fatalf("got %v", err)
+	}
+	if _, err := e.auth.GetUser(ctx, user.ID); err != nil {
+		t.Fatal("a refused deletion removed the user")
 	}
 }

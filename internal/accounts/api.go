@@ -24,6 +24,7 @@ type Me struct {
 	DisplayName string `json:"displayName"`
 	Bot         bool   `json:"bot"`
 	Trust       string `json:"trust" enum:"new,trusted"`
+	Admin       bool   `json:"admin" doc:"A site admin sees /admin and can act on any community's local content"`
 }
 
 type SignupMode struct {
@@ -94,13 +95,44 @@ func (s *Service) Register(api huma.API) {
 		if a.Trust != nil {
 			trust = *a.Trust
 		}
+		admin, err := s.IsAdmin(ctx, *a)
+		if err != nil {
+			return nil, err
+		}
 		return &struct{ Body Me }{Me{
 			Name:        a.Name,
 			Handle:      s.Local.Handle(a.Name, a.Domain),
 			DisplayName: a.DisplayName,
 			Bot:         a.Bot,
 			Trust:       trust,
+			Admin:       admin,
 		}}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID:   "deleteMe",
+		Method:        http.MethodDelete,
+		Path:          "/api/me",
+		Summary:       "Delete my account, its posts and its comments",
+		Tags:          []string{"accounts"},
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusConflict},
+	}, func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+		a := ActorFrom(ctx)
+		if a == nil {
+			return nil, huma.Error401Unauthorized("sign in first")
+		}
+		var sole ErrSoleOwner
+		switch err := s.DeleteAccount(ctx, *a); {
+		case err == nil:
+			return nil, nil
+		case errors.As(err, &sole):
+			return nil, huma.Error409Conflict(sole.Error())
+		case errors.Is(err, ErrNotDeletable):
+			return nil, huma.Error409Conflict(err.Error())
+		default:
+			return nil, err
+		}
 	})
 	s.registerProfiles(api)
 }

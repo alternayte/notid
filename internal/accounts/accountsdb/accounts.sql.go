@@ -9,6 +9,48 @@ import (
 	"context"
 )
 
+const anonymizeActor = `-- name: AnonymizeActor :exec
+UPDATE actors SET
+    name = 'deleted_' || id, display_name = '', summary = '', bot = false,
+    public_key_pem = '', private_key_enc = NULL, deleted_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) AnonymizeActor(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, anonymizeActor, id)
+	return err
+}
+
+const deleteMembershipsOf = `-- name: DeleteMembershipsOf :exec
+DELETE FROM memberships WHERE actor_id = $1
+`
+
+func (q *Queries) DeleteMembershipsOf(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, deleteMembershipsOf, actorID)
+	return err
+}
+
+const deleteOwnComments = `-- name: DeleteOwnComments :exec
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE author_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) DeleteOwnComments(ctx context.Context, authorID int64) error {
+	_, err := q.db.Exec(ctx, deleteOwnComments, authorID)
+	return err
+}
+
+const deleteOwnPosts = `-- name: DeleteOwnPosts :exec
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE author_id = $1 AND deleted_at IS NULL
+`
+
+// Deletion tombstones the content so the threads it joined stay readable.
+func (q *Queries) DeleteOwnPosts(ctx context.Context, authorID int64) error {
+	_, err := q.db.Exec(ctx, deleteOwnPosts, authorID)
+	return err
+}
+
 const lockUnusedInvite = `-- name: LockUnusedInvite :one
 SELECT code_hash FROM invites
 WHERE code_hash = $1 AND used_at IS NULL
@@ -56,6 +98,28 @@ func (q *Queries) PersonByHandle(ctx context.Context, arg PersonByHandleParams) 
 		&i.FetchedAt,
 		&i.CreatedAt,
 	)
+	return i, err
+}
+
+const soleOwnerOf = `-- name: SoleOwnerOf :one
+SELECT c.domain, c.name FROM memberships m JOIN communities c ON c.id = m.community_id
+WHERE m.actor_id = $1 AND m.role = 'owner'
+  AND NOT EXISTS (
+    SELECT 1 FROM memberships o
+    WHERE o.community_id = m.community_id AND o.role = 'owner' AND o.actor_id <> m.actor_id
+  )
+LIMIT 1
+`
+
+type SoleOwnerOfRow struct {
+	Domain string
+	Name   string
+}
+
+func (q *Queries) SoleOwnerOf(ctx context.Context, actorID int64) (SoleOwnerOfRow, error) {
+	row := q.db.QueryRow(ctx, soleOwnerOf, actorID)
+	var i SoleOwnerOfRow
+	err := row.Scan(&i.Domain, &i.Name)
 	return i, err
 }
 

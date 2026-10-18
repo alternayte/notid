@@ -824,6 +824,10 @@
             "readOnly": true,
             "type": "string"
           },
+          "admin": {
+            "description": "A site admin sees /admin and can act on any community's local content",
+            "type": "boolean"
+          },
           "bot": {
             "type": "boolean"
           },
@@ -849,7 +853,8 @@
           "handle",
           "displayName",
           "bot",
-          "trust"
+          "trust",
+          "admin"
         ],
         "type": "object"
       },
@@ -4031,6 +4036,48 @@
       }
     },
     "/api/me": {
+      "delete": {
+        "operationId": "deleteMe",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete my account, its posts and its comments",
+        "tags": [
+          "accounts"
+        ]
+      },
       "get": {
         "operationId": "me",
         "responses": {

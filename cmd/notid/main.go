@@ -32,6 +32,8 @@ commands:
             write an encrypted export of a community to stdout
   import <file> -identity keyfile -owner email
             create a community from an export, arriving until DNS points here
+  admin create <email> -name <name>
+            create a site administrator
   openapi   print the OpenAPI document
   version   print the version
 `
@@ -74,6 +76,8 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 		return migrate(ctx, cfg, tuning, log)
 	case "community":
 		return community(ctx, cfg, os.Args[2:])
+	case "admin":
+		return admin(ctx, cfg, tuning, log, os.Args[2:])
 	case "export":
 		return exportCmd(ctx, cfg, os.Args[2:])
 	case "import":

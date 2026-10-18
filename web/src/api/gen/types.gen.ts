@@ -341,6 +341,10 @@ export type Me = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * A site admin sees /admin and can act on any community's local content
+     */
+    admin: boolean;
     bot: boolean;
     displayName: string;
     handle: string;
@@ -954,6 +958,10 @@ export type LogOutWritable = {
 };
 
 export type MeWritable = {
+    /**
+     * A site admin sees /admin and can act on any community's local content
+     */
+    admin: boolean;
     bot: boolean;
     displayName: string;
     handle: string;
@@ -2272,6 +2280,39 @@ export type PreviewMarkdownResponses = {
 };
 
 export type PreviewMarkdownResponse = PreviewMarkdownResponses[keyof PreviewMarkdownResponses];
+
+export type DeleteMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me';
+};
+
+export type DeleteMeErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type DeleteMeError = DeleteMeErrors[keyof DeleteMeErrors];
+
+export type DeleteMeResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteMeResponse = DeleteMeResponses[keyof DeleteMeResponses];
 
 export type MeData = {
     body?: never;
