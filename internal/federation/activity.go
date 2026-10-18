@@ -18,6 +18,10 @@ type activity struct {
 	Type   string          `json:"type"`
 	Actor  ref             `json:"actor"`
 	Object json.RawMessage `json:"object"`
+	// Summary and Content carry a Flag's reason: Lemmy writes the first and
+	// Mastodon the second.
+	Summary string `json:"summary,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 // ref is a link that a peer writes as a URL string or as an object with an id.

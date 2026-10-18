@@ -2142,6 +2142,16 @@ func (q *Queries) TombstoneComment(ctx context.Context, id int64) (Comment, erro
 	return i, err
 }
 
+const tombstoneCommentsOfAuthor = `-- name: TombstoneCommentsOfAuthor :exec
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE author_id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) TombstoneCommentsOfAuthor(ctx context.Context, authorID int64) error {
+	_, err := q.db.Exec(ctx, tombstoneCommentsOfAuthor, authorID)
+	return err
+}
+
 const tombstonePost = `-- name: TombstonePost :one
 UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
 WHERE id = $1 AND deleted_at IS NULL
@@ -2182,6 +2192,17 @@ func (q *Queries) TombstonePost(ctx context.Context, id int64) (Post, error) {
 		&i.ActiveAt,
 	)
 	return i, err
+}
+
+const tombstonePostsOfAuthor = `-- name: TombstonePostsOfAuthor :exec
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE author_id = $1 AND deleted_at IS NULL
+`
+
+// A person who deleted their account takes their content with them.
+func (q *Queries) TombstonePostsOfAuthor(ctx context.Context, authorID int64) error {
+	_, err := q.db.Exec(ctx, tombstonePostsOfAuthor, authorID)
+	return err
 }
 
 const tombstoneRemoteComment = `-- name: TombstoneRemoteComment :one

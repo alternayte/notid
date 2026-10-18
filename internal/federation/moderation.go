@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
 	"github.com/alternayte/notid/internal/federation/federationdb"
 )
@@ -87,6 +89,94 @@ func (s *Server) toFollowers(ctx context.Context, tx pgx.Tx, c communityRef, act
 	}
 	return nil
 }
+
+// SendFlag federates a report on content in a remote community, as its
+// reporter. A local community's reports stay here, so it returns "".
+func (s *Server) SendFlag(ctx context.Context, tx pgx.Tx, communityID int64, reporter actors.Actor, objectApID, reason string) (string, error) {
+	c, err := federationdb.New(tx).CommunityByID(ctx, communityID)
+	if err != nil {
+		return "", fmt.Errorf("community %d: %w", communityID, err)
+	}
+	if c.Local || c.Inbox == "" {
+		return "", nil
+	}
+	id, err := newActivityID(reporter.ApID)
+	if err != nil {
+		return "", err
+	}
+	// Lemmy reads the reason from summary and Mastodon from content.
+	err = s.deliver(ctx, tx, reporter.ID, c.Inbox, map[string]any{
+		"@context": activityStreams, "id": id, "type": "Flag", "actor": reporter.ApID,
+		"to": []string{c.ApID}, "audience": c.ApID, "object": objectApID,
+		"summary": reason, "content": reason,
+	})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// planFlag resolves a Flag a remote person filed on a post or a comment in one
+// of our communities. Reports are private, so nothing is announced.
+func (s *Server) planFlag(ctx context.Context, db federationdb.DBTX, act activity) (contentPlan, error) {
+	p := contentPlan{kind: "flag", changeID: act.ID, reason: strings.TrimSpace(act.Summary)}
+	if p.reason == "" {
+		p.reason = strings.TrimSpace(act.Content)
+	}
+	if p.reason == "" {
+		return p, reject(http.StatusBadRequest, "Flag without a reason")
+	}
+	if len(p.reason) > flagReasonMax {
+		p.reason = p.reason[:flagReasonMax]
+	}
+	reporter, err := s.knownActor(ctx, act.Actor.ID)
+	if err != nil {
+		return p, reject(http.StatusUnprocessableEntity, "reporter %s: %v", act.Actor.ID, err)
+	}
+	if reporter.Local || reporter.Kind != "person" {
+		return p, reject(http.StatusForbidden, "%s cannot report from an inbox", act.Actor.ID)
+	}
+	p.author = reporter
+
+	objectID := act.objectRef()
+	if objectID == "" {
+		return p, reject(http.StatusBadRequest, "Flag without an object")
+	}
+	q := discussionsdb.New(db)
+	post, err := q.PostByApID(ctx, objectID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		comment, cerr := q.CommentByApID(ctx, objectID)
+		if errors.Is(cerr, pgx.ErrNoRows) {
+			return p, reject(http.StatusNotFound, "no post or comment at %s", objectID)
+		}
+		if cerr != nil {
+			return p, fmt.Errorf("comment %s: %w", objectID, cerr)
+		}
+		p.target = discussions.Target{CommentID: &comment.ID}
+		if post, err = q.PostByID(ctx, comment.PostID); err != nil {
+			return p, fmt.Errorf("post of %s: %w", objectID, err)
+		}
+	} else if err != nil {
+		return p, fmt.Errorf("post %s: %w", objectID, err)
+	} else {
+		p.target = discussions.Target{PostID: &post.ID}
+	}
+
+	p.community, err = s.communityOf(ctx, db, post.CommunityID)
+	if err != nil {
+		return p, fmt.Errorf("community of %s: %w", objectID, err)
+	}
+	if !p.community.Local {
+		return p, reject(http.StatusForbidden, "community %s is not on this installation", p.community.ApID)
+	}
+	if !importing(ctx) && p.community.State != "active" {
+		return p, reject(http.StatusServiceUnavailable, "community %s is %s", p.community.ApID, p.community.State)
+	}
+	return p, nil
+}
+
+// flagReasonMax is the cap the report form also takes.
+const flagReasonMax = 1000
 
 // planBlock resolves a group's Block, or an Undo of one, of a person.
 func (s *Server) planBlock(ctx context.Context, db federationdb.DBTX, act activity, via *federationdb.CommunityByGroupApIDRow) (contentPlan, error) {

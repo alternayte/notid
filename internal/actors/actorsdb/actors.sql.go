@@ -305,6 +305,16 @@ func (q *Queries) LocalNameTaken(ctx context.Context, arg LocalNameTakenParams) 
 	return exists, err
 }
 
+const markRemoteActorDeleted = `-- name: MarkRemoteActorDeleted :exec
+UPDATE actors SET deleted_at = now()
+WHERE id = $1 AND NOT local AND deleted_at IS NULL
+`
+
+func (q *Queries) MarkRemoteActorDeleted(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, markRemoteActorDeleted, id)
+	return err
+}
+
 const updateLocalGroupProfile = `-- name: UpdateLocalGroupProfile :exec
 UPDATE actors SET display_name = $1, summary = $2
 WHERE id = $3 AND kind = 'group' AND local

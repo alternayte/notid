@@ -483,6 +483,54 @@ func (q *Queries) PeerOK(ctx context.Context, domain string) error {
 	return err
 }
 
+const personCommunities = `-- name: PersonCommunities :many
+SELECT
+    c.id, a.local, a.ap_id, a.inbox, coalesce(m.follow_ap_id, '')::text AS follow_ap_id
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+LEFT JOIN memberships m ON m.community_id = c.id AND m.actor_id = $1
+WHERE m.actor_id IS NOT NULL
+    OR EXISTS (SELECT 1 FROM posts p WHERE p.community_id = c.id AND p.author_id = $1)
+    OR EXISTS (SELECT 1 FROM comments cm JOIN posts p ON p.id = cm.post_id
+               WHERE p.community_id = c.id AND cm.author_id = $1)
+`
+
+type PersonCommunitiesRow struct {
+	ID         int64
+	Local      bool
+	ApID       string
+	Inbox      string
+	FollowApID string
+}
+
+// Communities that hold a person's content or that the person follows. A
+// person who leaves tells each of their inboxes that the person is gone.
+func (q *Queries) PersonCommunities(ctx context.Context, actorID int64) ([]PersonCommunitiesRow, error) {
+	rows, err := q.db.Query(ctx, personCommunities, actorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PersonCommunitiesRow
+	for rows.Next() {
+		var i PersonCommunitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Local,
+			&i.ApID,
+			&i.Inbox,
+			&i.FollowApID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const postDoc = `-- name: PostDoc :one
 SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, p.active_at, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
 FROM posts p

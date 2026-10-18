@@ -73,3 +73,7 @@ RETURNING *;
 UPDATE actors SET display_name = @display_name, summary = @summary
 WHERE id = @id AND kind = 'group' AND local;
 
+-- name: MarkRemoteActorDeleted :exec
+UPDATE actors SET deleted_at = now()
+WHERE id = @id AND NOT local AND deleted_at IS NULL;
+

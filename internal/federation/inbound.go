@@ -32,6 +32,8 @@ type contentPlan struct {
 	// changeID is the AP ID of the object an Update or Delete changes, or of
 	// the person a Block names.
 	changeID string
+	// reason is a Flag's text.
+	reason string
 	// targetActorID is the stored person a Block or a role change names.
 	targetActorID int64
 	// groupName and groupSummary carry an Update of a remote group's document.
@@ -382,6 +384,12 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 		var err error
 		changed, err = moderation.ApplyRemoteBan(ctx, tx, p.community.ID, p.targetActorID, p.kind == "block")
 		if err != nil {
+			return err
+		}
+	case "flag":
+		var err error
+		if changed, err = moderation.ApplyRemoteFlag(ctx, tx, p.community.ID, p.author.ID,
+			p.target.PostID, p.target.CommentID, p.reason, p.changeID); err != nil {
 			return err
 		}
 	case "add-moderator", "remove-moderator":

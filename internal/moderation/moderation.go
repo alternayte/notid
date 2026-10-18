@@ -29,6 +29,9 @@ type Service struct {
 	SendBlock func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, blocked bool) error
 	// SendRole federates an appointment or removal of a moderator.
 	SendRole func(ctx context.Context, tx pgx.Tx, communityID int64, personApID string, moderator bool) error
+	// SendFlag federates a report on content in a remote community, as its
+	// reporter, and returns the Flag's activity ID.
+	SendFlag func(ctx context.Context, tx pgx.Tx, communityID int64, reporter actors.Actor, objectApID, reason string) (string, error)
 	Logger   *slog.Logger
 }
 
@@ -389,6 +392,22 @@ func ApplyRemoteBan(ctx context.Context, db moderationdb.DBTX, communityID, acto
 	return true, nil
 }
 
+// ApplyRemoteFlag records a report a remote person filed on a post or a
+// comment here. The Flag's activity ID keeps a redelivery one report.
+func ApplyRemoteFlag(ctx context.Context, db moderationdb.DBTX, communityID, reporterID int64, postID, commentID *int64, reason, flagApID string) (bool, error) {
+	_, err := moderationdb.New(db).InsertReport(ctx, moderationdb.InsertReportParams{
+		ReporterID: reporterID, PostID: postID, CommentID: commentID,
+		CommunityID: communityID, Reason: reason, FlagApID: &flagApID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("remote flag: %w", err)
+	}
+	return true, nil
+}
+
 // Report is one report as moderators see it, with who reported it.
 type Report struct {
 	ID          int64     `json:"id"`
@@ -427,6 +446,19 @@ func (s *Service) File(ctx context.Context, reporter actors.Actor, objectApID, r
 			return fmt.Errorf("report: %w", err)
 		}
 		id = r.ID
+		if s.SendFlag == nil {
+			return nil
+		}
+		flagApID, err := s.SendFlag(ctx, tx, params.CommunityID, reporter, objectApID, reason)
+		if err != nil {
+			return err
+		}
+		if flagApID == "" {
+			return nil
+		}
+		if err := q.SetReportFlag(ctx, moderationdb.SetReportFlagParams{ID: id, FlagApID: &flagApID}); err != nil {
+			return fmt.Errorf("report flag: %w", err)
+		}
 		return nil
 	})
 	return id, err

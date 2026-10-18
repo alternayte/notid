@@ -83,6 +83,19 @@ JOIN actors a ON a.id = m.actor_id
 WHERE m.community_id = @community_id AND m.state = 'accepted' AND NOT a.local
     AND coalesce(nullif(a.shared_inbox, ''), a.inbox) <> '';
 
+-- Communities that hold a person's content or that the person follows. A
+-- person who leaves tells each of their inboxes that the person is gone.
+-- name: PersonCommunities :many
+SELECT
+    c.id, a.local, a.ap_id, a.inbox, coalesce(m.follow_ap_id, '')::text AS follow_ap_id
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+LEFT JOIN memberships m ON m.community_id = c.id AND m.actor_id = @actor_id
+WHERE m.actor_id IS NOT NULL
+    OR EXISTS (SELECT 1 FROM posts p WHERE p.community_id = c.id AND p.author_id = @actor_id)
+    OR EXISTS (SELECT 1 FROM comments cm JOIN posts p ON p.id = cm.post_id
+               WHERE p.community_id = c.id AND cm.author_id = @actor_id);
+
 -- name: PostDoc :one
 SELECT p.*, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
 FROM posts p

@@ -43,6 +43,9 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 	case "Block":
 		_, err := s.planBlock(ctx, s.Pool, act, nil)
 		return err
+	case "Flag":
+		_, err := s.planFlag(ctx, s.Pool, act)
+		return err
 	case "Announce":
 		_, err := s.planAnnounce(ctx, s.Pool, act)
 		return err
@@ -111,6 +114,8 @@ func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.Ra
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planLock(ctx, tx, act, nil) })
 	case "Block":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planBlock(ctx, tx, act, nil) })
+	case "Flag":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planFlag(ctx, tx, act) })
 	case "Announce":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planAnnounce(ctx, tx, act) })
 	case "Undo":

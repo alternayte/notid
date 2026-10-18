@@ -404,6 +404,15 @@ UPDATE comments SET deleted_at = now(), body = ''
 WHERE ap_id = @ap_id AND deleted_at IS NULL
 RETURNING *;
 
+-- A person who deleted their account takes their content with them.
+-- name: TombstonePostsOfAuthor :exec
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE author_id = @author_id AND deleted_at IS NULL;
+
+-- name: TombstoneCommentsOfAuthor :exec
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE author_id = @author_id AND deleted_at IS NULL;
+
 -- name: SetRemotePostLocked :one
 UPDATE posts SET locked = @locked
 WHERE ap_id = @ap_id AND deleted_at IS NULL

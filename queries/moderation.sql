@@ -60,9 +60,13 @@ DELETE FROM memberships WHERE actor_id = @actor_id;
 DELETE FROM bans WHERE community_id IS NULL AND actor_id = @actor_id;
 
 -- name: InsertReport :one
-INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason)
-VALUES (@reporter_id, sqlc.narg(post_id), sqlc.narg(comment_id), @community_id, @reason)
+INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason, flag_ap_id)
+VALUES (@reporter_id, sqlc.narg(post_id), sqlc.narg(comment_id), @community_id, @reason, sqlc.narg(flag_ap_id))
+ON CONFLICT (flag_ap_id) DO NOTHING
 RETURNING *;
+
+-- name: SetReportFlag :exec
+UPDATE reports SET flag_ap_id = @flag_ap_id WHERE id = @id;
 
 -- Reports wait in the queue while their state is open.
 -- name: ReportQueue :many

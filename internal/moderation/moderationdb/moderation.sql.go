@@ -213,8 +213,9 @@ func (q *Queries) InsertModerationLog(ctx context.Context, arg InsertModerationL
 }
 
 const insertReport = `-- name: InsertReport :one
-INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason, flag_ap_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (flag_ap_id) DO NOTHING
 RETURNING id, reporter_id, post_id, comment_id, community_id, reason, state, resolved_by, resolved_at, flag_ap_id, created_at
 `
 
@@ -224,6 +225,7 @@ type InsertReportParams struct {
 	CommentID   *int64
 	CommunityID int64
 	Reason      string
+	FlagApID    *string
 }
 
 func (q *Queries) InsertReport(ctx context.Context, arg InsertReportParams) (Report, error) {
@@ -233,6 +235,7 @@ func (q *Queries) InsertReport(ctx context.Context, arg InsertReportParams) (Rep
 		arg.CommentID,
 		arg.CommunityID,
 		arg.Reason,
+		arg.FlagApID,
 	)
 	var i Report
 	err := row.Scan(
@@ -801,6 +804,20 @@ func (q *Queries) SetPostLocked(ctx context.Context, arg SetPostLockedParams) (P
 		&i.ActiveAt,
 	)
 	return i, err
+}
+
+const setReportFlag = `-- name: SetReportFlag :exec
+UPDATE reports SET flag_ap_id = $1 WHERE id = $2
+`
+
+type SetReportFlagParams struct {
+	FlagApID *string
+	ID       int64
+}
+
+func (q *Queries) SetReportFlag(ctx context.Context, arg SetReportFlagParams) error {
+	_, err := q.db.Exec(ctx, setReportFlag, arg.FlagApID, arg.ID)
+	return err
 }
 
 const siteBans = `-- name: SiteBans :many
