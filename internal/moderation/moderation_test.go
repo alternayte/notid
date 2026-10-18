@@ -543,3 +543,27 @@ func TestAModeratorCannotBanAnOwnerOrAnotherModerator(t *testing.T) {
 		t.Fatalf("the owner could not ban a moderator: %v", err)
 	}
 }
+
+func TestAPersonReportsAnObjectOnceAndAFewTimesADay(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.svc.Tuning.ReportsPerDay = 2
+	if _, err := f.svc.File(ctx, f.member, f.postApID, "spam"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.File(ctx, f.member, f.postApID, "spam again"); !errors.Is(err, moderation.ErrReported) {
+		t.Fatalf("a second open report on one post returned %v", err)
+	}
+	if _, err := f.svc.Pool.Exec(ctx, `UPDATE reports SET state = 'dismissed' WHERE reporter_id = $1`, f.member.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.File(ctx, f.member, f.postApID, "still spam"); err != nil {
+		t.Fatalf("a report after the first was dismissed: %v", err)
+	}
+	if _, err := f.svc.Pool.Exec(ctx, `UPDATE reports SET state = 'dismissed' WHERE reporter_id = $1`, f.member.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.File(ctx, f.member, f.postApID, "third"); !errors.Is(err, moderation.ErrReportLimit) {
+		t.Fatalf("a report past the daily cap returned %v", err)
+	}
+}

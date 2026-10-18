@@ -316,12 +316,12 @@ func TestAdminCreateGrantsTheRoleAndSignUpDoesNot(t *testing.T) {
 	if ok, err := e.svc.IsAdmin(ctx, admin); err != nil || !ok {
 		t.Fatalf("created admin: %v %v", ok, err)
 	}
-	if err := signUp(e, unique("meg")+"@example.org", unique("meg"), ""); err != nil {
+	email := unique("meg") + "@example.org"
+	if err := signUp(e, email, unique("meg"), ""); err != nil {
 		t.Fatal(err)
 	}
-	// The second user is the newest row in auth_users.
 	var newest string
-	if err := e.svc.Pool.QueryRow(ctx, `SELECT id::text FROM auth_users ORDER BY created_at DESC LIMIT 1`).Scan(&newest); err != nil {
+	if err := e.svc.Pool.QueryRow(ctx, `SELECT id::text FROM auth_users WHERE email = $1`, email).Scan(&newest); err != nil {
 		t.Fatal(err)
 	}
 	person, err := actors.ByUserID(ctx, e.svc.Pool, uuid.MustParse(newest))

@@ -49,6 +49,8 @@ type Tuning struct {
 	SavedPerPage      int32
 
 	ReportQueueSize int32
+	// ReportsPerDay caps the reports one person files in a day.
+	ReportsPerDay int
 	// PeerListSize caps the peers an admin sees in one list.
 	PeerListSize int32
 	// DirectorySize caps the reviewed directory an admin sees in one list.
@@ -60,7 +62,10 @@ type Tuning struct {
 	TrustCheckInterval time.Duration
 	// NewWritesPerDay caps posts and comments by a new user. A write into a
 	// remote community counts against NewRemoteWritesPerDay as well.
-	NewWritesPerDay       int
+	NewWritesPerDay int
+	// ActorWritesPerMinute caps every state-changing API request per person.
+	ActorWritesPerMinute  int
+	ActorWritesBurst      int
 	NewRemoteWritesPerDay int
 	InvitesPerTrustedUser int
 	UploadQuotaBytes      int64
@@ -124,6 +129,7 @@ func DefaultTuning() Tuning {
 		SavedPerPage:      25,
 
 		ReportQueueSize:   100,
+		ReportsPerDay:     20,
 		PeerListSize:      200,
 		DirectorySize:     200,
 		ModerationLogSize: 100,
@@ -132,6 +138,8 @@ func DefaultTuning() Tuning {
 		TrustMinActivity:      5,
 		TrustCheckInterval:    time.Hour,
 		NewWritesPerDay:       10,
+		ActorWritesPerMinute:  60,
+		ActorWritesBurst:      30,
 		NewRemoteWritesPerDay: 3,
 		InvitesPerTrustedUser: 3,
 		UploadQuotaBytes:      100 << 20,

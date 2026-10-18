@@ -102,8 +102,10 @@ func apiError(err error) error {
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin), errors.Is(err, ErrNotOwner), errors.Is(err, ErrOutranked):
 		return huma.Error403Forbidden(err.Error())
-	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone):
+	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone), errors.Is(err, ErrReported):
 		return huma.Error409Conflict(err.Error())
+	case errors.Is(err, ErrReportLimit):
+		return huma.Error429TooManyRequests(err.Error())
 	case errors.Is(err, ErrBadDomain):
 		return huma.Error422UnprocessableEntity(err.Error())
 	}

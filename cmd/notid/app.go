@@ -102,7 +102,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
-	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(mediaSvc.GuardUpload(mux)))))
+	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(accounts.LimitWrites(platform.NewBuckets(t.ActorWritesPerMinute, t.ActorWritesBurst))(mediaSvc.GuardUpload(mux))))))
 	fed := &federation.Server{
 		Pool:         pool,
 		AppDomain:    cfg.AppDomain,
@@ -113,8 +113,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Local:        local,
 		Tuning:       t,
 		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
-		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
-		KeyFetches:   federation.NewPeerLimits(t.KeyFetchesPerMinute, t.KeyFetchesBurst),
+		Limits:       platform.NewBuckets(t.PeerInboxPerMinute, t.PeerInboxBurst),
+		KeyFetches:   platform.NewBuckets(t.KeyFetchesPerMinute, t.KeyFetchesBurst),
 		Markdown:     markdown,
 	}
 	probes := &portability.Service{Pool: pool, Local: local, HTTP: fed.HTTP, Tuning: t, Log: log}

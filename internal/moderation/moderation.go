@@ -42,6 +42,8 @@ var (
 	ErrAlreadyDone  = errors.New("that action was already taken")
 	ErrBanned       = errors.New("you are banned from this community")
 	ErrSelfBan      = errors.New("you cannot ban yourself")
+	ErrReported     = errors.New("you already reported this")
+	ErrReportLimit  = errors.New("you have filed too many reports today")
 	ErrOutranked    = errors.New("an owner cannot be banned, and only an owner can ban a moderator")
 )
 
@@ -464,7 +466,22 @@ func (s *Service) File(ctx context.Context, reporter actors.Actor, objectApID, r
 		} else {
 			return fmt.Errorf("comment: %w", err)
 		}
+		if banned, err := Banned(ctx, tx, params.CommunityID, reporter.ID); err != nil {
+			return err
+		} else if banned {
+			return ErrBanned
+		}
+		n, err := q.ReportsSince(ctx, moderationdb.ReportsSinceParams{ReporterID: reporter.ID, Since: time.Now().Add(-24 * time.Hour)})
+		if err != nil {
+			return fmt.Errorf("report count: %w", err)
+		}
+		if int(n) >= s.Tuning.ReportsPerDay {
+			return ErrReportLimit
+		}
 		r, err := q.InsertReport(ctx, params)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrReported
+		}
 		if err != nil {
 			return fmt.Errorf("report: %w", err)
 		}

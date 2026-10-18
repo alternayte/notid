@@ -535,6 +535,11 @@ func (s *Service) Follow(ctx context.Context, person actors.Actor, ref string) (
 		} else if banned {
 			return ErrBanned
 		}
+		// A member already accepted is answered as is; a new Follow would only add traffic.
+		if cur, err := q.MembershipOf(ctx, communitiesdb.MembershipOfParams{CommunityID: c.ID, ActorID: person.ID}); err == nil && cur.State == "accepted" {
+			m = cur
+			return nil
+		}
 		state, followID := "accepted", (*string)(nil)
 		if !g.Local {
 			id, err := s.SendFollow(ctx, tx, person, g)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -154,7 +155,7 @@ func TestDiscoverListsLocalAndDirectoryCommunitiesOnly(t *testing.T) {
 	if _, err := tx.Exec(ctx, `INSERT INTO directory (community_id, added_by) VALUES ($1, $2)`, listed, owner.ID); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := communitiesdb.New(tx).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	rows, err := communitiesdb.New(tx).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: math.MaxInt32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +178,7 @@ func TestDiscoverListsLocalAndDirectoryCommunitiesOnly(t *testing.T) {
 		ON CONFLICT (domain) DO UPDATE SET blocked = true`); err != nil {
 		t.Fatal(err)
 	}
-	rows, err = communitiesdb.New(tx).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	rows, err = communitiesdb.New(tx).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: math.MaxInt32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +272,7 @@ func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
 	if err := svc.AddToDirectory(ctx, owner, "checked@peer.example", "checked by hand"); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	rows, err := communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: math.MaxInt32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +292,7 @@ func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
 	if err := svc.RemoveFromDirectory(ctx, owner, "checked@peer.example"); err != nil {
 		t.Fatal(err)
 	}
-	rows, err = communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	rows, err = communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: math.MaxInt32})
 	if err != nil {
 		t.Fatal(err)
 	}

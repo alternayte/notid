@@ -215,7 +215,7 @@ func (q *Queries) InsertModerationLog(ctx context.Context, arg InsertModerationL
 const insertReport = `-- name: InsertReport :one
 INSERT INTO reports (reporter_id, post_id, comment_id, community_id, reason, flag_ap_id)
 VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (flag_ap_id) DO NOTHING
+ON CONFLICT DO NOTHING
 RETURNING id, reporter_id, post_id, comment_id, community_id, reason, state, resolved_by, resolved_at, flag_ap_id, created_at
 `
 
@@ -670,6 +670,22 @@ func (q *Queries) ReportQueue(ctx context.Context, arg ReportQueueParams) ([]Rep
 		return nil, err
 	}
 	return items, nil
+}
+
+const reportsSince = `-- name: ReportsSince :one
+SELECT count(*) FROM reports WHERE reporter_id = $1 AND created_at > $2
+`
+
+type ReportsSinceParams struct {
+	ReporterID int64
+	Since      time.Time
+}
+
+func (q *Queries) ReportsSince(ctx context.Context, arg ReportsSinceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, reportsSince, arg.ReporterID, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const resolveReport = `-- name: ResolveReport :one

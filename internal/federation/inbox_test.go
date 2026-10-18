@@ -126,8 +126,8 @@ func testServer(t *testing.T, peer *fakePeer) *Server {
 		Log:    slog.New(slog.DiscardHandler),
 		Local:  actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: sealer},
 		Tuning: tuning, HTTP: peer.client(),
-		Limits:     NewPeerLimits(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
-		KeyFetches: NewPeerLimits(tuning.KeyFetchesPerMinute, tuning.KeyFetchesBurst),
+		Limits:     platform.NewBuckets(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
+		KeyFetches: platform.NewBuckets(tuning.KeyFetchesPerMinute, tuning.KeyFetchesBurst),
 		Markdown:   platform.NewMarkdown(),
 	}
 	workers := river.NewWorkers()
@@ -570,7 +570,7 @@ func TestRemotePersonPostsCommentsAndVotesInALocalGroup(t *testing.T) {
 func TestForgedSignaturesDoNotSpendAPeersAllowance(t *testing.T) {
 	peer := newFakePeer(t)
 	s := testServer(t, peer)
-	s.Limits = NewPeerLimits(60, 2)
+	s.Limits = platform.NewBuckets(60, 2)
 	g := testGroup(t, s)
 	wrong, _ := testKey(t)
 	for range 3 {
@@ -586,7 +586,7 @@ func TestForgedSignaturesDoNotSpendAPeersAllowance(t *testing.T) {
 func TestUnknownKeysFromOneAddressAreLimitedBeforeAnyFetch(t *testing.T) {
 	peer := newFakePeer(t)
 	s := testServer(t, peer)
-	s.KeyFetches = NewPeerLimits(60, 2)
+	s.KeyFetches = platform.NewBuckets(60, 2)
 	g := testGroup(t, s)
 	codes := []int{}
 	for i := range 3 {

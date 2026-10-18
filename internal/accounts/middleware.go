@@ -7,11 +7,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	authall "github.com/alternayte/auth-all"
 	"github.com/google/uuid"
 
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/platform"
 )
 
 type actorKey struct{}
@@ -107,4 +111,28 @@ func writeJSONError(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = fmt.Fprintf(w, `{"code":%q,"message":%q}`, code, message)
+}
+
+// LimitWrites caps how fast one person changes things through the API: posts,
+// edits, votes, follows, lookups and reports. Each can make notid send or
+// fetch from other servers, so a loop must not turn into a flood.
+func LimitWrites(b *platform.Buckets) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			a := ActorFrom(r.Context())
+			if a == nil || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions ||
+				!strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/api/auth/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if !b.Allow(strconv.FormatInt(a.ID, 10), time.Now()) {
+				w.Header().Set("Content-Type", "application/problem+json")
+				w.Header().Set("Retry-After", "60")
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = w.Write([]byte(`{"title":"Too Many Requests","status":429,"detail":"You are doing that too fast. Wait a minute and try again."}`))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
