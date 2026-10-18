@@ -1,9 +1,9 @@
 import { useId, useState } from 'react'
+import { Button } from './primitives/button'
+import { Input } from './primitives/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './primitives/tabs'
+import { Textarea } from './primitives/textarea'
 import { Rendered, type RenderedHtml } from './RenderedHtml'
-import { Tabs } from './Tabs'
-
-type Kind = 'text' | 'link' | 'image'
-type Pane = 'write' | 'preview'
 
 type Props = {
   community: string
@@ -14,16 +14,9 @@ type Props = {
 // The composer starts as one line and unfolds when the reader starts a post.
 export function Composer({ community, preview }: Props) {
   const [open, setOpen] = useState(false)
-  const [kind, setKind] = useState<Kind>('text')
-  const [pane, setPane] = useState<Pane>('write')
   const [body, setBody] = useState('')
   const [html, setHtml] = useState<RenderedHtml | null>(null)
   const ids = { title: useId(), body: useId(), url: useId() }
-
-  async function showPane(next: Pane) {
-    setPane(next)
-    if (next === 'preview') setHtml(await preview(body))
-  }
 
   return (
     <section aria-label={`New post in ${community}`} className="rounded-sm border border-rule bg-paper-raised">
@@ -43,77 +36,65 @@ export function Composer({ community, preview }: Props) {
           className="flex flex-col gap-4 p-4 motion-safe:animate-[unfold_var(--dur-open)_var(--ease-out)]"
           onSubmit={(e) => e.preventDefault()}
         >
-          <Tabs
-            label="Post type"
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: 'text', label: 'Text' },
-              { value: 'link', label: 'Link' },
-              { value: 'image', label: 'Image' },
-            ]}
-          />
-          <label htmlFor={ids.title} className="sr-only">
-            Title
-          </label>
-          <input
-            id={ids.title}
-            className="field font-display text-lg sm:text-xl tracking-tight"
-            placeholder="Title"
-            maxLength={200}
-            // biome-ignore lint/a11y/noAutofocus: the composer opens on the reader's request
-            autoFocus
-          />
-          {kind === 'link' && (
-            <>
+          <Tabs defaultValue="text">
+            <TabsList aria-label="Post type">
+              <TabsTrigger value="text">Text</TabsTrigger>
+              <TabsTrigger value="link">Link</TabsTrigger>
+              <TabsTrigger value="image">Image</TabsTrigger>
+            </TabsList>
+            <label htmlFor={ids.title} className="sr-only">
+              Title
+            </label>
+            <Input
+              id={ids.title}
+              className="font-display text-lg tracking-tight sm:text-xl"
+              placeholder="Title"
+              maxLength={200}
+              autoFocus
+            />
+            <TabsContent value="link">
               <label htmlFor={ids.url} className="sr-only">
                 Link
               </label>
-              <input id={ids.url} type="url" className="field font-sans" placeholder="https://" />
-            </>
-          )}
-          {kind === 'image' && (
-            <div className="grid place-items-center rounded-sm border border-dashed border-rule px-4 py-8 font-sans text-sm text-ink-soft">
-              Drop a JPEG, PNG or WebP here. Location data is removed before it is stored.
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <Tabs
-              label="Body"
-              value={pane}
-              onChange={showPane}
-              options={[
-                { value: 'write', label: 'Write' },
-                { value: 'preview', label: 'Preview' },
-              ]}
-            />
-            {pane === 'write' ? (
-              <>
-                <label htmlFor={ids.body} className="sr-only">
-                  Body, in Markdown
-                </label>
-                <textarea
-                  id={ids.body}
-                  rows={6}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  className="field font-serif"
-                  placeholder="Say more. Markdown works: **bold**, _italic_, [links](https://…), > quotes."
-                />
-              </>
-            ) : (
-              <div className="prose-news min-h-36 rounded-sm bg-paper-sunk p-4">
-                {html ? <Rendered html={html} /> : <p className="text-ink-faint">Nothing to preview yet.</p>}
+              <Input id={ids.url} type="url" placeholder="https://" />
+            </TabsContent>
+            <TabsContent value="image">
+              <div className="grid place-items-center rounded-sm border border-dashed border-rule px-4 py-8 font-sans text-sm text-ink-soft">
+                Drop a JPEG, PNG or WebP here. Location data is removed before it is stored.
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
+          <Tabs
+            defaultValue="write"
+            onValueChange={async (pane) => {
+              if (pane === 'preview') setHtml(await preview(body))
+            }}
+          >
+            <TabsList aria-label="Body">
+              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+            <TabsContent value="write">
+              <label htmlFor={ids.body} className="sr-only">
+                Body, in Markdown
+              </label>
+              <Textarea
+                id={ids.body}
+                rows={6}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Say more. Markdown works: **bold**, _italic_, [links](https://…), > quotes."
+              />
+            </TabsContent>
+            <TabsContent value="preview" className="prose-news min-h-36 max-w-none rounded-sm bg-paper-sunk p-4">
+              {html ? <Rendered html={html} /> : <p className="text-ink-faint">Nothing to preview yet.</p>}
+            </TabsContent>
+          </Tabs>
           <div className="flex items-center justify-end gap-2">
-            <button type="button" className="btn-quiet" onClick={() => setOpen(false)}>
+            <Button type="button" variant="quiet" onClick={() => setOpen(false)}>
               Discard
-            </button>
-            <button type="submit" className="btn-primary">
-              Post
-            </button>
+            </Button>
+            <Button type="submit">Post</Button>
           </div>
         </form>
       )}

@@ -1,5 +1,7 @@
 import { useId, useState } from 'react'
-import { cx } from './cx'
+import { cn } from './cn'
+import { Button } from './primitives/button'
+import { Textarea } from './primitives/textarea'
 
 export type CommentNode = {
   id: string
@@ -54,7 +56,7 @@ function Comment({ comment, renderVotes }: { comment: CommentNode; renderVotes: 
       </header>
       <div
         id={branch}
-        className={cx(
+        className={cn(
           'grid transition-[grid-template-rows,opacity] duration-(--dur-open) ease-(--ease-out)',
           open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
         )}
@@ -95,15 +97,12 @@ function ReplyBox({ onClose }: { onClose: () => void }) {
       <label htmlFor={id} className="sr-only">
         Your reply
       </label>
-      {/* biome-ignore lint/a11y/noAutofocus: the reply box opens on the reader's request */}
-      <textarea id={id} autoFocus rows={3} className="field font-serif" placeholder="Write a reply" />
+      <Textarea id={id} autoFocus rows={3} placeholder="Write a reply" />
       <div className="flex gap-2">
-        <button type="submit" className="btn-primary">
-          Reply
-        </button>
-        <button type="button" onClick={onClose} className="btn-quiet">
+        <Button type="submit">Reply</Button>
+        <Button type="button" variant="quiet" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   )

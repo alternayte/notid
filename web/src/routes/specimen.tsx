@@ -4,6 +4,7 @@ import { Composer } from '~/ui/Composer'
 import { JoinButton } from '~/ui/JoinButton'
 import { Kicker } from '~/ui/Kicker'
 import { PostCard } from '~/ui/PostCard'
+import { Checkbox } from '~/ui/primitives/checkbox'
 import { fromRenderer } from '~/ui/RenderedHtml'
 import { ThemeSwitch } from '~/ui/ThemeSwitch'
 import { type CommentNode, Thread } from '~/ui/Thread'
@@ -38,24 +39,14 @@ function Specimen() {
         <div className="flex flex-wrap items-center justify-between gap-4 font-sans text-xs text-ink-soft">
           <span>Design specimen · Saturday edition</span>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={failing}
-                onChange={(e) => setFailing(e.target.checked)}
-                className="accent-mark"
-              />
-              Make actions fail
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={reduced}
-                onChange={(e) => setReduced(e.target.checked)}
-                className="accent-mark"
-              />
-              Reduce motion
-            </label>
+            <span className="flex items-center gap-2">
+              <Checkbox id="specimen-fail" checked={failing} onCheckedChange={(v) => setFailing(v === true)} />
+              <label htmlFor="specimen-fail">Make actions fail</label>
+            </span>
+            <span className="flex items-center gap-2">
+              <Checkbox id="specimen-motion" checked={reduced} onCheckedChange={(v) => setReduced(v === true)} />
+              <label htmlFor="specimen-motion">Reduce motion</label>
+            </span>
             <ThemeSwitch />
           </div>
         </div>

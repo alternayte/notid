@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cx } from './cx'
+import { Button } from './primitives/button'
 
 type State = 'out' | 'pending' | 'in'
 
@@ -34,19 +34,14 @@ export function JoinButton({ community, initial = 'out', send }: Props) {
   const label = state === 'in' ? 'Joined' : state === 'pending' ? 'Requested' : 'Join'
   return (
     <span className="inline-flex items-center gap-3 font-sans">
-      <button
+      <Button
         type="button"
+        variant={state === 'out' ? 'primary' : 'outline'}
         aria-pressed={state !== 'out'}
         aria-label={`${label}: ${community}`}
         aria-busy={busy}
         onClick={toggle}
-        className={cx(
-          'group inline-flex h-9 items-center gap-2 rounded-pill px-4 text-sm font-semibold',
-          'transition-[background-color,color,box-shadow,transform] duration-(--dur-move) ease-(--ease-out) active:scale-95',
-          state === 'out'
-            ? 'bg-mark text-mark-ink hover:brightness-110'
-            : 'bg-transparent text-ink shadow-[inset_0_0_0_1px_var(--rule-strong)] hover:bg-paper-sunk',
-        )}
+        className="duration-(--dur-move)"
       >
         {state !== 'out' && (
           <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4">
@@ -63,7 +58,7 @@ export function JoinButton({ community, initial = 'out', send }: Props) {
           </svg>
         )}
         {label}
-      </button>
+      </Button>
       {error && (
         <span role="alert" className="text-xs text-danger">
           Could not {state === 'out' ? 'join' : 'leave'}. Check your connection and try again.

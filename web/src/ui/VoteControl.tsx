@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cx } from './cx'
+import { cn } from './cn'
 
 type Vote = -1 | 0 | 1
 
@@ -38,7 +38,7 @@ export function VoteControl({ score, initial = 0, label, send }: Props) {
         <output
           key={bump}
           aria-live="polite"
-          className={cx(
+          className={cn(
             'min-w-8 text-center text-sm font-semibold tabular-nums',
             'motion-safe:animate-[tick_var(--dur-move)_var(--ease-spring)]',
             vote === 1 && 'text-mark',
@@ -81,7 +81,7 @@ function VoteButton({
       aria-pressed={active}
       aria-label={up ? 'Upvote' : 'Downvote'}
       onClick={onClick}
-      className={cx(
+      className={cn(
         'grid size-8 place-items-center rounded-pill text-ink-faint',
         'transition-[color,background-color,transform] duration-(--dur-press) ease-(--ease-out)',
         'hover:bg-paper-sunk hover:text-ink active:scale-90',
@@ -89,7 +89,7 @@ function VoteButton({
         active && !up && 'bg-cool-wash text-cool hover:text-cool',
       )}
     >
-      <svg viewBox="0 0 16 16" aria-hidden="true" className={cx('size-4', !up && 'rotate-180')}>
+      <svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-4', !up && 'rotate-180')}>
         <path
           d="M8 3 13.5 9.5H10V13H6V9.5H2.5Z"
           fill={active ? 'currentColor' : 'none'}
