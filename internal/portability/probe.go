@@ -115,6 +115,9 @@ func (s *Service) probe(ctx context.Context, domain string) (uuid.UUID, error) {
 	if err != nil {
 		return uuid.Nil, err
 	}
+	// A fresh connection per probe resolves DNS again; a pooled one stays on
+	// the old address after a move, and probes run more often than it idles out.
+	req.Close = true
 	resp, err := s.HTTP.Do(req)
 	if err != nil {
 		return uuid.Nil, err

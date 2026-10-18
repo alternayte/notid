@@ -221,3 +221,60 @@ func decrypt(t *testing.T, file []byte, key *age.X25519Identity) []byte {
 	}
 	return b
 }
+
+// A probe after a DNS switch must reach the new address. A pooled keep-alive
+// connection to the old installation would keep answering with its ID.
+func TestProbeFollowsADNSSwitch(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	sealer, err := platform.NewSealer(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := actors.Local{AppOrigin: "http://probe.test", AppDomain: "probe.test", Sealer: sealer}
+	name := "d" + strings.ReplaceAll(uuid.NewString()[:12], "-", "")
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _, err := communities.Create(ctx, tx, local, name+".club", name, "Move", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var self uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT installation_id FROM installation`).Scan(&self); err != nil {
+		t.Fatal(err)
+	}
+	answer := func(id uuid.UUID) *httptest.Server {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]string{"installation": id.String()})
+		}))
+		t.Cleanup(srv.Close)
+		return srv
+	}
+	here, there := answer(self), answer(uuid.New())
+	target := here // what DNS answers for the community domain
+	client := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target.Listener.Addr().String())
+		},
+	}}
+	svc := &portability.Service{Pool: pool, Local: local, HTTP: client, Log: slog.New(slog.DiscardHandler)}
+	if err := svc.ProbeAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	target = there
+	if err := svc.ProbeAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var state string
+	if err := pool.QueryRow(ctx, `SELECT state FROM communities WHERE id = $1`, c.ID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != "departed" {
+		t.Fatalf("state %q after DNS points at another installation", state)
+	}
+}
