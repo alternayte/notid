@@ -132,10 +132,11 @@ func (s *Service) probe(ctx context.Context, domain string) (uuid.UUID, error) {
 }
 
 // applyProbe moves a community to departed when another installation serves
-// its domain, and from arriving to active when this one does.
+// its domain, and from arriving to active when this one does. An arriving
+// community waits while DNS still points at the old installation.
 func (s *Service) applyProbe(ctx context.Context, c portabilitydb.DomainCommunitiesRow, self, serving uuid.UUID) error {
 	switch {
-	case serving != self && c.State != "departed":
+	case serving != self && c.State != "departed" && c.State != "arriving":
 		return s.Depart(ctx, c.ID, c.ActorID, c.Domain)
 	case serving == self && c.State == "arriving":
 		s.Log.InfoContext(ctx, "community active", "domain", c.Domain)

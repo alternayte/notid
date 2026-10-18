@@ -7,9 +7,34 @@ package portabilitydb
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const actorIDByEmail = `-- name: ActorIDByEmail :one
+SELECT a.id FROM actors a
+JOIN auth_users u ON u.id = a.user_id
+WHERE lower(u.email) = lower($1::text)
+`
+
+func (q *Queries) ActorIDByEmail(ctx context.Context, email string) (int64, error) {
+	row := q.db.QueryRow(ctx, actorIDByEmail, email)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const commentIDByApID = `-- name: CommentIDByApID :one
+SELECT id FROM comments WHERE ap_id = $1
+`
+
+func (q *Queries) CommentIDByApID(ctx context.Context, apID string) (int64, error) {
+	row := q.db.QueryRow(ctx, commentIDByApID, apID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
 
 const communityByDomain = `-- name: CommunityByDomain :one
 SELECT c.id, c.state, c.actor_id, c.name, d.domain
@@ -79,6 +104,219 @@ func (q *Queries) DomainCommunities(ctx context.Context) ([]DomainCommunitiesRow
 	return items, nil
 }
 
+const exportComments = `-- name: ExportComments :many
+SELECT cm.ap_id, au.ap_id AS author_ap_id, au.domain AS author_domain, au.name AS author_name,
+    p.ap_id AS post_ap_id, pc.ap_id AS parent_ap_id,
+    cm.body, cm.published, cm.updated, cm.score, cm.up, cm.down
+FROM comments cm
+JOIN posts p ON p.id = cm.post_id
+JOIN actors au ON au.id = cm.author_id
+LEFT JOIN comments pc ON pc.id = cm.parent_id
+WHERE p.community_id = $1 AND cm.deleted_at IS NULL AND cm.removed_at IS NULL
+ORDER BY cm.id
+`
+
+type ExportCommentsRow struct {
+	ApID         string
+	AuthorApID   string
+	AuthorDomain string
+	AuthorName   string
+	PostApID     string
+	ParentApID   *string
+	Body         string
+	Published    time.Time
+	Updated      *time.Time
+	Score        int32
+	Up           int32
+	Down         int32
+}
+
+func (q *Queries) ExportComments(ctx context.Context, communityID int64) ([]ExportCommentsRow, error) {
+	rows, err := q.db.Query(ctx, exportComments, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExportCommentsRow
+	for rows.Next() {
+		var i ExportCommentsRow
+		if err := rows.Scan(
+			&i.ApID,
+			&i.AuthorApID,
+			&i.AuthorDomain,
+			&i.AuthorName,
+			&i.PostApID,
+			&i.ParentApID,
+			&i.Body,
+			&i.Published,
+			&i.Updated,
+			&i.Score,
+			&i.Up,
+			&i.Down,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportCommunity = `-- name: ExportCommunity :one
+SELECT c.id, c.name, c.title, c.description, c.theme, c.appeals_contact, c.nsfw, c.state,
+    d.domain, a.id AS actor_id, a.ap_id, a.private_key_enc, a.public_key_pem
+FROM communities c
+JOIN community_domains d ON d.community_id = c.id
+JOIN actors a ON a.id = c.actor_id
+WHERE d.domain = $1 AND a.local
+`
+
+type ExportCommunityRow struct {
+	ID             int64
+	Name           string
+	Title          string
+	Description    string
+	Theme          []byte
+	AppealsContact string
+	Nsfw           bool
+	State          string
+	Domain         string
+	ActorID        int64
+	ApID           string
+	PrivateKeyEnc  []byte
+	PublicKeyPem   string
+}
+
+func (q *Queries) ExportCommunity(ctx context.Context, domain string) (ExportCommunityRow, error) {
+	row := q.db.QueryRow(ctx, exportCommunity, domain)
+	var i ExportCommunityRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.Nsfw,
+		&i.State,
+		&i.Domain,
+		&i.ActorID,
+		&i.ApID,
+		&i.PrivateKeyEnc,
+		&i.PublicKeyPem,
+	)
+	return i, err
+}
+
+const exportMembers = `-- name: ExportMembers :many
+SELECT a.ap_id, a.kind, a.domain, a.name, a.inbox, a.shared_inbox, m.role, m.follow_ap_id
+FROM memberships m
+JOIN actors a ON a.id = m.actor_id
+WHERE m.community_id = $1 AND m.state = 'accepted'
+ORDER BY a.id
+`
+
+type ExportMembersRow struct {
+	ApID        string
+	Kind        string
+	Domain      string
+	Name        string
+	Inbox       string
+	SharedInbox string
+	Role        string
+	FollowApID  *string
+}
+
+func (q *Queries) ExportMembers(ctx context.Context, communityID int64) ([]ExportMembersRow, error) {
+	rows, err := q.db.Query(ctx, exportMembers, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExportMembersRow
+	for rows.Next() {
+		var i ExportMembersRow
+		if err := rows.Scan(
+			&i.ApID,
+			&i.Kind,
+			&i.Domain,
+			&i.Name,
+			&i.Inbox,
+			&i.SharedInbox,
+			&i.Role,
+			&i.FollowApID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportPosts = `-- name: ExportPosts :many
+SELECT p.ap_id, au.ap_id AS author_ap_id, au.domain AS author_domain, au.name AS author_name,
+    p.title, p.body, p.url, p.nsfw, p.published, p.updated, p.score, p.up, p.down
+FROM posts p
+JOIN actors au ON au.id = p.author_id
+WHERE p.community_id = $1 AND p.deleted_at IS NULL AND p.removed_at IS NULL
+ORDER BY p.id
+`
+
+type ExportPostsRow struct {
+	ApID         string
+	AuthorApID   string
+	AuthorDomain string
+	AuthorName   string
+	Title        string
+	Body         string
+	Url          string
+	Nsfw         bool
+	Published    time.Time
+	Updated      *time.Time
+	Score        int32
+	Up           int32
+	Down         int32
+}
+
+func (q *Queries) ExportPosts(ctx context.Context, communityID int64) ([]ExportPostsRow, error) {
+	rows, err := q.db.Query(ctx, exportPosts, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExportPostsRow
+	for rows.Next() {
+		var i ExportPostsRow
+		if err := rows.Scan(
+			&i.ApID,
+			&i.AuthorApID,
+			&i.AuthorDomain,
+			&i.AuthorName,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.Updated,
+			&i.Score,
+			&i.Up,
+			&i.Down,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const forgetGroupKey = `-- name: ForgetGroupKey :exec
 UPDATE actors SET private_key_enc = NULL, local = false, fetched_at = NULL
 WHERE id = $1 AND kind = 'group'
@@ -87,6 +325,199 @@ WHERE id = $1 AND kind = 'group'
 func (q *Queries) ForgetGroupKey(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, forgetGroupKey, id)
 	return err
+}
+
+const importComment = `-- name: ImportComment :exec
+INSERT INTO comments (ap_id, ref, local, post_id, parent_id, author_id, body, published, updated, score, up, down)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+ON CONFLICT (ap_id) DO NOTHING
+`
+
+type ImportCommentParams struct {
+	ApID      string
+	Ref       string
+	Local     bool
+	PostID    int64
+	ParentID  *int64
+	AuthorID  int64
+	Body      string
+	Published time.Time
+	Updated   *time.Time
+	Score     int32
+	Up        int32
+	Down      int32
+}
+
+func (q *Queries) ImportComment(ctx context.Context, arg ImportCommentParams) error {
+	_, err := q.db.Exec(ctx, importComment,
+		arg.ApID,
+		arg.Ref,
+		arg.Local,
+		arg.PostID,
+		arg.ParentID,
+		arg.AuthorID,
+		arg.Body,
+		arg.Published,
+		arg.Updated,
+		arg.Score,
+		arg.Up,
+		arg.Down,
+	)
+	return err
+}
+
+const importMembership = `-- name: ImportMembership :exec
+INSERT INTO memberships (community_id, actor_id, role, state, follow_ap_id)
+VALUES ($1, $2, $3, 'accepted', $4)
+ON CONFLICT (community_id, actor_id) DO UPDATE SET role = excluded.role, state = 'accepted'
+`
+
+type ImportMembershipParams struct {
+	CommunityID int64
+	ActorID     int64
+	Role        string
+	FollowApID  *string
+}
+
+func (q *Queries) ImportMembership(ctx context.Context, arg ImportMembershipParams) error {
+	_, err := q.db.Exec(ctx, importMembership,
+		arg.CommunityID,
+		arg.ActorID,
+		arg.Role,
+		arg.FollowApID,
+	)
+	return err
+}
+
+const importPost = `-- name: ImportPost :one
+INSERT INTO posts (ap_id, ref, local, community_id, author_id, title, body, url, nsfw, published, sort_at, updated, score, up, down)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    least($10::timestamptz, now()), $11, $12, $13, $14)
+ON CONFLICT (ap_id) DO UPDATE SET ap_id = excluded.ap_id
+RETURNING id
+`
+
+type ImportPostParams struct {
+	ApID        string
+	Ref         string
+	Local       bool
+	CommunityID int64
+	AuthorID    int64
+	Title       string
+	Body        string
+	Url         string
+	Nsfw        bool
+	Published   time.Time
+	Updated     *time.Time
+	Score       int32
+	Up          int32
+	Down        int32
+}
+
+func (q *Queries) ImportPost(ctx context.Context, arg ImportPostParams) (int64, error) {
+	row := q.db.QueryRow(ctx, importPost,
+		arg.ApID,
+		arg.Ref,
+		arg.Local,
+		arg.CommunityID,
+		arg.AuthorID,
+		arg.Title,
+		arg.Body,
+		arg.Url,
+		arg.Nsfw,
+		arg.Published,
+		arg.Updated,
+		arg.Score,
+		arg.Up,
+		arg.Down,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertImportedCommunity = `-- name: InsertImportedCommunity :one
+INSERT INTO communities (actor_id, domain, name, title, description, theme, appeals_contact, nsfw, state)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'arriving')
+ON CONFLICT (actor_id) DO UPDATE SET state = 'arriving', title = excluded.title, description = excluded.description
+RETURNING id
+`
+
+type InsertImportedCommunityParams struct {
+	ActorID        int64
+	Domain         string
+	Name           string
+	Title          string
+	Description    string
+	Theme          []byte
+	AppealsContact string
+	Nsfw           bool
+}
+
+func (q *Queries) InsertImportedCommunity(ctx context.Context, arg InsertImportedCommunityParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertImportedCommunity,
+		arg.ActorID,
+		arg.Domain,
+		arg.Name,
+		arg.Title,
+		arg.Description,
+		arg.Theme,
+		arg.AppealsContact,
+		arg.Nsfw,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertImportedDomain = `-- name: InsertImportedDomain :exec
+INSERT INTO community_domains (domain, txt_token, created_by, verified_at, community_id)
+VALUES ($1, 'import', $2, now(), $3)
+ON CONFLICT (domain) DO UPDATE SET community_id = excluded.community_id, verified_at = now()
+`
+
+type InsertImportedDomainParams struct {
+	Domain      string
+	CreatedBy   int64
+	CommunityID *int64
+}
+
+func (q *Queries) InsertImportedDomain(ctx context.Context, arg InsertImportedDomainParams) error {
+	_, err := q.db.Exec(ctx, insertImportedDomain, arg.Domain, arg.CreatedBy, arg.CommunityID)
+	return err
+}
+
+const insertImportedGroup = `-- name: InsertImportedGroup :one
+INSERT INTO actors (ap_id, kind, local, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc)
+VALUES ($1, 'group', true, $2, $3, $4, $5, $1 || '/inbox', $1 || '/inbox', $6, $7)
+ON CONFLICT (ap_id) DO UPDATE SET local = true, private_key_enc = excluded.private_key_enc,
+    public_key_pem = excluded.public_key_pem, fetched_at = NULL
+RETURNING id
+`
+
+type InsertImportedGroupParams struct {
+	ApID          string
+	Domain        string
+	Name          string
+	DisplayName   string
+	Summary       string
+	PublicKeyPem  string
+	PrivateKeyEnc []byte
+}
+
+func (q *Queries) InsertImportedGroup(ctx context.Context, arg InsertImportedGroupParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertImportedGroup,
+		arg.ApID,
+		arg.Domain,
+		arg.Name,
+		arg.DisplayName,
+		arg.Summary,
+		arg.PublicKeyPem,
+		arg.PrivateKeyEnc,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const installationID = `-- name: InstallationID :one
@@ -98,6 +529,17 @@ func (q *Queries) InstallationID(ctx context.Context) (uuid.UUID, error) {
 	var installation_id uuid.UUID
 	err := row.Scan(&installation_id)
 	return installation_id, err
+}
+
+const postIDByApID = `-- name: PostIDByApID :one
+SELECT id FROM posts WHERE ap_id = $1
+`
+
+func (q *Queries) PostIDByApID(ctx context.Context, apID string) (int64, error) {
+	row := q.db.QueryRow(ctx, postIDByApID, apID)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const setCommunityState = `-- name: SetCommunityState :exec
@@ -112,4 +554,39 @@ type SetCommunityStateParams struct {
 func (q *Queries) SetCommunityState(ctx context.Context, arg SetCommunityStateParams) error {
 	_, err := q.db.Exec(ctx, setCommunityState, arg.State, arg.ID)
 	return err
+}
+
+const upsertStubActor = `-- name: UpsertStubActor :one
+INSERT INTO actors (ap_id, kind, local, domain, name, inbox, shared_inbox)
+VALUES ($1, $2, false, $3, $4, $5, $6)
+ON CONFLICT (ap_id) DO UPDATE SET ap_id = excluded.ap_id
+RETURNING id, local
+`
+
+type UpsertStubActorParams struct {
+	ApID        string
+	Kind        string
+	Domain      string
+	Name        string
+	Inbox       string
+	SharedInbox string
+}
+
+type UpsertStubActorRow struct {
+	ID    int64
+	Local bool
+}
+
+func (q *Queries) UpsertStubActor(ctx context.Context, arg UpsertStubActorParams) (UpsertStubActorRow, error) {
+	row := q.db.QueryRow(ctx, upsertStubActor,
+		arg.ApID,
+		arg.Kind,
+		arg.Domain,
+		arg.Name,
+		arg.Inbox,
+		arg.SharedInbox,
+	)
+	var i UpsertStubActorRow
+	err := row.Scan(&i.ID, &i.Local)
+	return i, err
 }

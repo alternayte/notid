@@ -28,6 +28,10 @@ commands:
             create a community and its group
   community freeze <domain>
             make a community read-only before a move
+  export <domain> -recipient age1...
+            write an encrypted export of a community to stdout
+  import <file> -identity keyfile -owner email
+            create a community from an export, arriving until DNS points here
   openapi   print the OpenAPI document
   version   print the version
 `
@@ -70,6 +74,10 @@ func run(ctx context.Context, cmd string, log *slog.Logger) error {
 		return migrate(ctx, cfg, tuning, log)
 	case "community":
 		return community(ctx, cfg, os.Args[2:])
+	case "export":
+		return exportCmd(ctx, cfg, os.Args[2:])
+	case "import":
+		return importCmd(ctx, cfg, os.Args[2:])
 	default:
 		return fmt.Errorf("unknown command %q\n%s", cmd, usage)
 	}
