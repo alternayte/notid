@@ -57,6 +57,7 @@ var (
 	ErrBanned       = errors.New("you are banned from this community")
 	ErrNotModerator = errors.New("only the community's owners and moderators can do that")
 	ErrNotTrusted   = errors.New("new accounts cannot post that often yet")
+	ErrRemoteLimit  = errors.New("new accounts can post only a few times a day into communities on other sites")
 )
 
 type PostBody struct {
@@ -362,7 +363,7 @@ func apiError(err error) error {
 		return huma.Error404NotFound(err.Error())
 	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAuthor):
 		return huma.Error403Forbidden(err.Error())
-	case errors.Is(err, ErrNotTrusted):
+	case errors.Is(err, ErrNotTrusted), errors.Is(err, ErrRemoteLimit):
 		return huma.Error429TooManyRequests(err.Error())
 	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, ErrBadURL), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())
@@ -384,7 +385,10 @@ func (s *Service) limitWrites(ctx context.Context, q *discussionsdb.Queries, aut
 	if err != nil {
 		return fmt.Errorf("write count: %w", err)
 	}
-	if int(w.Writes) >= s.Tuning.NewWritesPerDay || (remote && int(w.RemoteWrites) >= s.Tuning.NewRemoteWritesPerDay) {
+	if remote && int(w.RemoteWrites) >= s.Tuning.NewRemoteWritesPerDay {
+		return ErrRemoteLimit
+	}
+	if int(w.Writes) >= s.Tuning.NewWritesPerDay {
 		return ErrNotTrusted
 	}
 	return nil

@@ -1,7 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { aboutOptions } from '~/api/gen/@tanstack/react-query.gen'
 import { Page } from './__root'
 
 export const Route = createFileRoute('/about/federation')({
+  loader: ({ context }) => context.queryClient.prefetchQuery({ ...aboutOptions(), retry: false }),
   head: () => ({ meta: [{ title: 'How this site federates · Open Communities' }] }),
   component: Federation,
 })
@@ -10,6 +13,7 @@ const term = 'font-display text-lg tracking-tight'
 const body = 'font-serif text-base text-ink-soft'
 
 function Federation() {
+  const limits = useQuery({ ...aboutOptions(), retry: false }).data?.limits
   return (
     <Page>
       <div className="flex max-w-(--container-measure) flex-col gap-2">
@@ -51,6 +55,17 @@ function Federation() {
             travel with the content.
           </p>
         </section>
+        {limits && (
+          <section className="flex flex-col gap-1 border-t border-rule pt-4">
+            <h2 className={term}>Limits for new accounts</h2>
+            <p className={body}>
+              A new account can write {limits.writesPerDay} posts and comments a day, and only{' '}
+              {limits.remoteWritesPerDay} of them into communities on other servers. Its votes stay on this site and do
+              not count yet. An account becomes trusted after {Math.round(limits.trustAfterHours / 24)} days and{' '}
+              {limits.trustAfterWrites} posts or comments that no moderator removed, with no upheld report against them.
+            </p>
+          </section>
+        )}
         <section className="flex flex-col gap-1 border-t border-rule pt-4">
           <h2 className={term}>Communities can move</h2>
           <p className={body}>

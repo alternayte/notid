@@ -20,10 +20,19 @@ type Counts struct {
 	ReportsDismissed int `json:"reportsDismissed"`
 }
 
-// Transparency is what the public /about/moderation page counts.
+// Limits are the limits on new accounts that the about pages publish.
+type Limits struct {
+	WritesPerDay       int `json:"writesPerDay" doc:"Posts and comments a new account may write in a day"`
+	RemoteWritesPerDay int `json:"remoteWritesPerDay" doc:"Of those, how many may go to communities on other sites"`
+	TrustAfterHours    int `json:"trustAfterHours" doc:"Minimum account age before it becomes trusted"`
+	TrustAfterWrites   int `json:"trustAfterWrites" doc:"Posts and comments no moderator removed, needed to become trusted"`
+}
+
+// Transparency is what the public about pages count and state.
 type Transparency struct {
 	AllTime Counts `json:"allTime"`
 	Recent  Counts `json:"recent" doc:"The transparency window, 30 days"`
+	Limits  Limits `json:"limits"`
 }
 
 // PublicCounts totals the moderation log and the reports. Anyone may read it.
@@ -56,5 +65,9 @@ func (s *Service) PublicCounts(ctx context.Context) (Transparency, error) {
 	all.ReportsFiled, all.ReportsUpheld, all.ReportsDismissed = int(reports.Filed), int(reports.Upheld), int(reports.Dismissed)
 	recent.ReportsFiled, recent.ReportsUpheld, recent.ReportsDismissed =
 		int(reports.FiledRecent), int(reports.UpheldRecent), int(reports.DismissedRecent)
-	return Transparency{AllTime: all, Recent: recent}, nil
+	limits := Limits{
+		WritesPerDay: s.Tuning.NewWritesPerDay, RemoteWritesPerDay: s.Tuning.NewRemoteWritesPerDay,
+		TrustAfterHours: int(s.Tuning.TrustMinAge.Hours()), TrustAfterWrites: s.Tuning.TrustMinActivity,
+	}
+	return Transparency{AllTime: all, Recent: recent, Limits: limits}, nil
 }

@@ -1032,6 +1032,38 @@
         ],
         "type": "object"
       },
+      "Limits": {
+        "additionalProperties": false,
+        "properties": {
+          "remoteWritesPerDay": {
+            "description": "Of those, how many may go to communities on other sites",
+            "format": "int64",
+            "type": "integer"
+          },
+          "trustAfterHours": {
+            "description": "Minimum account age before it becomes trusted",
+            "format": "int64",
+            "type": "integer"
+          },
+          "trustAfterWrites": {
+            "description": "Posts and comments no moderator removed, needed to become trusted",
+            "format": "int64",
+            "type": "integer"
+          },
+          "writesPerDay": {
+            "description": "Posts and comments a new account may write in a day",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "writesPerDay",
+          "remoteWritesPerDay",
+          "trustAfterHours",
+          "trustAfterWrites"
+        ],
+        "type": "object"
+      },
       "List": {
         "additionalProperties": false,
         "properties": {
@@ -2405,6 +2437,9 @@
           "allTime": {
             "$ref": "#/components/schemas/Counts"
           },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
           "recent": {
             "$ref": "#/components/schemas/Counts",
             "description": "The transparency window, 30 days"
@@ -2412,7 +2447,8 @@
         },
         "required": [
           "allTime",
-          "recent"
+          "recent",
+          "limits"
         ],
         "type": "object"
       },

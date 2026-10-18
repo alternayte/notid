@@ -536,7 +536,8 @@ func TestAHeldPostStaysOutUntilAModeratorPublishesIt(t *testing.T) {
 	}
 }
 
-func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
+// Invariant15: a vote from a new user is never federated.
+func TestInvariant15ANewPersonsDailyWritesAreLimitedAndTheirVotesNeverLeave(t *testing.T) {
 	ctx := context.Background()
 	pool := pgtest.Pool(t)
 	tx, err := pool.Begin(ctx)
@@ -573,11 +574,15 @@ func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
 	tuning := platform.DefaultTuning()
 	tuning.NewWritesPerDay = 3
 	tuning.NewRemoteWritesPerDay = 1
+	votesSent := 0
 	svc := &discussions.Service{
 		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: tuning,
-		SendPost:      func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { return nil },
-		SendComment:   func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { return nil },
-		SendVote:      func(context.Context, pgx.Tx, actors.Actor, int64, string, int16, string, string) error { return nil },
+		SendPost:    func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { return nil },
+		SendComment: func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { return nil },
+		SendVote: func(context.Context, pgx.Tx, actors.Actor, int64, string, int16, string, string) error {
+			votesSent++
+			return nil
+		},
 		NewActivityID: func(string) (string, error) { return "https://notid.test/a/" + uuid.NewString(), nil },
 	}
 	post := func(community, title string) error {
@@ -587,10 +592,11 @@ func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
 	if err := post(groupApID, "One"); err != nil {
 		t.Fatal(err)
 	}
-	if err := post(remoteApID, "Remote"); err != nil {
+	remote, err := svc.Post(ctx, author, discussions.PostBody{Community: remoteApID, Title: "Remote"})
+	if err != nil {
 		t.Fatalf("a first remote write is inside the limit: %v", err)
 	}
-	if err := post(remoteApID, "Remote again"); !errors.Is(err, discussions.ErrNotTrusted) {
+	if err := post(remoteApID, "Remote again"); !errors.Is(err, discussions.ErrRemoteLimit) {
 		t.Fatalf("a second remote write passed the remote limit: %v", err)
 	}
 	if err := post(groupApID, "Two"); err != nil {
@@ -601,6 +607,12 @@ func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
 	}
 	if _, err := svc.Post(ctx, owner, discussions.PostBody{Community: groupApID, Title: "Trusted"}); err != nil {
 		t.Fatalf("a trusted person is limited: %v", err)
+	}
+	if err := svc.Vote(ctx, author, remote.ApID, 1); err != nil || votesSent != 0 {
+		t.Fatalf("a new person's vote in a remote community was sent %d times: %v", votesSent, err)
+	}
+	if err := svc.Vote(ctx, owner, remote.ApID, 1); err != nil || votesSent != 1 {
+		t.Fatalf("a trusted person's vote was sent %d times: %v", votesSent, err)
 	}
 }
 

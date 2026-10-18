@@ -437,6 +437,25 @@ export type InviteOut = {
     code: string;
 };
 
+export type Limits = {
+    /**
+     * Of those, how many may go to communities on other sites
+     */
+    remoteWritesPerDay: number;
+    /**
+     * Minimum account age before it becomes trusted
+     */
+    trustAfterHours: number;
+    /**
+     * Posts and comments no moderator removed, needed to become trusted
+     */
+    trustAfterWrites: number;
+    /**
+     * Posts and comments a new account may write in a day
+     */
+    writesPerDay: number;
+};
+
 export type List = {
     /**
      * A URL to the JSON Schema for this object.
@@ -1024,6 +1043,7 @@ export type Transparency = {
      */
     readonly $schema?: string;
     allTime: Counts;
+    limits: Limits;
     /**
      * The transparency window, 30 days
      */
@@ -1561,6 +1581,7 @@ export type ThreadViewWritable = {
 
 export type TransparencyWritable = {
     allTime: Counts;
+    limits: Limits;
     /**
      * The transparency window, 30 days
      */
