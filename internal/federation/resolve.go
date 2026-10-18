@@ -107,3 +107,26 @@ func (s *Server) SendFollow(ctx context.Context, tx pgx.Tx, person, group actors
 	}
 	return id, nil
 }
+
+// SendUnfollow queues an Undo of a local person's Follow of a remote group in tx.
+func (s *Server) SendUnfollow(ctx context.Context, tx pgx.Tx, person actors.Actor, groupApID, followApID string) error {
+	group, err := actors.ByApID(ctx, tx, groupApID)
+	if err != nil {
+		return fmt.Errorf("group %s: %w", groupApID, err)
+	}
+	id, err := newActivityID(person.ApID)
+	if err != nil {
+		return err
+	}
+	undo := map[string]any{
+		"@context": activityStreams,
+		"id":       id,
+		"type":     "Undo",
+		"actor":    person.ApID,
+		"object": map[string]any{
+			"id": followApID, "type": "Follow", "actor": person.ApID, "object": groupApID,
+		},
+		"to": []string{groupApID},
+	}
+	return s.deliver(ctx, tx, person.ID, group.Inbox, undo)
+}

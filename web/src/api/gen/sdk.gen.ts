@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreatePostData, CreatePostErrors, CreatePostResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
+import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, CommunityData, CommunityErrors, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -171,6 +171,23 @@ export const createComment = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
+ * List the communities on this site and the reviewed directory, largest first
+ */
+export const discoverCommunities = <ThrowOnError extends boolean = false>(options?: Options<DiscoverCommunitiesData, ThrowOnError>): RequestResult<DiscoverCommunitiesResponses, DiscoverCommunitiesErrors, ThrowOnError> => (options?.client ?? client).get<DiscoverCommunitiesResponses, DiscoverCommunitiesErrors, ThrowOnError>({ url: '/api/communities', ...options });
+
+/**
+ * Create a community on this site
+ */
+export const createCommunity = <ThrowOnError extends boolean = false>(options: Options<CreateCommunityData, ThrowOnError>): RequestResult<CreateCommunityResponses, CreateCommunityErrors, ThrowOnError> => (options.client ?? client).post<CreateCommunityResponses, CreateCommunityErrors, ThrowOnError>({
+    url: '/api/communities',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Join a community on this site or on another server
  */
 export const followCommunity = <ThrowOnError extends boolean = false>(options: Options<FollowCommunityData, ThrowOnError>): RequestResult<FollowCommunityResponses, FollowCommunityErrors, ThrowOnError> => (options.client ?? client).post<FollowCommunityResponses, FollowCommunityErrors, ThrowOnError>({
@@ -183,9 +200,55 @@ export const followCommunity = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Leave a community
+ */
+export const leaveCommunity = <ThrowOnError extends boolean = false>(options: Options<LeaveCommunityData, ThrowOnError>): RequestResult<LeaveCommunityResponses, LeaveCommunityErrors, ThrowOnError> => (options.client ?? client).post<LeaveCommunityResponses, LeaveCommunityErrors, ThrowOnError>({
+    url: '/api/communities/leave',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Find a community on this site or on another server by its address
+ */
+export const lookupCommunity = <ThrowOnError extends boolean = false>(options: Options<LookupCommunityData, ThrowOnError>): RequestResult<LookupCommunityResponses, LookupCommunityErrors, ThrowOnError> => (options.client ?? client).post<LookupCommunityResponses, LookupCommunityErrors, ThrowOnError>({
+    url: '/api/communities/lookup',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read a community and its about page
+ */
+export const community = <ThrowOnError extends boolean = false>(options: Options<CommunityData, ThrowOnError>): RequestResult<CommunityResponses, CommunityErrors, ThrowOnError> => (options.client ?? client).get<CommunityResponses, CommunityErrors, ThrowOnError>({ url: '/api/communities/{handle}', ...options });
+
+/**
+ * Change a community's settings, rules and theme
+ */
+export const updateCommunity = <ThrowOnError extends boolean = false>(options: Options<UpdateCommunityData, ThrowOnError>): RequestResult<UpdateCommunityResponses, UpdateCommunityErrors, ThrowOnError> => (options.client ?? client).put<UpdateCommunityResponses, UpdateCommunityErrors, ThrowOnError>({
+    url: '/api/communities/{handle}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Read the signed-in person
  */
 export const me = <ThrowOnError extends boolean = false>(options?: Options<MeData, ThrowOnError>): RequestResult<MeResponses, MeErrors, ThrowOnError> => (options?.client ?? client).get<MeResponses, MeErrors, ThrowOnError>({ url: '/api/me', ...options });
+
+/**
+ * List the communities the signed-in person joined or asked to join
+ */
+export const myCommunities = <ThrowOnError extends boolean = false>(options?: Options<MyCommunitiesData, ThrowOnError>): RequestResult<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError> => (options?.client ?? client).get<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError>({ url: '/api/me/communities', ...options });
 
 /**
  * Post in a community

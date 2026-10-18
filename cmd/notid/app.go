@@ -81,7 +81,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("merge auth routes: %w", err)
 	}
 	accountsSvc.Register(api)
-	communitiesSvc := &communities.Service{Pool: pool}
+	markdown := platform.NewMarkdown()
+	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown}
 	communitiesSvc.Register(api)
 	discussionsSvc := &discussions.Service{Pool: pool}
 	discussionsSvc.Register(api)
@@ -99,7 +100,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Tuning:       t,
 		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
 		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
-		Markdown:     platform.NewMarkdown(),
+		Markdown:     markdown,
 	}
 	probes := &portability.Service{Pool: pool, Local: local, HTTP: fed.HTTP, Tuning: t, Log: log}
 	fed.WellKnown = probes.WellKnown
@@ -119,6 +120,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	fed.River = rc
 	communitiesSvc.Resolve = fed.Resolve
 	communitiesSvc.SendFollow = fed.SendFollow
+	communitiesSvc.SendUnfollow = fed.SendUnfollow
 	discussionsSvc.SendPost = fed.SendPost
 	discussionsSvc.SendComment = fed.SendComment
 	discussionsSvc.SendVote = fed.SendVote

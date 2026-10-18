@@ -305,6 +305,22 @@ func (q *Queries) LocalNameTaken(ctx context.Context, arg LocalNameTakenParams) 
 	return exists, err
 }
 
+const updateLocalGroupProfile = `-- name: UpdateLocalGroupProfile :exec
+UPDATE actors SET display_name = $1, summary = $2
+WHERE id = $3 AND kind = 'group' AND local
+`
+
+type UpdateLocalGroupProfileParams struct {
+	DisplayName string
+	Summary     string
+	ID          int64
+}
+
+func (q *Queries) UpdateLocalGroupProfile(ctx context.Context, arg UpdateLocalGroupProfileParams) error {
+	_, err := q.db.Exec(ctx, updateLocalGroupProfile, arg.DisplayName, arg.Summary, arg.ID)
+	return err
+}
+
 const upsertRemoteActor = `-- name: UpsertRemoteActor :one
 INSERT INTO actors (
     ap_id, kind, local, domain, name, display_name, summary,

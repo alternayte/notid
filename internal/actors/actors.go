@@ -176,3 +176,13 @@ func (l Local) CreateGroup(ctx context.Context, db actorsdb.DBTX, domain, name, 
 	}
 	return a, nil
 }
+
+// UpdateLocalGroupProfile keeps a local group's actor document in step with its community's title and description.
+func UpdateLocalGroupProfile(ctx context.Context, db actorsdb.DBTX, id int64, title, description string) error {
+	if err := actorsdb.New(db).UpdateLocalGroupProfile(ctx, actorsdb.UpdateLocalGroupProfileParams{
+		ID: id, DisplayName: title, Summary: description,
+	}); err != nil {
+		return fmt.Errorf("group profile %d: %w", id, err)
+	}
+	return nil
+}

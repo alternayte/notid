@@ -76,6 +76,30 @@
         ],
         "type": "object"
       },
+      "AddressBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/AddressBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "community": {
+            "description": "Community handle (name, or name@host), URL or AP ID",
+            "maxLength": 500,
+            "minLength": 3,
+            "type": "string"
+          }
+        },
+        "required": [
+          "community"
+        ],
+        "type": "object"
+      },
       "AdminCreateUserResponse": {
         "properties": {
           "temporaryPassword": {
@@ -202,6 +226,29 @@
         ],
         "type": "object"
       },
+      "CreateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/CreateBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Fixed forever; part of the community's address",
+            "pattern": "^[a-z][a-z0-9_]{2,19}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "Created": {
         "additionalProperties": false,
         "properties": {
@@ -224,6 +271,111 @@
         "required": [
           "apId",
           "ref"
+        ],
+        "type": "object"
+      },
+      "Detail": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/Detail.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "apId": {
+            "type": "string"
+          },
+          "appealsContact": {
+            "type": "string"
+          },
+          "description": {
+            "description": "Markdown",
+            "type": "string"
+          },
+          "descriptionHtml": {
+            "description": "Sanitized HTML from the Markdown description",
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "handle": {
+            "description": "name for communities on this site's domain, else name@domain",
+            "type": "string"
+          },
+          "local": {
+            "description": "true when the community lives on this installation",
+            "type": "boolean"
+          },
+          "members": {
+            "description": "Members known to this installation",
+            "format": "int64",
+            "type": "integer"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/MyMembership",
+            "description": "The signed-in person's membership, if any"
+          },
+          "moderators": {
+            "items": {
+              "$ref": "#/components/schemas/Person"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "active",
+              "frozen",
+              "departed",
+              "arriving"
+            ],
+            "type": "string"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "rules",
+          "moderators",
+          "appealsContact",
+          "state",
+          "handle",
+          "apId",
+          "name",
+          "domain",
+          "title",
+          "descriptionHtml",
+          "local",
+          "members",
+          "nsfw",
+          "theme"
         ],
         "type": "object"
       },
@@ -331,27 +483,30 @@
         ],
         "type": "object"
       },
-      "FollowBody": {
+      "List": {
         "additionalProperties": false,
         "properties": {
           "$schema": {
             "description": "A URL to the JSON Schema for this object.",
             "examples": [
-              "https://example.com/api/schemas/FollowBody.json"
+              "https://example.com/api/schemas/List.json"
             ],
             "format": "uri",
             "readOnly": true,
             "type": "string"
           },
-          "community": {
-            "description": "Community URL or name@host handle",
-            "maxLength": 500,
-            "minLength": 3,
-            "type": "string"
+          "communities": {
+            "items": {
+              "$ref": "#/components/schemas/Summary"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
-          "community"
+          "communities"
         ],
         "type": "object"
       },
@@ -424,10 +579,11 @@
             "type": "string"
           },
           "state": {
-            "description": "pending until the community's host accepts the follow",
+            "description": "pending until the community's host accepts the follow; none after leaving",
             "enum": [
               "pending",
-              "accepted"
+              "accepted",
+              "none"
             ],
             "type": "string"
           }
@@ -446,6 +602,55 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "MyMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "enum": [
+              "member",
+              "moderator",
+              "owner"
+            ],
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "accepted"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "role"
+        ],
+        "type": "object"
+      },
+      "Person": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "moderator"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "displayName",
+          "role"
         ],
         "type": "object"
       },
@@ -579,6 +784,61 @@
         ],
         "type": "object"
       },
+      "SettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/SettingsBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "appealsContact": {
+            "description": "Where members appeal a removal: an email address or URL",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "description": {
+            "description": "Markdown",
+            "maxLength": 10000,
+            "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "rules": {
+            "description": "One rule per item, in order",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 15,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          },
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "description",
+          "rules",
+          "theme",
+          "appealsContact",
+          "nsfw"
+        ],
+        "type": "object"
+      },
       "SignUpBody": {
         "additionalProperties": false,
         "properties": {
@@ -652,6 +912,80 @@
         "required": [
           "success"
         ],
+        "type": "object"
+      },
+      "Summary": {
+        "additionalProperties": false,
+        "properties": {
+          "apId": {
+            "type": "string"
+          },
+          "descriptionHtml": {
+            "description": "Sanitized HTML from the Markdown description",
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "handle": {
+            "description": "name for communities on this site's domain, else name@domain",
+            "type": "string"
+          },
+          "local": {
+            "description": "true when the community lives on this installation",
+            "type": "boolean"
+          },
+          "members": {
+            "description": "Members known to this installation",
+            "format": "int64",
+            "type": "integer"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/MyMembership",
+            "description": "The signed-in person's membership, if any"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "handle",
+          "apId",
+          "name",
+          "domain",
+          "title",
+          "descriptionHtml",
+          "local",
+          "members",
+          "nsfw",
+          "theme"
+        ],
+        "type": "object"
+      },
+      "Theme": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "enum": [
+              "vermilion",
+              "moss",
+              "teal",
+              "cobalt",
+              "plum",
+              "ochre"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "User": {
@@ -1836,6 +2170,141 @@
         ]
       }
     },
+    "/api/communities": {
+      "get": {
+        "operationId": "discoverCommunities",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List the communities on this site and the reviewed directory, largest first",
+        "tags": [
+          "communities"
+        ]
+      },
+      "post": {
+        "operationId": "createCommunity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Detail"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create a community on this site",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
     "/api/communities/follow": {
       "post": {
         "operationId": "followCommunity",
@@ -1843,7 +2312,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FollowBody"
+                "$ref": "#/components/schemas/AddressBody"
               }
             }
           },
@@ -1855,6 +2324,168 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Membership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Join a community on this site or on another server",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/communities/leave": {
+      "post": {
+        "operationId": "leaveCommunity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Membership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Leave a community",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/communities/lookup": {
+      "post": {
+        "operationId": "lookupCommunity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Detail"
                 }
               }
             },
@@ -1901,7 +2532,158 @@
             "description": "Internal Server Error"
           }
         },
-        "summary": "Join a community on this site or on another server",
+        "summary": "Find a community on this site or on another server by its address",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/communities/{handle}": {
+      "get": {
+        "operationId": "community",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "handle",
+            "required": true,
+            "schema": {
+              "maxLength": 300,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Detail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Read a community and its about page",
+        "tags": [
+          "communities"
+        ]
+      },
+      "put": {
+        "operationId": "updateCommunity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Detail"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Change a community's settings, rules and theme",
         "tags": [
           "communities"
         ]
@@ -1945,6 +2727,47 @@
         "summary": "Read the signed-in person",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/api/me/communities": {
+      "get": {
+        "operationId": "myCommunities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List the communities the signed-in person joined or asked to join",
+        "tags": [
+          "communities"
         ]
       }
     },

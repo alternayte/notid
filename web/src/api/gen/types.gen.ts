@@ -26,6 +26,17 @@ export type ApiKeyListResponse = {
     keys: Array<ApiKey>;
 };
 
+export type AddressBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Community handle (name, or name@host), URL or AP ID
+     */
+    community: string;
+};
+
 export type AdminCreateUserResponse = {
     temporaryPassword?: string;
     user: AdminUser;
@@ -71,6 +82,17 @@ export type CommentBody = {
     inReplyTo: string;
 };
 
+export type CreateBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Fixed forever; part of the community's address
+     */
+    name: string;
+};
+
 export type Created = {
     /**
      * A URL to the JSON Schema for this object.
@@ -78,6 +100,47 @@ export type Created = {
     readonly $schema?: string;
     apId: string;
     ref: string;
+};
+
+export type Detail = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    apId: string;
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    /**
+     * Sanitized HTML from the Markdown description
+     */
+    descriptionHtml: string;
+    domain: string;
+    /**
+     * name for communities on this site's domain, else name@domain
+     */
+    handle: string;
+    /**
+     * true when the community lives on this installation
+     */
+    local: boolean;
+    /**
+     * Members known to this installation
+     */
+    members: number;
+    /**
+     * The signed-in person's membership, if any
+     */
+    membership?: MyMembership;
+    moderators: Array<Person> | null;
+    name: string;
+    nsfw: boolean;
+    rules: Array<string> | null;
+    state: 'active' | 'frozen' | 'departed' | 'arriving';
+    theme: Theme;
+    title: string;
 };
 
 export type ErrorDetail = {
@@ -133,15 +196,12 @@ export type ErrorResponse = {
     };
 };
 
-export type FollowBody = {
+export type List = {
     /**
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
-    /**
-     * Community URL or name@host handle
-     */
-    community: string;
+    communities: Array<Summary> | null;
 };
 
 export type MagicLinkVerifyResponse = {
@@ -170,13 +230,24 @@ export type Membership = {
      */
     community: string;
     /**
-     * pending until the community's host accepts the follow
+     * pending until the community's host accepts the follow; none after leaving
      */
-    state: 'pending' | 'accepted';
+    state: 'pending' | 'accepted' | 'none';
 };
 
 export type MessageResponse = {
     message: string;
+};
+
+export type MyMembership = {
+    role: 'member' | 'moderator' | 'owner';
+    state: 'pending' | 'accepted';
+};
+
+export type Person = {
+    displayName: string;
+    handle: string;
+    role: 'owner' | 'moderator';
 };
 
 export type PostBody = {
@@ -223,6 +294,28 @@ export type SessionResponse = {
     user: User;
 };
 
+export type SettingsBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Where members appeal a removal: an email address or URL
+     */
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    nsfw: boolean;
+    /**
+     * One rule per item, in order
+     */
+    rules: Array<string> | null;
+    theme: Theme;
+    title: string;
+};
+
 export type SignUpBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -252,6 +345,39 @@ export type SuccessResponse = {
     success: boolean;
 };
 
+export type Summary = {
+    apId: string;
+    /**
+     * Sanitized HTML from the Markdown description
+     */
+    descriptionHtml: string;
+    domain: string;
+    /**
+     * name for communities on this site's domain, else name@domain
+     */
+    handle: string;
+    /**
+     * true when the community lives on this installation
+     */
+    local: boolean;
+    /**
+     * Members known to this installation
+     */
+    members: number;
+    /**
+     * The signed-in person's membership, if any
+     */
+    membership?: MyMembership;
+    name: string;
+    nsfw: boolean;
+    theme: Theme;
+    title: string;
+};
+
+export type Theme = {
+    accent?: 'vermilion' | 'moss' | 'teal' | 'cobalt' | 'plum' | 'ochre';
+};
+
 export type User = {
     createdAt: string;
     email: string;
@@ -278,6 +404,13 @@ export type VoteBody = {
     value: -1 | 0 | 1;
 };
 
+export type AddressBodyWritable = {
+    /**
+     * Community handle (name, or name@host), URL or AP ID
+     */
+    community: string;
+};
+
 export type CommentBodyWritable = {
     /**
      * Markdown
@@ -289,9 +422,53 @@ export type CommentBodyWritable = {
     inReplyTo: string;
 };
 
+export type CreateBodyWritable = {
+    /**
+     * Fixed forever; part of the community's address
+     */
+    name: string;
+};
+
 export type CreatedWritable = {
     apId: string;
     ref: string;
+};
+
+export type DetailWritable = {
+    apId: string;
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    /**
+     * Sanitized HTML from the Markdown description
+     */
+    descriptionHtml: string;
+    domain: string;
+    /**
+     * name for communities on this site's domain, else name@domain
+     */
+    handle: string;
+    /**
+     * true when the community lives on this installation
+     */
+    local: boolean;
+    /**
+     * Members known to this installation
+     */
+    members: number;
+    /**
+     * The signed-in person's membership, if any
+     */
+    membership?: MyMembership;
+    moderators: Array<Person> | null;
+    name: string;
+    nsfw: boolean;
+    rules: Array<string> | null;
+    state: 'active' | 'frozen' | 'departed' | 'arriving';
+    theme: Theme;
+    title: string;
 };
 
 export type ErrorModelWritable = {
@@ -321,11 +498,8 @@ export type ErrorModelWritable = {
     type?: string;
 };
 
-export type FollowBodyWritable = {
-    /**
-     * Community URL or name@host handle
-     */
-    community: string;
+export type ListWritable = {
+    communities: Array<Summary> | null;
 };
 
 export type MeWritable = {
@@ -342,9 +516,9 @@ export type MembershipWritable = {
      */
     community: string;
     /**
-     * pending until the community's host accepts the follow
+     * pending until the community's host accepts the follow; none after leaving
      */
-    state: 'pending' | 'accepted';
+    state: 'pending' | 'accepted' | 'none';
 };
 
 export type PostBodyWritable = {
@@ -358,6 +532,24 @@ export type PostBodyWritable = {
     community: string;
     title: string;
     url?: string;
+};
+
+export type SettingsBodyWritable = {
+    /**
+     * Where members appeal a removal: an email address or URL
+     */
+    appealsContact: string;
+    /**
+     * Markdown
+     */
+    description: string;
+    nsfw: boolean;
+    /**
+     * One rule per item, in order
+     */
+    rules: Array<string> | null;
+    theme: Theme;
+    title: string;
 };
 
 export type SignUpBodyWritable = {
@@ -994,8 +1186,77 @@ export type CreateCommentResponses = {
 
 export type CreateCommentResponse = CreateCommentResponses[keyof CreateCommentResponses];
 
+export type DiscoverCommunitiesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        offset?: number;
+    };
+    url: '/api/communities';
+};
+
+export type DiscoverCommunitiesErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type DiscoverCommunitiesError = DiscoverCommunitiesErrors[keyof DiscoverCommunitiesErrors];
+
+export type DiscoverCommunitiesResponses = {
+    /**
+     * OK
+     */
+    200: List;
+};
+
+export type DiscoverCommunitiesResponse = DiscoverCommunitiesResponses[keyof DiscoverCommunitiesResponses];
+
+export type CreateCommunityData = {
+    body: CreateBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/communities';
+};
+
+export type CreateCommunityErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CreateCommunityError = CreateCommunityErrors[keyof CreateCommunityErrors];
+
+export type CreateCommunityResponses = {
+    /**
+     * Created
+     */
+    201: Detail;
+};
+
+export type CreateCommunityResponse = CreateCommunityResponses[keyof CreateCommunityResponses];
+
 export type FollowCommunityData = {
-    body: FollowBodyWritable;
+    body: AddressBodyWritable;
     path?: never;
     query?: never;
     url: '/api/communities/follow';
@@ -1010,6 +1271,10 @@ export type FollowCommunityErrors = {
      * Not Found
      */
     404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
     /**
      * Unprocessable Entity
      */
@@ -1030,6 +1295,164 @@ export type FollowCommunityResponses = {
 };
 
 export type FollowCommunityResponse = FollowCommunityResponses[keyof FollowCommunityResponses];
+
+export type LeaveCommunityData = {
+    body: AddressBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/communities/leave';
+};
+
+export type LeaveCommunityErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type LeaveCommunityError = LeaveCommunityErrors[keyof LeaveCommunityErrors];
+
+export type LeaveCommunityResponses = {
+    /**
+     * OK
+     */
+    200: Membership;
+};
+
+export type LeaveCommunityResponse = LeaveCommunityResponses[keyof LeaveCommunityResponses];
+
+export type LookupCommunityData = {
+    body: AddressBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/communities/lookup';
+};
+
+export type LookupCommunityErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type LookupCommunityError = LookupCommunityErrors[keyof LookupCommunityErrors];
+
+export type LookupCommunityResponses = {
+    /**
+     * OK
+     */
+    200: Detail;
+};
+
+export type LookupCommunityResponse = LookupCommunityResponses[keyof LookupCommunityResponses];
+
+export type CommunityData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/communities/{handle}';
+};
+
+export type CommunityErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CommunityError = CommunityErrors[keyof CommunityErrors];
+
+export type CommunityResponses = {
+    /**
+     * OK
+     */
+    200: Detail;
+};
+
+export type CommunityResponse = CommunityResponses[keyof CommunityResponses];
+
+export type UpdateCommunityData = {
+    body: SettingsBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/communities/{handle}';
+};
+
+export type UpdateCommunityErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type UpdateCommunityError = UpdateCommunityErrors[keyof UpdateCommunityErrors];
+
+export type UpdateCommunityResponses = {
+    /**
+     * OK
+     */
+    200: Detail;
+};
+
+export type UpdateCommunityResponse = UpdateCommunityResponses[keyof UpdateCommunityResponses];
 
 export type MeData = {
     body?: never;
@@ -1059,6 +1482,35 @@ export type MeResponses = {
 };
 
 export type MeResponse = MeResponses[keyof MeResponses];
+
+export type MyCommunitiesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/communities';
+};
+
+export type MyCommunitiesErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type MyCommunitiesError = MyCommunitiesErrors[keyof MyCommunitiesErrors];
+
+export type MyCommunitiesResponses = {
+    /**
+     * OK
+     */
+    200: List;
+};
+
+export type MyCommunitiesResponse = MyCommunitiesResponses[keyof MyCommunitiesResponses];
 
 export type CreatePostData = {
     body: PostBodyWritable;

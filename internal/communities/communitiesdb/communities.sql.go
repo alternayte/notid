@@ -7,6 +7,7 @@ package communitiesdb
 
 import (
 	"context"
+	"time"
 )
 
 const communityByActorID = `-- name: CommunityByActorID :one
@@ -31,6 +32,211 @@ func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Commun
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const communityByHandle = `-- name: CommunityByHandle :one
+SELECT
+    c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, a.ap_id, a.local,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+WHERE c.domain = $1 AND lower(c.name) = lower($2)
+`
+
+type CommunityByHandleParams struct {
+	Domain string
+	Name   string
+}
+
+type CommunityByHandleRow struct {
+	ID             int64
+	ActorID        int64
+	Domain         string
+	Name           string
+	Title          string
+	Description    string
+	Theme          []byte
+	AppealsContact string
+	State          string
+	Nsfw           bool
+	HoldNewPosts   bool
+	CreatedAt      time.Time
+	ApID           string
+	Local          bool
+	Members        int64
+}
+
+func (q *Queries) CommunityByHandle(ctx context.Context, arg CommunityByHandleParams) (CommunityByHandleRow, error) {
+	row := q.db.QueryRow(ctx, communityByHandle, arg.Domain, arg.Name)
+	var i CommunityByHandleRow
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+		&i.ApID,
+		&i.Local,
+		&i.Members,
+	)
+	return i, err
+}
+
+const communityByID = `-- name: CommunityByID :one
+SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at FROM communities WHERE id = $1
+`
+
+func (q *Queries) CommunityByID(ctx context.Context, id int64) (Community, error) {
+	row := q.db.QueryRow(ctx, communityByID, id)
+	var i Community
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const communityIsLocal = `-- name: CommunityIsLocal :one
+SELECT a.local FROM communities c JOIN actors a ON a.id = c.actor_id WHERE c.id = $1
+`
+
+func (q *Queries) CommunityIsLocal(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, communityIsLocal, id)
+	var local bool
+	err := row.Scan(&local)
+	return local, err
+}
+
+const countOwners = `-- name: CountOwners :one
+SELECT count(*) FROM memberships
+WHERE community_id = $1 AND role = 'owner' AND state = 'accepted'
+`
+
+func (q *Queries) CountOwners(ctx context.Context, communityID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countOwners, communityID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteMembership = `-- name: DeleteMembership :one
+DELETE FROM memberships WHERE community_id = $1 AND actor_id = $2
+RETURNING community_id, actor_id, role, state, follow_ap_id, created_at
+`
+
+type DeleteMembershipParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) DeleteMembership(ctx context.Context, arg DeleteMembershipParams) (Membership, error) {
+	row := q.db.QueryRow(ctx, deleteMembership, arg.CommunityID, arg.ActorID)
+	var i Membership
+	err := row.Scan(
+		&i.CommunityID,
+		&i.ActorID,
+		&i.Role,
+		&i.State,
+		&i.FollowApID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deleteRules = `-- name: DeleteRules :exec
+DELETE FROM rules WHERE community_id = $1
+`
+
+func (q *Queries) DeleteRules(ctx context.Context, communityID int64) error {
+	_, err := q.db.Exec(ctx, deleteRules, communityID)
+	return err
+}
+
+const discover = `-- name: Discover :many
+SELECT
+    c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    my.state AS my_state, my.role AS my_role
+FROM communities c
+JOIN actors a ON a.id = c.actor_id
+LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = $1::bigint
+WHERE c.state = 'active'
+  AND (a.local OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id))
+ORDER BY members DESC, c.id
+LIMIT $3 OFFSET $2
+`
+
+type DiscoverParams struct {
+	ViewerID *int64
+	Off      int32
+	Lim      int32
+}
+
+type DiscoverRow struct {
+	ID          int64
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	Theme       []byte
+	Nsfw        bool
+	ApID        string
+	Local       bool
+	Members     int64
+	MyState     *string
+	MyRole      *string
+}
+
+// Discover lists communities that live here and the reviewed directory, never
+// other remote communities.
+func (q *Queries) Discover(ctx context.Context, arg DiscoverParams) ([]DiscoverRow, error) {
+	rows, err := q.db.Query(ctx, discover, arg.ViewerID, arg.Off, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DiscoverRow
+	for rows.Next() {
+		var i DiscoverRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Description,
+			&i.Theme,
+			&i.Nsfw,
+			&i.ApID,
+			&i.Local,
+			&i.Members,
+			&i.MyState,
+			&i.MyRole,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const domainState = `-- name: DomainState :one
@@ -87,6 +293,21 @@ func (q *Queries) InsertCommunity(ctx context.Context, arg InsertCommunityParams
 	return i, err
 }
 
+const insertOwner = `-- name: InsertOwner :exec
+INSERT INTO memberships (community_id, actor_id, role, state)
+VALUES ($1, $2, 'owner', 'accepted')
+`
+
+type InsertOwnerParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) InsertOwner(ctx context.Context, arg InsertOwnerParams) error {
+	_, err := q.db.Exec(ctx, insertOwner, arg.CommunityID, arg.ActorID)
+	return err
+}
+
 const insertRemoteCommunity = `-- name: InsertRemoteCommunity :one
 INSERT INTO communities (actor_id, domain, name, title, description)
 VALUES ($1, $2, $3, $4, $5)
@@ -128,6 +349,21 @@ func (q *Queries) InsertRemoteCommunity(ctx context.Context, arg InsertRemoteCom
 	return i, err
 }
 
+const insertRule = `-- name: InsertRule :exec
+INSERT INTO rules (community_id, position, text) VALUES ($1, $2, $3)
+`
+
+type InsertRuleParams struct {
+	CommunityID int64
+	Position    int32
+	Text        string
+}
+
+func (q *Queries) InsertRule(ctx context.Context, arg InsertRuleParams) error {
+	_, err := q.db.Exec(ctx, insertRule, arg.CommunityID, arg.Position, arg.Text)
+	return err
+}
+
 const insertVerifiedDomain = `-- name: InsertVerifiedDomain :exec
 INSERT INTO community_domains (domain, txt_token, created_by, verified_at, community_id)
 VALUES ($1, $2, $3, now(), $4)
@@ -148,6 +384,199 @@ func (q *Queries) InsertVerifiedDomain(ctx context.Context, arg InsertVerifiedDo
 		arg.CommunityID,
 	)
 	return err
+}
+
+const joined = `-- name: Joined :many
+SELECT
+    c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    my.state AS my_state, my.role AS my_role
+FROM memberships my
+JOIN communities c ON c.id = my.community_id
+JOIN actors a ON a.id = c.actor_id
+WHERE my.actor_id = $1
+ORDER BY lower(coalesce(nullif(c.title, ''), c.name))
+`
+
+type JoinedRow struct {
+	ID          int64
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	Theme       []byte
+	Nsfw        bool
+	ApID        string
+	Local       bool
+	Members     int64
+	MyState     string
+	MyRole      string
+}
+
+func (q *Queries) Joined(ctx context.Context, actorID int64) ([]JoinedRow, error) {
+	rows, err := q.db.Query(ctx, joined, actorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JoinedRow
+	for rows.Next() {
+		var i JoinedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Description,
+			&i.Theme,
+			&i.Nsfw,
+			&i.ApID,
+			&i.Local,
+			&i.Members,
+			&i.MyState,
+			&i.MyRole,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const membershipOf = `-- name: MembershipOf :one
+SELECT community_id, actor_id, role, state, follow_ap_id, created_at FROM memberships WHERE community_id = $1 AND actor_id = $2
+`
+
+type MembershipOfParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) MembershipOf(ctx context.Context, arg MembershipOfParams) (Membership, error) {
+	row := q.db.QueryRow(ctx, membershipOf, arg.CommunityID, arg.ActorID)
+	var i Membership
+	err := row.Scan(
+		&i.CommunityID,
+		&i.ActorID,
+		&i.Role,
+		&i.State,
+		&i.FollowApID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const moderators = `-- name: Moderators :many
+SELECT a.name, a.domain, a.local, a.display_name, m.role
+FROM memberships m
+JOIN actors a ON a.id = m.actor_id
+WHERE m.community_id = $1 AND m.role IN ('owner', 'moderator') AND m.state = 'accepted'
+ORDER BY m.role DESC, m.created_at
+`
+
+type ModeratorsRow struct {
+	Name        string
+	Domain      string
+	Local       bool
+	DisplayName string
+	Role        string
+}
+
+func (q *Queries) Moderators(ctx context.Context, communityID int64) ([]ModeratorsRow, error) {
+	rows, err := q.db.Query(ctx, moderators, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ModeratorsRow
+	for rows.Next() {
+		var i ModeratorsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Domain,
+			&i.Local,
+			&i.DisplayName,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const rules = `-- name: Rules :many
+SELECT text FROM rules WHERE community_id = $1 ORDER BY position
+`
+
+func (q *Queries) Rules(ctx context.Context, communityID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, rules, communityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		items = append(items, text)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateCommunity = `-- name: UpdateCommunity :one
+UPDATE communities SET
+    title = $1, description = $2, theme = $3,
+    appeals_contact = $4, nsfw = $5
+WHERE id = $6
+RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at
+`
+
+type UpdateCommunityParams struct {
+	Title          string
+	Description    string
+	Theme          []byte
+	AppealsContact string
+	Nsfw           bool
+	ID             int64
+}
+
+func (q *Queries) UpdateCommunity(ctx context.Context, arg UpdateCommunityParams) (Community, error) {
+	row := q.db.QueryRow(ctx, updateCommunity,
+		arg.Title,
+		arg.Description,
+		arg.Theme,
+		arg.AppealsContact,
+		arg.Nsfw,
+		arg.ID,
+	)
+	var i Community
+	err := row.Scan(
+		&i.ID,
+		&i.ActorID,
+		&i.Domain,
+		&i.Name,
+		&i.Title,
+		&i.Description,
+		&i.Theme,
+		&i.AppealsContact,
+		&i.State,
+		&i.Nsfw,
+		&i.HoldNewPosts,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const upsertMembership = `-- name: UpsertMembership :one
