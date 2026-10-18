@@ -107,6 +107,45 @@ func (q *Queries) ActorByUserID(ctx context.Context, userID *uuid.UUID) (Actor, 
 	return i, err
 }
 
+const groupByHandle = `-- name: GroupByHandle :one
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+WHERE kind = 'group' AND domain = $1 AND lower(name) = lower($2::text)
+`
+
+type GroupByHandleParams struct {
+	Domain string
+	Name   string
+}
+
+// A group this installation already knows, by its handle. Resolution uses it
+// before it reaches a peer for a fresh copy.
+func (q *Queries) GroupByHandle(ctx context.Context, arg GroupByHandleParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, groupByHandle, arg.Domain, arg.Name)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertApplication = `-- name: InsertApplication :one
 INSERT INTO actors (
     ap_id, kind, local, domain, name, inbox, shared_inbox, public_key_pem, private_key_enc

@@ -35,6 +35,9 @@ type Service struct {
 	SendFollow func(ctx context.Context, tx pgx.Tx, person, group actors.Actor) (string, error)
 	// SendUnfollow queues an Undo of the Follow with the given AP ID.
 	SendUnfollow func(ctx context.Context, tx pgx.Tx, person actors.Actor, groupApID, followApID string) error
+	Tuning       platform.Tuning
+	// IsAdmin reports whether the person holds auth-all's admin role, for the directory.
+	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
 }
 
 type addressBody struct {
@@ -112,6 +115,15 @@ type handlePath struct {
 
 type list struct {
 	Communities []Summary `json:"communities" nullable:"false"`
+}
+
+type directoryBody struct {
+	Community string `json:"community" minLength:"3" maxLength:"300" doc:"name@domain, a URL or an AP ID of a community on another site"`
+	Note      string `json:"note,omitempty" maxLength:"500" doc:"Why it is listed; shown to admins"`
+}
+
+type directoryOut struct {
+	Communities []DirectoryView `json:"communities" nullable:"false"`
 }
 
 func (s *Service) Register(api huma.API) {
@@ -302,6 +314,46 @@ func (s *Service) Register(api huma.API) {
 		}
 		return &struct{ Body Membership }{m}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "directory", Method: http.MethodGet, Path: "/api/admin/directory",
+		Summary: "List the reviewed remote communities Discover shows", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body directoryOut }, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		rows, err := s.Directory(ctx, a)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return &struct{ Body directoryOut }{directoryOut{Communities: rows}}, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "addToDirectory", Method: http.MethodPost, Path: "/api/admin/directory",
+		Summary: "List a remote community in Discover", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, in *struct{ Body directoryBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.AddToDirectory(ctx, a, in.Body.Community, in.Body.Note))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "removeFromDirectory", Method: http.MethodPost, Path: "/api/admin/directory/remove",
+		Summary: "Take a community out of Discover", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, in *struct{ Body directoryBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.RemoveFromDirectory(ctx, a, in.Body.Community))
+	})
 }
 
 func signedIn(ctx context.Context) (actors.Actor, error) {
@@ -322,6 +374,8 @@ func apiError(err error) error {
 		return huma.Error403Forbidden("New accounts cannot create communities yet. Take part for a while first.")
 	case errors.Is(err, ErrNotModerator):
 		return huma.Error403Forbidden("Only the community's owners and moderators can change it.")
+	case errors.Is(err, ErrNotAdmin):
+		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
 	case errors.Is(err, ErrLastOwner):

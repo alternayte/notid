@@ -77,3 +77,9 @@ WHERE id = @id AND kind = 'group' AND local;
 UPDATE actors SET deleted_at = now()
 WHERE id = @id AND NOT local AND deleted_at IS NULL;
 
+
+-- A group this installation already knows, by its handle. Resolution uses it
+-- before it reaches a peer for a fresh copy.
+-- name: GroupByHandle :one
+SELECT * FROM actors
+WHERE kind = 'group' AND domain = @domain AND lower(name) = lower(@name::text);

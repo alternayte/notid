@@ -88,7 +88,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("merge auth routes: %w", err)
 	}
 	accountsSvc.Register(api)
-	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown}
+	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t, IsAdmin: accountsSvc.IsAdmin}
 	communitiesSvc.Register(api)
 	store, err := media.NewStore(cfg)
 	if err != nil {

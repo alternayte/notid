@@ -120,3 +120,12 @@ func (l Local) PrivateKey(a Actor) (*rsa.PrivateKey, error) {
 	}
 	return rk, nil
 }
+
+// GroupByHandle finds a group this installation already knows by its handle.
+func GroupByHandle(ctx context.Context, db actorsdb.DBTX, domain, name string) (Actor, error) {
+	a, err := actorsdb.New(db).GroupByHandle(ctx, actorsdb.GroupByHandleParams{Domain: domain, Name: name})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Actor{}, ErrNotFound
+	}
+	return a, err
+}

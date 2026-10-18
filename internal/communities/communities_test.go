@@ -241,3 +241,63 @@ func TestCreateAndUpdateThroughTheAPI(t *testing.T) {
 		t.Fatalf("updated %+v", d)
 	}
 }
+
+func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := person(t, tx, "trusted")
+	member := person(t, tx, "trusted")
+	if _, err := actors.UpsertRemote(ctx, tx, actors.Remote{
+		ApID: "https://peer.example/c/checked", Kind: "group", Domain: "peer.example", Name: "checked",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	svc := &communities.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning(),
+		IsAdmin: func(_ context.Context, a actors.Actor) (bool, error) { return a.ID == owner.ID, nil },
+		// A stored community is listed without reaching its peer.
+		Resolve: func(context.Context, string) (actors.Actor, error) { return actors.Actor{}, communities.ErrNotFound },
+	}
+	if err := svc.AddToDirectory(ctx, member, "checked@peer.example", "checked by hand"); !errors.Is(err, communities.ErrNotAdmin) {
+		t.Fatalf("a member listed a community: %v", err)
+	}
+	if err := svc.AddToDirectory(ctx, owner, "checked@peer.example", "checked by hand"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := false
+	for _, r := range rows {
+		if r.Domain == "peer.example" && r.Name == "checked" {
+			listed = true
+		}
+	}
+	if !listed {
+		t.Fatal("a listed community is missing from Discover")
+	}
+	entries, err := svc.Directory(ctx, owner)
+	if err != nil || len(entries) == 0 || entries[0].Note != "checked by hand" {
+		t.Fatalf("directory %+v: %v", entries, err)
+	}
+	if err := svc.RemoveFromDirectory(ctx, owner, "checked@peer.example"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rows {
+		if r.Domain == "peer.example" && r.Name == "checked" {
+			t.Fatal("a removed community is still in Discover")
+		}
+	}
+}

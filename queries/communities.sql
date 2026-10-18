@@ -134,3 +134,19 @@ UPDATE communities c SET title = @title, description = @description
 FROM actors a
 WHERE a.id = c.actor_id AND a.ap_id = @ap_id AND NOT a.local
 RETURNING c.*;
+
+-- The directory is the admin-reviewed list of remote communities Discover shows.
+-- name: Directory :many
+SELECT c.id, c.domain, c.name, c.title, d.note, d.created_at,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+FROM directory d
+JOIN communities c ON c.id = d.community_id
+ORDER BY d.created_at DESC, c.id
+LIMIT @lim;
+
+-- name: AddToDirectory :exec
+INSERT INTO directory (community_id, added_by, note) VALUES (@community_id, @added_by, @note)
+ON CONFLICT (community_id) DO UPDATE SET note = excluded.note;
+
+-- name: RemoveFromDirectory :exec
+DELETE FROM directory WHERE community_id = @community_id;

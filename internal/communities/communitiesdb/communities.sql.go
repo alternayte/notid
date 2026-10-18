@@ -10,6 +10,22 @@ import (
 	"time"
 )
 
+const addToDirectory = `-- name: AddToDirectory :exec
+INSERT INTO directory (community_id, added_by, note) VALUES ($1, $2, $3)
+ON CONFLICT (community_id) DO UPDATE SET note = excluded.note
+`
+
+type AddToDirectoryParams struct {
+	CommunityID int64
+	AddedBy     int64
+	Note        string
+}
+
+func (q *Queries) AddToDirectory(ctx context.Context, arg AddToDirectoryParams) error {
+	_, err := q.db.Exec(ctx, addToDirectory, arg.CommunityID, arg.AddedBy, arg.Note)
+	return err
+}
+
 const communityByActorID = `-- name: CommunityByActorID :one
 SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search FROM communities WHERE actor_id = $1
 `
@@ -171,6 +187,54 @@ DELETE FROM rules WHERE community_id = $1
 func (q *Queries) DeleteRules(ctx context.Context, communityID int64) error {
 	_, err := q.db.Exec(ctx, deleteRules, communityID)
 	return err
+}
+
+const directory = `-- name: Directory :many
+SELECT c.id, c.domain, c.name, c.title, d.note, d.created_at,
+    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+FROM directory d
+JOIN communities c ON c.id = d.community_id
+ORDER BY d.created_at DESC, c.id
+LIMIT $1
+`
+
+type DirectoryRow struct {
+	ID        int64
+	Domain    string
+	Name      string
+	Title     string
+	Note      string
+	CreatedAt time.Time
+	Members   int64
+}
+
+// The directory is the admin-reviewed list of remote communities Discover shows.
+func (q *Queries) Directory(ctx context.Context, lim int32) ([]DirectoryRow, error) {
+	rows, err := q.db.Query(ctx, directory, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DirectoryRow
+	for rows.Next() {
+		var i DirectoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Note,
+			&i.CreatedAt,
+			&i.Members,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const discover = `-- name: Discover :many
@@ -516,6 +580,15 @@ func (q *Queries) Moderators(ctx context.Context, communityID int64) ([]Moderato
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeFromDirectory = `-- name: RemoveFromDirectory :exec
+DELETE FROM directory WHERE community_id = $1
+`
+
+func (q *Queries) RemoveFromDirectory(ctx context.Context, communityID int64) error {
+	_, err := q.db.Exec(ctx, removeFromDirectory, communityID)
+	return err
 }
 
 const rules = `-- name: Rules :many

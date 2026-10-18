@@ -3,8 +3,12 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useId, useState } from 'react'
 import { errorMessage } from '~/api/errors'
 import {
+  addToDirectoryMutation,
   blockPeerMutation,
+  directoryOptions,
+  directoryQueryKey,
   meOptions,
+  removeFromDirectoryMutation,
   removeObjectMutation,
   resolveReportMutation,
   setTrustMutation,
@@ -17,8 +21,8 @@ import {
   siteReportsQueryKey,
   siteUnbanMutation,
 } from '~/api/gen/@tanstack/react-query.gen'
-import type { PeerView, Report, SiteBanView } from '~/api/gen/types.gen'
-import { Age } from '~/discussions/Age'
+import type { DirectoryView, PeerView, Report, SiteBanView } from '~/api/gen/types.gen'
+import { Age, relative } from '~/discussions/Age'
 import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
 import { Textarea } from '~/ui/primitives/textarea'
@@ -29,6 +33,7 @@ export const Route = createFileRoute('/admin')({
     await context.queryClient.prefetchQuery({ ...siteReportsOptions(), retry: false })
     await context.queryClient.prefetchQuery({ ...siteBansOptions(), retry: false })
     await context.queryClient.prefetchQuery({ ...sitePeersOptions(), retry: false })
+    await context.queryClient.prefetchQuery({ ...directoryOptions(), retry: false })
   },
   head: () => ({ meta: [{ title: 'Site admin · Open Communities' }] }),
   component: Admin,
@@ -71,11 +76,14 @@ function AdminBody() {
   const reports = useQuery({ ...siteReportsOptions(), retry: false })
   const bans = useQuery({ ...siteBansOptions(), retry: false })
   const peers = useQuery({ ...sitePeersOptions(), retry: false })
+  const dir = useQuery({ ...directoryOptions(), retry: false })
   const remove = useMutation(removeObjectMutation())
   const resolve = useMutation(resolveReportMutation())
   const ban = useMutation(siteBanMutation())
   const unban = useMutation(siteUnbanMutation())
   const block = useMutation(blockPeerMutation())
+  const addDirectory = useMutation(addToDirectoryMutation())
+  const removeDirectory = useMutation(removeFromDirectoryMutation())
   const trust = useMutation(setTrustMutation())
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -86,7 +94,7 @@ function AdminBody() {
     } catch (err) {
       setStatus({ ok: false, message: errorMessage(err, 'That did not work. Try again.') })
     }
-    for (const key of [siteReportsQueryKey(), siteBansQueryKey(), sitePeersQueryKey()]) {
+    for (const key of [siteReportsQueryKey(), siteBansQueryKey(), sitePeersQueryKey(), directoryQueryKey()]) {
       void queryClient.invalidateQueries({ queryKey: key })
     }
   }
@@ -166,6 +174,43 @@ function AdminBody() {
         <BlockPeerForm
           onBlock={(domain, reason) =>
             act(() => block.mutateAsync({ body: { domain, blocked: true, reason } }), `Blocked ${domain}.`)
+          }
+        />
+      </section>
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-2xl tracking-tight">Directory</h2>
+        <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+          Discover shows the communities on this site and the ones listed here. Anything else a person reaches by
+          pasting its address.
+        </p>
+        {dir.isPending ? (
+          <p className="font-sans text-sm text-ink-faint">Loading…</p>
+        ) : dir.isError ? (
+          <p role="alert" className="font-sans text-sm text-danger">
+            The directory did not load. Reload the page to try again.
+          </p>
+        ) : (
+          <ul className="flex max-w-(--container-measure) flex-col gap-3">
+            {dir.data.communities.map((c) => (
+              <DirectoryRow
+                key={c.handle}
+                entry={c}
+                onRemove={() =>
+                  act(
+                    () => removeDirectory.mutateAsync({ body: { community: c.handle } }),
+                    `Took ${c.handle} out of the directory.`,
+                  )
+                }
+              />
+            ))}
+            {dir.data.communities.length === 0 && (
+              <li className="font-serif text-sm text-ink-soft">The directory is empty.</li>
+            )}
+          </ul>
+        )}
+        <AddDirectoryForm
+          onAdd={(community, note) =>
+            act(() => addDirectory.mutateAsync({ body: { community, note } }), `Listed ${community}.`)
           }
         />
       </section>
@@ -262,6 +307,67 @@ function ReportRow({
   )
 }
 
+function DirectoryRow({ entry, onRemove }: { entry: DirectoryView; onRemove: () => Promise<void> }) {
+  return (
+    <li className="flex flex-wrap items-baseline justify-between gap-3 border-t border-rule pt-3">
+      <div className="flex flex-col gap-1">
+        <span className="font-sans text-sm font-semibold">{entry.handle}</span>
+        <span className="font-serif text-sm text-ink-soft">
+          {entry.title || entry.handle} · {entry.members} {entry.members === 1 ? 'member' : 'members'} · listed{' '}
+          <Age iso={entry.addedAt} />
+          {entry.note && ` · ${entry.note}`}
+        </span>
+      </div>
+      <Button variant="quiet" onClick={() => void onRemove()}>
+        Remove
+      </Button>
+    </li>
+  )
+}
+
+function AddDirectoryForm({ onAdd }: { onAdd: (community: string, note: string) => Promise<void> }) {
+  const ids = { community: useId(), note: useId() }
+  const [community, setCommunity] = useState('')
+  const [note, setNote] = useState('')
+  return (
+    <form
+      className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void onAdd(community.trim(), note.trim()).then(() => {
+          setCommunity('')
+          setNote('')
+        })
+      }}
+    >
+      <h3 className="font-display text-lg tracking-tight">List a community</h3>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={ids.community} className={label}>
+          Its address
+        </label>
+        <Input
+          id={ids.community}
+          value={community}
+          required
+          maxLength={300}
+          onChange={(e) => setCommunity(e.target.value)}
+          placeholder="woodworking@lemmy.example"
+        />
+        <p className={hint}>A name@domain handle or a full community URL.</p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={ids.note} className={label}>
+          Note
+        </label>
+        <Input id={ids.note} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <Button type="submit" className="w-fit">
+        List it
+      </Button>
+    </form>
+  )
+}
+
 function PeerRow({
   peer,
   onBlock,
@@ -275,9 +381,9 @@ function PeerRow({
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
   const health = peer.failingSince
-    ? `No answer since ${new Date(peer.failingSince).toLocaleDateString()}`
+    ? `No answer for ${relative(peer.failingSince).replace(/ ago$/, '')}`
     : peer.lastOkAt
-      ? `Answered ${new Date(peer.lastOkAt).toLocaleString()}`
+      ? `Last answered ${relative(peer.lastOkAt)}`
       : 'Never answered'
   return (
     <li className="flex flex-col gap-3 border-t border-rule pt-3">

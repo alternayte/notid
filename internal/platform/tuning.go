@@ -46,7 +46,9 @@ type Tuning struct {
 
 	ReportQueueSize int32
 	// PeerListSize caps the peers an admin sees in one list.
-	PeerListSize      int32
+	PeerListSize int32
+	// DirectorySize caps the reviewed directory an admin sees in one list.
+	DirectorySize     int32
 	ModerationLogSize int32
 
 	TrustMinAge        time.Duration
@@ -109,6 +111,7 @@ func DefaultTuning() Tuning {
 
 		ReportQueueSize:   100,
 		PeerListSize:      200,
+		DirectorySize:     200,
 		ModerationLogSize: 100,
 
 		TrustMinAge:           72 * time.Hour,

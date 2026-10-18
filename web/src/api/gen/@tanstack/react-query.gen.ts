@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { about, adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, banActor, blockPeer, community, communityPosts, createApiKey, createComment, createCommunity, createInvite, createPost, deleteComment, deleteMe, deletePost, discoverCommunities, editComment, editPost, followCommunity, getSession, heldPosts, homeFeed, invites, leaveCommunity, listApiKeys, listSessions, lockPost, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, moderationLog, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, publishPost, removeObject, reportObject, reportQueue, resolveReport, restoreObject, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, setModerator, setTrust, signOut, signUp, signupMode, siteBan, siteBans, sitePeers, siteReports, siteUnban, thread, unbanActor, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
-import type { AboutData, AboutError, AboutResponse, AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, BanActorData, BanActorError, BanActorResponse, BlockPeerData, BlockPeerError, BlockPeerResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreatePostData, CreatePostError, CreatePostResponse, DeleteCommentData, DeleteCommentError, DeleteCommentResponse, DeleteMeData, DeleteMeError, DeleteMeResponse, DeletePostData, DeletePostError, DeletePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, EditCommentData, EditCommentError, EditCommentResponse, EditPostData, EditPostError, EditPostResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HeldPostsData, HeldPostsError, HeldPostsResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, InvitesData, InvitesError, InvitesResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LockPostData, LockPostError, LockPostResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, ModerationLogData, ModerationLogError, ModerationLogResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, PublishPostData, PublishPostError, PublishPostResponse, RemoveObjectData, RemoveObjectError, RemoveObjectResponse, ReportObjectData, ReportObjectError, ReportObjectResponse, ReportQueueData, ReportQueueError, ReportQueueResponse, ResolveReportData, ResolveReportError, ResolveReportResponse, RestoreObjectData, RestoreObjectError, RestoreObjectResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SetModeratorData, SetModeratorError, SetModeratorResponse, SetTrustData, SetTrustError, SetTrustResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, SiteBanData, SiteBanError, SiteBanResponse, SiteBansData, SiteBansError, SiteBansResponse, SitePeersData, SitePeersError, SitePeersResponse, SiteReportsData, SiteReportsError, SiteReportsResponse, SiteUnbanData, SiteUnbanError, SiteUnbanResponse, ThreadData, ThreadError, ThreadResponse, UnbanActorData, UnbanActorError, UnbanActorResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
+import { about, addToDirectory, adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, banActor, blockPeer, community, communityPosts, createApiKey, createComment, createCommunity, createInvite, createPost, deleteComment, deleteMe, deletePost, directory, discoverCommunities, editComment, editPost, followCommunity, getSession, heldPosts, homeFeed, invites, leaveCommunity, listApiKeys, listSessions, lockPost, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, moderationLog, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, publishPost, removeFromDirectory, removeObject, reportObject, reportQueue, resolveReport, restoreObject, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, setModerator, setTrust, signOut, signUp, signupMode, siteBan, siteBans, sitePeers, siteReports, siteUnban, thread, unbanActor, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
+import type { AboutData, AboutError, AboutResponse, AddToDirectoryData, AddToDirectoryError, AddToDirectoryResponse, AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, BanActorData, BanActorError, BanActorResponse, BlockPeerData, BlockPeerError, BlockPeerResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreatePostData, CreatePostError, CreatePostResponse, DeleteCommentData, DeleteCommentError, DeleteCommentResponse, DeleteMeData, DeleteMeError, DeleteMeResponse, DeletePostData, DeletePostError, DeletePostResponse, DirectoryData, DirectoryError, DirectoryResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, EditCommentData, EditCommentError, EditCommentResponse, EditPostData, EditPostError, EditPostResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HeldPostsData, HeldPostsError, HeldPostsResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, InvitesData, InvitesError, InvitesResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LockPostData, LockPostError, LockPostResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, ModerationLogData, ModerationLogError, ModerationLogResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, PublishPostData, PublishPostError, PublishPostResponse, RemoveFromDirectoryData, RemoveFromDirectoryError, RemoveFromDirectoryResponse, RemoveObjectData, RemoveObjectError, RemoveObjectResponse, ReportObjectData, ReportObjectError, ReportObjectResponse, ReportQueueData, ReportQueueError, ReportQueueResponse, ResolveReportData, ResolveReportError, ResolveReportResponse, RestoreObjectData, RestoreObjectError, RestoreObjectResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SetModeratorData, SetModeratorError, SetModeratorResponse, SetTrustData, SetTrustError, SetTrustResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, SiteBanData, SiteBanError, SiteBanResponse, SiteBansData, SiteBansError, SiteBansResponse, SitePeersData, SitePeersError, SitePeersResponse, SiteReportsData, SiteReportsError, SiteReportsResponse, SiteUnbanData, SiteUnbanError, SiteUnbanResponse, ThreadData, ThreadError, ThreadResponse, UnbanActorData, UnbanActorError, UnbanActorResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -99,6 +99,58 @@ export const siteUnbanMutation = (options?: Partial<Options<SiteUnbanData>>): Us
     const mutationOptions: UseMutationOptions<SiteUnbanResponse, SiteUnbanError, Options<SiteUnbanData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await siteUnban({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryQueryKey = (options?: Options<DirectoryData>) => createQueryKey('directory', options);
+
+/**
+ * List the reviewed remote communities Discover shows
+ */
+export const directoryOptions = (options?: Options<DirectoryData>) => queryOptions<DirectoryResponse, DirectoryError, DirectoryResponse, ReturnType<typeof directoryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directory({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryQueryKey(options)
+});
+
+/**
+ * List a remote community in Discover
+ */
+export const addToDirectoryMutation = (options?: Partial<Options<AddToDirectoryData>>): UseMutationOptions<AddToDirectoryResponse, AddToDirectoryError, Options<AddToDirectoryData>> => {
+    const mutationOptions: UseMutationOptions<AddToDirectoryResponse, AddToDirectoryError, Options<AddToDirectoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addToDirectory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Take a community out of Discover
+ */
+export const removeFromDirectoryMutation = (options?: Partial<Options<RemoveFromDirectoryData>>): UseMutationOptions<RemoveFromDirectoryResponse, RemoveFromDirectoryError, Options<RemoveFromDirectoryData>> => {
+    const mutationOptions: UseMutationOptions<RemoveFromDirectoryResponse, RemoveFromDirectoryError, Options<RemoveFromDirectoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeFromDirectory({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

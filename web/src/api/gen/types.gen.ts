@@ -268,6 +268,46 @@ export type Detail = {
     title: string;
 };
 
+export type DirectoryBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * name@domain, a URL or an AP ID of a community on another site
+     */
+    community: string;
+    /**
+     * Why it is listed; shown to admins
+     */
+    note?: string;
+};
+
+export type DirectoryOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    communities: Array<DirectoryView>;
+};
+
+export type DirectoryView = {
+    addedAt: string;
+    /**
+     * name@domain
+     */
+    handle: string;
+    /**
+     * Members known to this installation
+     */
+    members: number;
+    /**
+     * Why it is listed; shown to admins
+     */
+    note?: string;
+    title: string;
+};
+
 export type EditCommentBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -1154,6 +1194,21 @@ export type DetailWritable = {
     title: string;
 };
 
+export type DirectoryBodyWritable = {
+    /**
+     * name@domain, a URL or an AP ID of a community on another site
+     */
+    community: string;
+    /**
+     * Why it is listed; shown to admins
+     */
+    note?: string;
+};
+
+export type DirectoryOutWritable = {
+    communities: Array<DirectoryView>;
+};
+
 export type EditCommentBodyWritable = {
     /**
      * Markdown
@@ -1670,6 +1725,121 @@ export type SiteUnbanResponses = {
 };
 
 export type SiteUnbanResponse = SiteUnbanResponses[keyof SiteUnbanResponses];
+
+export type DirectoryData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/directory';
+};
+
+export type DirectoryErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type DirectoryError = DirectoryErrors[keyof DirectoryErrors];
+
+export type DirectoryResponses = {
+    /**
+     * OK
+     */
+    200: DirectoryOut;
+};
+
+export type DirectoryResponse = DirectoryResponses[keyof DirectoryResponses];
+
+export type AddToDirectoryData = {
+    body: DirectoryBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/directory';
+};
+
+export type AddToDirectoryErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type AddToDirectoryError = AddToDirectoryErrors[keyof AddToDirectoryErrors];
+
+export type AddToDirectoryResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type AddToDirectoryResponse = AddToDirectoryResponses[keyof AddToDirectoryResponses];
+
+export type RemoveFromDirectoryData = {
+    body: DirectoryBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/directory/remove';
+};
+
+export type RemoveFromDirectoryErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type RemoveFromDirectoryError = RemoveFromDirectoryErrors[keyof RemoveFromDirectoryErrors];
+
+export type RemoveFromDirectoryResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RemoveFromDirectoryResponse = RemoveFromDirectoryResponses[keyof RemoveFromDirectoryResponses];
 
 export type SitePeersData = {
     body?: never;
