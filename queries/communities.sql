@@ -19,3 +19,12 @@ ON CONFLICT (community_id, actor_id) DO UPDATE SET
     state = CASE WHEN memberships.state = 'accepted' THEN memberships.state ELSE excluded.state END,
     follow_ap_id = coalesce(excluded.follow_ap_id, memberships.follow_ap_id)
 RETURNING *;
+
+-- name: InsertVerifiedDomain :exec
+INSERT INTO community_domains (domain, txt_token, created_by, verified_at, community_id)
+VALUES (@domain, @txt_token, @created_by, now(), @community_id);
+
+-- name: DomainServed :one
+SELECT EXISTS (
+    SELECT 1 FROM community_domains WHERE domain = @domain AND verified_at IS NOT NULL
+);

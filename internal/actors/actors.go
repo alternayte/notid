@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 
@@ -126,10 +127,15 @@ func (l Local) GroupURL(domain, name string) string {
 	return scheme(l.AppOrigin) + "://" + l.host(domain) + "/c/" + name
 }
 
-// host keeps the app origin's port for the app domain, which dev and the harness need.
+// host keeps the app origin's port, which dev and the harness need. One
+// listener serves the app domain and every community domain.
 func (l Local) host(domain string) string {
+	appHost := strings.TrimPrefix(strings.TrimPrefix(l.AppOrigin, "https://"), "http://")
 	if domain == l.AppDomain {
-		return strings.TrimPrefix(strings.TrimPrefix(l.AppOrigin, "https://"), "http://")
+		return appHost
+	}
+	if _, port, err := net.SplitHostPort(appHost); err == nil {
+		return net.JoinHostPort(domain, port)
 	}
 	return domain
 }

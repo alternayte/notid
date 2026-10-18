@@ -33,6 +33,19 @@ func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Commun
 	return i, err
 }
 
+const domainServed = `-- name: DomainServed :one
+SELECT EXISTS (
+    SELECT 1 FROM community_domains WHERE domain = $1 AND verified_at IS NOT NULL
+)
+`
+
+func (q *Queries) DomainServed(ctx context.Context, domain string) (bool, error) {
+	row := q.db.QueryRow(ctx, domainServed, domain)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertCommunity = `-- name: InsertCommunity :one
 INSERT INTO communities (actor_id, domain, name, title, description)
 VALUES ($1, $2, $3, $4, $5)
@@ -112,6 +125,28 @@ func (q *Queries) InsertRemoteCommunity(ctx context.Context, arg InsertRemoteCom
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const insertVerifiedDomain = `-- name: InsertVerifiedDomain :exec
+INSERT INTO community_domains (domain, txt_token, created_by, verified_at, community_id)
+VALUES ($1, $2, $3, now(), $4)
+`
+
+type InsertVerifiedDomainParams struct {
+	Domain      string
+	TxtToken    string
+	CreatedBy   int64
+	CommunityID *int64
+}
+
+func (q *Queries) InsertVerifiedDomain(ctx context.Context, arg InsertVerifiedDomainParams) error {
+	_, err := q.db.Exec(ctx, insertVerifiedDomain,
+		arg.Domain,
+		arg.TxtToken,
+		arg.CreatedBy,
+		arg.CommunityID,
+	)
+	return err
 }
 
 const upsertMembership = `-- name: UpsertMembership :one

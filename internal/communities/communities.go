@@ -25,5 +25,24 @@ func Create(ctx context.Context, tx pgx.Tx, local actors.Local, domain, name, ti
 	if err != nil {
 		return Community{}, actors.Actor{}, fmt.Errorf("insert community: %w", err)
 	}
+	if domain != local.AppDomain {
+		// The operator creates it from the command line, so the domain counts as verified.
+		app, err := local.Application(ctx, tx)
+		if err != nil {
+			return Community{}, actors.Actor{}, err
+		}
+		if err := communitiesdb.New(tx).InsertVerifiedDomain(ctx, communitiesdb.InsertVerifiedDomainParams{
+			Domain: domain, TxtToken: "operator", CreatedBy: app.ID, CommunityID: &c.ID,
+		}); err != nil {
+			return Community{}, actors.Actor{}, fmt.Errorf("community domain %s: %w", domain, err)
+		}
+	}
 	return c, g, nil
+}
+
+// DomainServed reports whether host is a verified community domain here.
+func DomainServed(pool communitiesdb.DBTX) func(ctx context.Context, host string) (bool, error) {
+	return func(ctx context.Context, host string) (bool, error) {
+		return communitiesdb.New(pool).DomainServed(ctx, host)
+	}
 }

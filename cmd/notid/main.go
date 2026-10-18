@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/alternayte/notid/internal/accounts"
+	"github.com/alternayte/notid/internal/communities"
 	"github.com/alternayte/notid/internal/platform"
 	"github.com/alternayte/notid/internal/platform/edge"
 	"github.com/alternayte/notid/migrations"
@@ -95,7 +96,7 @@ func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slo
 		<-ctx.Done()
 		return nil
 	}
-	hosts := edge.Hosts{AppDomain: cfg.AppDomain}
+	hosts := edge.Hosts{AppDomain: cfg.AppDomain, CommunityDomain: communities.DomainServed(a.pool)}
 	public := edge.Handler(hosts, edge.Routes{
 		Federation: a.federation,
 		API:        a.api,
