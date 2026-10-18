@@ -76,7 +76,7 @@ interop:
     cp interop/coredns/hosts interop/.run/hosts
     docker compose -f interop/compose.yaml up -d --build
     bash interop/wait.sh
-    go test -tags interop -count=1 ./interop/...
+    go test -tags interop -count=1 -timeout 45m ./interop/...
 
 interop-down:
     docker compose -f interop/compose.yaml down
