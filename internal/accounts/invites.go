@@ -36,7 +36,16 @@ func (s *Service) CreateInvite(ctx context.Context, person actors.Actor) (string
 	if err != nil {
 		return "", fmt.Errorf("person: %w", err)
 	}
-	q := accountsdb.New(s.Pool)
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	q := accountsdb.New(tx)
+	// Serialised per person, so parallel requests cannot pass the cap.
+	if err := q.LockActorWrites(ctx, person.ID); err != nil {
+		return "", fmt.Errorf("lock: %w", err)
+	}
 	if !admin {
 		if current.Trust == nil || *current.Trust != "trusted" {
 			return "", ErrNotTrusted
@@ -56,6 +65,9 @@ func (s *Service) CreateInvite(ctx context.Context, person actors.Actor) (string
 	code := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
 	if err := q.InsertInvite(ctx, accountsdb.InsertInviteParams{CodeHash: HashInvite(code), CreatedBy: person.ID}); err != nil {
 		return "", fmt.Errorf("invite: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit: %w", err)
 	}
 	return code, nil
 }

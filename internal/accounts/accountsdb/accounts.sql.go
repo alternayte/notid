@@ -113,6 +113,15 @@ func (q *Queries) InsertInvite(ctx context.Context, arg InsertInviteParams) erro
 	return err
 }
 
+const lockActorWrites = `-- name: LockActorWrites :exec
+SELECT pg_advisory_xact_lock($1::bigint)
+`
+
+func (q *Queries) LockActorWrites(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, lockActorWrites, actorID)
+	return err
+}
+
 const lockUnusedInvite = `-- name: LockUnusedInvite :one
 SELECT code_hash FROM invites
 WHERE code_hash = $1 AND used_at IS NULL

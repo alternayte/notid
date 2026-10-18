@@ -380,6 +380,10 @@ func (s *Service) limitWrites(ctx context.Context, q *discussionsdb.Queries, aut
 	if Counts(author) {
 		return nil
 	}
+	// Serialised per person within the write's transaction, so parallel posts cannot pass the cap.
+	if err := q.LockActorWrites(ctx, author.ID); err != nil {
+		return fmt.Errorf("lock: %w", err)
+	}
 	w, err := q.AuthorWritesSince(ctx, discussionsdb.AuthorWritesSinceParams{
 		AuthorID: author.ID, Since: time.Now().Add(-24 * time.Hour),
 	})

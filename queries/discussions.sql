@@ -456,3 +456,6 @@ SELECT url FROM posts WHERE id = @id AND media_id IS NULL AND deleted_at IS NULL
 UPDATE posts SET url_image = @url_image, preview_title = @preview_title,
     preview_description = @preview_description, preview_image = @preview_image
 WHERE id = @id AND url = @url AND media_id IS NULL;
+
+-- name: LockActorWrites :exec
+SELECT pg_advisory_xact_lock(@actor_id::bigint);

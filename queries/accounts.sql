@@ -78,3 +78,6 @@ INSERT INTO invites (code_hash, created_by) VALUES (@code_hash, @created_by);
 SELECT created_at FROM invites
 WHERE created_by = @created_by AND used_at IS NULL
 ORDER BY created_at DESC;
+
+-- name: LockActorWrites :exec
+SELECT pg_advisory_xact_lock(@actor_id::bigint);

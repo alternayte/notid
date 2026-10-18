@@ -1417,6 +1417,15 @@ func (q *Queries) LinkToPreview(ctx context.Context, id int64) (string, error) {
 	return url, err
 }
 
+const lockActorWrites = `-- name: LockActorWrites :exec
+SELECT pg_advisory_xact_lock($1::bigint)
+`
+
+func (q *Queries) LockActorWrites(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, lockActorWrites, actorID)
+	return err
+}
+
 const personIDByHandle = `-- name: PersonIDByHandle :one
 SELECT id FROM actors WHERE kind = 'person' AND domain = $1 AND lower(name) = lower($2) AND deleted_at IS NULL
 `
