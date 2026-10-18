@@ -217,3 +217,208 @@ func TestNotidUserFollowsLemmyAndPieFedCommunities(t *testing.T) {
 		})
 	}
 }
+
+// trust promotes a notid user so its votes count and federate.
+func trust(t *testing.T, db string, u *user) {
+	t.Helper()
+	sql(t, db, fmt.Sprintf(`UPDATE actors SET trust = 'trusted', promoted_at = now() WHERE local AND name = '%s'`, u.name))
+}
+
+type postView struct {
+	PostView struct {
+		Post struct {
+			ID    int    `json:"id"`
+			ApID  string `json:"ap_id"`
+			Title string `json:"title"`
+			Name  string `json:"name"`
+		} `json:"post"`
+		Counts struct {
+			Score    int `json:"score"`
+			Comments int `json:"comments"`
+		} `json:"counts"`
+	} `json:"post_view"`
+}
+
+// peerTitle is the post title field: name on Lemmy, title on PieFed.
+func titleKey(peerName string) string {
+	if peerName == "lemmy" {
+		return "name"
+	}
+	return "title"
+}
+
+func bodyKey(peerName string) string {
+	if peerName == "lemmy" {
+		return "content"
+	}
+	return "body"
+}
+
+// findPost returns the peer's view of the post with apID, if the peer has it.
+func (a *api) findPost(apID string) (postView, bool) {
+	a.t.Helper()
+	var out struct {
+		Object *struct {
+			Post *postView `json:"post"`
+		}
+	}
+	req, _ := http.NewRequest(http.MethodGet, a.base+"/resolve_object?q="+apID, nil)
+	req.Header.Set("Authorization", "Bearer "+a.jwt)
+	resp, err := client().Do(req)
+	if err != nil {
+		return postView{}, false
+	}
+	defer resp.Body.Close()
+	var raw map[string]json.RawMessage
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&raw) != nil || raw["post"] == nil {
+		return postView{}, false
+	}
+	var pv struct {
+		Post   json.RawMessage `json:"post"`
+		Counts json.RawMessage `json:"counts"`
+	}
+	_ = json.Unmarshal(raw["post"], &pv)
+	var v postView
+	_ = json.Unmarshal(pv.Post, &v.PostView.Post)
+	_ = json.Unmarshal(pv.Counts, &v.PostView.Counts)
+	_ = out
+	return v, true
+}
+
+func (a *api) postCounts(id int) (score, comments int) {
+	a.t.Helper()
+	var v postView
+	a.call(http.MethodGet, fmt.Sprintf("/post?id=%d", id), nil, &v)
+	return v.PostView.Counts.Score, v.PostView.Counts.Comments
+}
+
+func TestPeersPostCommentAndVoteInACommunityOnA(t *testing.T) {
+	name := uniqueName("wood")
+	group := notid(t, "notid-a", "community", "create", name)
+	member := signUp(t, "http://a.notid.test:8080")
+	trust(t, "notid-a-db", member)
+	member.post("/api/communities/follow", map[string]string{"community": group}, nil)
+
+	for peerName, peer := range map[string]*api{"lemmy": lemmy(t), "piefed": piefed(t)} {
+		t.Run(peerName, func(t *testing.T) {
+			peer.t, member.t = t, t
+			id := peer.resolveCommunity(group)
+			if peerName == "lemmy" {
+				time.Sleep(8 * time.Second)
+			}
+			peer.follow(id)
+			eventually(t, peerName+" follow accepted", func() bool { return peer.subscribed(id) == "Subscribed" })
+
+			// The peer's user posts, comments and votes in the community on A.
+			title := "From " + peerName + " " + uniqueName("")
+			var created postView
+			peer.call(http.MethodPost, "/post", map[string]any{titleKey(peerName): title, "community_id": id, "body": "hello **A**"}, &created)
+			peerPost := created.PostView.Post
+			peer.call(http.MethodPost, "/comment", map[string]any{bodyKey(peerName): "a reply", "post_id": peerPost.ID}, nil)
+			eventually(t, "A stores the post and the reply from "+peerName, func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT comment_count FROM posts WHERE ap_id = '%s'`, peerPost.ApID)) == "1"
+			})
+
+			// A's member votes and replies; the peer sees both through the group's Announce.
+			member.post("/api/votes", map[string]any{"object": peerPost.ApID, "value": 1}, nil)
+			member.post("/api/comments", map[string]any{"inReplyTo": peerPost.ApID, "body": "welcome"}, nil)
+			eventually(t, peerName+" sees A's vote and reply", func() bool {
+				score, comments := peer.postCounts(peerPost.ID)
+				return score >= 2 && comments == 2
+			})
+
+			// A's member posts; the peer receives it as a follower.
+			var mine struct{ ApID string }
+			member.post("/api/posts", map[string]any{"community": group, "title": "From A " + uniqueName("")}, &mine)
+			eventually(t, peerName+" receives A's post", func() bool {
+				_, ok := peer.findPost(mine.ApID)
+				return ok
+			})
+		})
+	}
+}
+
+func TestNotidUserPostsInLemmyAndPieFedCommunities(t *testing.T) {
+	u := signUp(t, "http://a.notid.test:8080")
+	trust(t, "notid-a-db", u)
+	for peerName, c := range map[string]struct {
+		peer *api
+		url  func(string) string
+	}{
+		"lemmy":  {lemmy(t), func(n string) string { return "http://lemmy.test:8536/c/" + n }},
+		"piefed": {piefed(t), func(n string) string { return "http://piefed.test:5000/c/" + n }},
+	} {
+		t.Run(peerName, func(t *testing.T) {
+			c.peer.t, u.t = t, t
+			name := uniqueName("tools")
+			c.peer.createCommunity(name)
+			u.post("/api/communities/follow", map[string]string{"community": c.url(name)}, nil)
+			eventually(t, peerName+" accepts the follow", func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT m.state FROM memberships m
+					JOIN actors p ON p.id = m.actor_id JOIN communities c ON c.id = m.community_id JOIN actors g ON g.id = c.actor_id
+					WHERE p.name = '%s' AND g.ap_id = '%s'`, u.name, c.url(name))) == "accepted"
+			})
+
+			var mine struct{ ApID string }
+			u.post("/api/posts", map[string]any{"community": c.url(name), "title": "Chisels", "body": "Which **steel**?"}, &mine)
+			var pv postView
+			eventually(t, peerName+" stores A's post", func() bool {
+				var ok bool
+				pv, ok = c.peer.findPost(mine.ApID)
+				return ok
+			})
+			u.post("/api/comments", map[string]any{"inReplyTo": mine.ApID, "body": "Answering myself"}, nil)
+			u.post("/api/votes", map[string]any{"object": mine.ApID, "value": -1}, nil)
+			eventually(t, peerName+" sees A's reply and vote", func() bool {
+				_, comments := c.peer.postCounts(pv.PostView.Post.ID)
+				score, _ := c.peer.postCounts(pv.PostView.Post.ID)
+				return comments == 1 && score <= 0
+			})
+
+			// The peer's own post reaches A through the group's Announce.
+			cid := c.peer.resolveCommunity(c.url(name))
+			var created postView
+			c.peer.call(http.MethodPost, "/post", map[string]any{titleKey(peerName): "Peer post " + uniqueName(""), "community_id": cid}, &created)
+			eventually(t, "A receives "+peerName+"'s post", func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM posts WHERE ap_id = '%s'`, created.PostView.Post.ApID)) == "1"
+			})
+		})
+	}
+}
+
+func TestInstallationsAAndBShareACommunity(t *testing.T) {
+	name := uniqueName("wood")
+	group := notid(t, "notid-a", "community", "create", name)
+	onA := signUp(t, "http://a.notid.test:8080")
+	onB := signUp(t, "http://b.notid.test:8080")
+	trust(t, "notid-a-db", onA)
+	trust(t, "notid-b-db", onB)
+
+	var m struct{ State string }
+	onB.post("/api/communities/follow", map[string]string{"community": group}, &m)
+	onA.post("/api/communities/follow", map[string]string{"community": group}, nil)
+	eventually(t, "A accepts B's follow", func() bool {
+		return sql(t, "notid-b-db", fmt.Sprintf(`SELECT m.state FROM memberships m JOIN actors p ON p.id = m.actor_id
+			WHERE p.name = '%s'`, onB.name)) == "accepted"
+	})
+
+	var fromB struct{ ApID string }
+	onB.post("/api/posts", map[string]any{"community": group, "title": "From B", "body": "planes"}, &fromB)
+	eventually(t, "A stores B's post", func() bool {
+		return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM posts WHERE ap_id = '%s'`, fromB.ApID)) == "1"
+	})
+	onA.post("/api/comments", map[string]any{"inReplyTo": fromB.ApID, "body": "nice"}, nil)
+	onA.post("/api/votes", map[string]any{"object": fromB.ApID, "value": 1}, nil)
+	onB.post("/api/votes", map[string]any{"object": fromB.ApID, "value": 1}, nil)
+	for _, db := range []string{"notid-a-db", "notid-b-db"} {
+		eventually(t, db+" counts the reply and both votes", func() bool {
+			return sql(t, db, fmt.Sprintf(`SELECT comment_count || ' ' || score FROM posts WHERE ap_id = '%s'`, fromB.ApID)) == "1 2"
+		})
+	}
+
+	var fromA struct{ ApID string }
+	onA.post("/api/posts", map[string]any{"community": group, "title": "From A"}, &fromA)
+	eventually(t, "B receives A's post", func() bool {
+		return sql(t, "notid-b-db", fmt.Sprintf(`SELECT count(*) FROM posts WHERE ap_id = '%s'`, fromA.ApID)) == "1"
+	})
+}

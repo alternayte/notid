@@ -111,14 +111,14 @@ func (s *Server) publish(ctx context.Context, tx pgx.Tx, author actors.Actor, co
 	if !c.Local {
 		return s.deliver(ctx, tx, author.ID, c.Inbox, act)
 	}
-	return s.announce(ctx, tx, c, act)
+	return s.announce(ctx, tx, c, act, "")
 }
 
 type communityRef = federationdb.CommunityByIDRow
 
 // announce wraps an accepted activity in the group's Announce and queues one
-// delivery per distinct follower inbox.
-func (s *Server) announce(ctx context.Context, tx pgx.Tx, c communityRef, act any) error {
+// delivery per distinct follower inbox, except inboxes on skipHost.
+func (s *Server) announce(ctx context.Context, tx pgx.Tx, c communityRef, act any, skipHost string) error {
 	inboxes, err := federationdb.New(tx).FollowerInboxes(ctx, c.ID)
 	if err != nil {
 		return fmt.Errorf("follower inboxes: %w", err)
@@ -140,6 +140,9 @@ func (s *Server) announce(ctx context.Context, tx pgx.Tx, c communityRef, act an
 		"object":   act,
 	}
 	for _, inbox := range inboxes {
+		if skipHost != "" && hostOf(inbox) == skipHost {
+			continue
+		}
 		if err := s.deliver(ctx, tx, c.ActorID, inbox, ann); err != nil {
 			return err
 		}

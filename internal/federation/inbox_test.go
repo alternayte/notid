@@ -494,6 +494,17 @@ func TestRemotePersonPostsCommentsAndVotesInALocalGroup(t *testing.T) {
 	s := testServer(t, peer)
 	g := testGroup(t, s)
 	receive(t, s, peer, follow(peer, g))
+	other, err := actors.UpsertRemote(ctx, s.Pool, actors.Remote{
+		ApID: "https://other-" + uuid.NewString()[:8] + ".test/u/carol", Kind: "person", Domain: "other.test", Name: "carol" + uuid.NewString()[:8],
+		Inbox: "https://other.test/u/carol/inbox", SharedInbox: "https://other.test/inbox",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Pool.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state)
+		SELECT c.id, $1, 'accepted' FROM communities c JOIN actors a ON a.id = c.actor_id WHERE a.ap_id = $2`, other.ID, g.apID); err != nil {
+		t.Fatal(err)
+	}
 
 	act := func(kind string, object any) map[string]any {
 		return map[string]any{
@@ -522,17 +533,23 @@ func TestRemotePersonPostsCommentsAndVotesInALocalGroup(t *testing.T) {
 	if title != "A dovetail" || !strings.Contains(body, "**slowly**") || strings.Contains(body, "x()") || score != 1 || comments != 1 {
 		t.Fatalf("post %q %q score %d comments %d", title, body, score, comments)
 	}
-	// The group announces each accepted activity to its follower, bob's server.
-	announces := jobs(t, s, "deliver", "activity,type", "Announce")
-	n := 0
-	for _, j := range announces {
+	// The group announces each accepted activity to its followers, except on
+	// the server it came from.
+	toOther, toOrigin := 0, 0
+	for _, j := range jobs(t, s, "deliver", "activity,type", "Announce") {
 		var a DeliverArgs
 		_ = json.Unmarshal(j.EncodedArgs, &a)
-		if strings.Contains(string(a.Activity), pageID) && a.Inbox == "http://"+peer.host+"/inbox" {
-			n++
+		if !strings.Contains(string(a.Activity), pageID) {
+			continue
+		}
+		switch a.Inbox {
+		case "https://other.test/inbox":
+			toOther++
+		case "http://" + peer.host + "/inbox":
+			toOrigin++
 		}
 	}
-	if n != 3 {
-		t.Fatalf("%d announces mention the post, want the post, the reply and the Like", n)
+	if toOther != 3 || toOrigin != 0 {
+		t.Fatalf("announces: %d to the other follower (want the post, the reply and the Like), %d back to the origin", toOther, toOrigin)
 	}
 }

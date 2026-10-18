@@ -87,6 +87,9 @@ func (s *Server) planContent(ctx context.Context, db federationdb.DBTX, act acti
 		return p, reject(http.StatusUnprocessableEntity, "activity type %q is not supported", act.Type)
 	}
 
+	if importing(ctx) {
+		return p, nil
+	}
 	if via != nil {
 		if p.community.ID != via.ID {
 			return p, reject(http.StatusForbidden, "%s announced content of %s", via.ApID, p.community.ApID)
@@ -100,6 +103,48 @@ func (s *Server) planContent(ctx context.Context, db federationdb.DBTX, act acti
 		return p, reject(http.StatusServiceUnavailable, "community %s is %s", p.community.ApID, p.community.State)
 	}
 	return p, nil
+}
+
+type importDepthKey struct{}
+
+func importing(ctx context.Context) bool { return importDepth(ctx) > 0 }
+
+func importDepth(ctx context.Context) int {
+	d, _ := ctx.Value(importDepthKey{}).(int)
+	return d
+}
+
+// importObject fetches a post or comment that notid has not seen, such as the
+// parent of a reply that arrived first, and stores it with its own parents.
+func (s *Server) importObject(ctx context.Context, apID string) error {
+	depth := importDepth(ctx) + 1
+	if depth > 5 {
+		return reject(http.StatusUnprocessableEntity, "reply chain to %s is too deep to fetch", apID)
+	}
+	ctx = context.WithValue(ctx, importDepthKey{}, depth)
+	var raw json.RawMessage
+	if err := s.fetch(ctx, apID, &raw); err != nil {
+		return reject(http.StatusUnprocessableEntity, "fetch %s: %v", apID, err)
+	}
+	obj, err := decodeObject(raw)
+	if err != nil || obj.ID != apID || !sameHost(obj.ID, obj.AttributedTo.ID) {
+		return reject(http.StatusUnprocessableEntity, "%s does not answer with itself on its author's host", apID)
+	}
+	act := activity{ID: obj.ID, Type: "Create", Actor: obj.AttributedTo, Object: raw}
+	p, err := s.planContent(ctx, s.Pool, act, nil)
+	if err != nil {
+		return err
+	}
+	p.direct = false
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := s.applyContent(ctx, tx, p, raw); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // knownActor returns a stored actor, fetching it when notid has not seen it.
@@ -141,7 +186,11 @@ func (s *Server) resolveParent(ctx context.Context, db federationdb.DBTX, p *con
 	if errors.Is(err, pgx.ErrNoRows) {
 		parent, cerr := q.CommentByApID(ctx, inReplyTo)
 		if errors.Is(cerr, pgx.ErrNoRows) {
-			return reject(http.StatusUnprocessableEntity, "reply to %s, which is not known here", inReplyTo)
+			// The parent may still be queued, or notid never received it.
+			if err := s.importObject(ctx, inReplyTo); err != nil {
+				return err
+			}
+			return s.resolveParent(ctx, s.Pool, p, inReplyTo)
 		}
 		if cerr != nil {
 			return fmt.Errorf("parent %s: %w", inReplyTo, cerr)
@@ -195,6 +244,14 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	inner, err := act.embedded()
 	if err != nil {
 		return contentPlan{}, reject(http.StatusUnprocessableEntity, "Announce must embed the activity")
+	}
+	if inner.Type == "Page" || inner.Type == "Note" {
+		// PieFed announces a bare object to servers it does not know as Lemmy-like.
+		obj, err := decodeObject(act.Object)
+		if err != nil {
+			return contentPlan{}, reject(http.StatusBadRequest, "%v", err)
+		}
+		inner = activity{ID: obj.ID, Type: "Create", Actor: obj.AttributedTo, Object: act.Object}
 	}
 	if inner.Type == "Create" && !sameHost(inner.Actor.ID, g.ApID) {
 		obj, err := decodeObject(inner.Object)
@@ -259,7 +316,8 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 	if !p.direct || !changed {
 		return nil
 	}
-	return s.announce(ctx, tx, communityRef(p.community), raw)
+	// The origin server already has the activity, and Lemmy refuses its own objects back.
+	return s.announce(ctx, tx, communityRef(p.community), raw, hostOf(p.author.ApID))
 }
 
 func publishedOf(d objectDoc) time.Time {
