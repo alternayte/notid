@@ -37,6 +37,11 @@ export function Masthead() {
               <Link to="/communities/new" className={navLink}>
                 Start a community
               </Link>
+              {me.admin && (
+                <Link to="/admin" className={navLink}>
+                  Admin
+                </Link>
+              )}
               <Link to="/u/$handle" params={{ handle: me.handle }} className={navLink}>
                 {me.displayName || me.name}
               </Link>

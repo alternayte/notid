@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 import { errorMessage } from '~/api/errors'
-import { meOptions, personOptions, updateProfileMutation } from '~/api/gen/@tanstack/react-query.gen'
+import { deleteMeMutation, meOptions, personOptions, updateProfileMutation } from '~/api/gen/@tanstack/react-query.gen'
 import { Button } from '~/ui/primitives/button'
 import { Checkbox } from '~/ui/primitives/checkbox'
 import { Input } from '~/ui/primitives/input'
@@ -152,6 +152,59 @@ function Form({ handle }: { handle: string }) {
           </div>
         </form>
       )}
+      <DeleteAccount />
     </Page>
+  )
+}
+
+// DeleteAccount erases the person's profile and content. Two steps, because the wrong press cannot be undone.
+function DeleteAccount() {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const del = useMutation(deleteMeMutation())
+  const [confirming, setConfirming] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function remove() {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await del.mutateAsync({})
+      void queryClient.clear()
+      await navigate({ to: '/' })
+    } catch (err) {
+      setMessage(errorMessage(err, 'Your account was not deleted. Try again.'))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-6">
+      <h2 className="font-display text-lg tracking-tight">Delete your account</h2>
+      <p className="font-serif text-sm text-ink-soft">
+        Your posts and comments are deleted, and your profile is erased. A community you alone own blocks this until
+        someone else owns it. This cannot be undone.
+      </p>
+      {confirming ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" disabled={busy} onClick={() => void remove()} className="bg-danger text-paper">
+            {busy ? 'Deleting…' : 'Yes, delete my account and its posts'}
+          </Button>
+          <Button type="button" variant="quiet" disabled={busy} onClick={() => setConfirming(false)}>
+            Keep my account
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" onClick={() => setConfirming(true)} className="w-fit">
+          Delete my account
+        </Button>
+      )}
+      {message && (
+        <p role="alert" className="font-sans text-sm text-danger">
+          {message}
+        </p>
+      )}
+    </section>
   )
 }
