@@ -210,6 +210,9 @@ func (s *Server) resolveParent(ctx context.Context, db federationdb.DBTX, p *con
 		if cerr != nil {
 			return fmt.Errorf("parent %s: %w", inReplyTo, cerr)
 		}
+		if parent.DeletedAt != nil || parent.RemovedAt != nil {
+			return reject(http.StatusForbidden, "%s takes no replies", inReplyTo)
+		}
 		p.parentID = &parent.ID
 		post, err = q.PostByID(ctx, parent.PostID)
 	}
@@ -217,8 +220,14 @@ func (s *Server) resolveParent(ctx context.Context, db federationdb.DBTX, p *con
 		return fmt.Errorf("post of %s: %w", inReplyTo, err)
 	}
 	p.postID = post.ID
-	p.community, err = s.communityOf(ctx, db, post.CommunityID)
-	return err
+	if p.community, err = s.communityOf(ctx, db, post.CommunityID); err != nil {
+		return err
+	}
+	// A remote group decides for its own posts; a local one refuses here.
+	if p.community.Local && discussions.RepliesClosed(post) {
+		return reject(http.StatusForbidden, "%s takes no replies", post.ApID)
+	}
+	return nil
 }
 
 // resolveTarget finds the post or comment a vote is on.

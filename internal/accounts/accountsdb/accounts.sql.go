@@ -17,7 +17,7 @@ SELECT a.id FROM actors a
 WHERE a.local AND a.kind = 'person' AND a.trust = 'new' AND a.deleted_at IS NULL
   AND a.created_at <= now() - $1::interval
   AND (SELECT count(*) FROM posts p
-       WHERE p.author_id = a.id AND p.deleted_at IS NULL AND p.removed_at IS NULL)
+       WHERE p.author_id = a.id AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held)
     + (SELECT count(*) FROM comments m
        WHERE m.author_id = a.id AND m.deleted_at IS NULL AND m.removed_at IS NULL) >= $2
   AND NOT EXISTS (
@@ -26,6 +26,9 @@ WHERE a.local AND a.kind = 'person' AND a.trust = 'new' AND a.deleted_at IS NULL
   AND NOT EXISTS (
       SELECT 1 FROM reports r JOIN comments m ON m.id = r.comment_id
       WHERE r.state = 'upheld' AND m.author_id = a.id)
+  AND NOT EXISTS (
+      SELECT 1 FROM bans b
+      WHERE b.actor_id = a.id AND b.community_id IS NULL AND (b.expires_at IS NULL OR b.expires_at > now()))
 `
 
 type ActorsToTrustParams struct {

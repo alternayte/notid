@@ -743,3 +743,53 @@ func TestARemoteEditAndDeleteApplyOnlyOnce(t *testing.T) {
 		t.Fatalf("a repeated delete changed %v: %v", changed, err)
 	}
 }
+
+func TestALockedPostTakesNoRepliesAndAHeldPostsEditStaysHere(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := trustedPerson(t, tx)
+	newcomer := newPerson(t, tx)
+	c, err := communities.CreateLocal(ctx, tx, local(t), owner, "h"+uuid.NewString()[:8], communities.Settings{Title: "Held", HoldNewPosts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var groupApID string
+	if err := pool.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+		t.Fatal(err)
+	}
+	sent := 0
+	svc := &discussions.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning(),
+		SendPost:       func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { sent++; return nil },
+		SendComment:    func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { sent++; return nil },
+		SendPostUpdate: func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { sent++; return nil },
+	}
+	open, err := svc.Post(ctx, owner, discussions.PostBody{Community: groupApID, Title: "Open"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE posts SET locked = true WHERE id = $1`, open.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Comment(ctx, owner, discussions.CommentBody{InReplyTo: open.ApID, Body: "late"}); !errors.Is(err, discussions.ErrRepliesClosed) {
+		t.Fatalf("a reply to a locked post returned %v", err)
+	}
+	held, err := svc.Post(ctx, newcomer, discussions.PostBody{Community: groupApID, Title: "Waiting"})
+	if err != nil || !held.Held {
+		t.Fatalf("held %v: %v", held.Held, err)
+	}
+	before := sent
+	if _, err := svc.EditPost(ctx, newcomer, held.Ref, discussions.EditPostBody{Title: "Waiting, edited"}); err != nil {
+		t.Fatal(err)
+	}
+	if sent != before {
+		t.Fatal("an edit of a held post went to peers")
+	}
+}

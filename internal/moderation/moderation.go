@@ -42,6 +42,7 @@ var (
 	ErrAlreadyDone  = errors.New("that action was already taken")
 	ErrBanned       = errors.New("you are banned from this community")
 	ErrSelfBan      = errors.New("you cannot ban yourself")
+	ErrOutranked    = errors.New("an owner cannot be banned, and only an owner can ban a moderator")
 )
 
 // Actions recorded in the moderation log.
@@ -319,6 +320,9 @@ func (s *Service) Ban(ctx context.Context, actor actors.Actor, communityID, targ
 		if targetID == actor.ID {
 			return ErrSelfBan
 		}
+		if err := outranks(ctx, q, communityID, actor.ID, targetID); err != nil {
+			return err
+		}
 		if _, err := q.InsertBan(ctx, moderationdb.InsertBanParams{CommunityID: &communityID, ActorID: targetID, ExpiresAt: expires}); err != nil {
 			return fmt.Errorf("ban: %w", err)
 		}
@@ -330,6 +334,25 @@ func (s *Service) Ban(ctx context.Context, actor actors.Actor, communityID, targ
 		}
 		return s.banActivity(ctx, tx, actor, communityID, targetID, true)
 	})
+}
+
+// outranks refuses a ban of an owner, and a ban of a moderator by anyone but an owner.
+func outranks(ctx context.Context, q *moderationdb.Queries, communityID, actorID, targetID int64) error {
+	target, err := q.RoleOf(ctx, moderationdb.RoleOfParams{CommunityID: communityID, ActorID: targetID})
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && target == "member") {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("role of %d: %w", targetID, err)
+	}
+	actor, err := q.RoleOf(ctx, moderationdb.RoleOfParams{CommunityID: communityID, ActorID: actorID})
+	if err != nil {
+		return fmt.Errorf("role of %d: %w", actorID, err)
+	}
+	if target == "owner" || actor != "owner" {
+		return ErrOutranked
+	}
+	return nil
 }
 
 // Unban lifts a ban.

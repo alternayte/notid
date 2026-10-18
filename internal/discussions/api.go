@@ -50,14 +50,15 @@ type Service struct {
 }
 
 var (
-	ErrNoCommunity  = errors.New("no community at that address")
-	ErrNotActive    = errors.New("the community does not accept posts here now")
-	ErrNoObject     = errors.New("no post or comment at that address")
-	ErrURLAndImage  = errors.New("a post links to a URL or shows an image, not both")
-	ErrBanned       = errors.New("you are banned from this community")
-	ErrNotModerator = errors.New("only the community's owners and moderators can do that")
-	ErrNotTrusted   = errors.New("new accounts cannot post that often yet")
-	ErrRemoteLimit  = errors.New("new accounts can post only a few times a day into communities on other sites")
+	ErrNoCommunity   = errors.New("no community at that address")
+	ErrNotActive     = errors.New("the community does not accept posts here now")
+	ErrNoObject      = errors.New("no post or comment at that address")
+	ErrURLAndImage   = errors.New("a post links to a URL or shows an image, not both")
+	ErrBanned        = errors.New("you are banned from this community")
+	ErrNotModerator  = errors.New("only the community's owners and moderators can do that")
+	ErrNotTrusted    = errors.New("new accounts cannot post that often yet")
+	ErrRepliesClosed = errors.New("this post takes no replies")
+	ErrRemoteLimit   = errors.New("new accounts can post only a few times a day into communities on other sites")
 )
 
 type PostBody struct {
@@ -361,7 +362,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject), errors.Is(err, ErrNoPerson):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAuthor):
+	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAuthor), errors.Is(err, ErrRepliesClosed):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrNotTrusted), errors.Is(err, ErrRemoteLimit):
 		return huma.Error429TooManyRequests(err.Error())
@@ -476,6 +477,12 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in PostBody) (P
 	return post, err
 }
 
+// RepliesClosed reports whether a post refuses new replies: it is locked,
+// held for review, removed or deleted.
+func RepliesClosed(p Post) bool {
+	return p.Locked || p.Held || p.RemovedAt != nil || p.DeletedAt != nil
+}
+
 // Comment stores a local reply and queues its delivery in one transaction.
 func (s *Service) Comment(ctx context.Context, author actors.Actor, in CommentBody) (Comment, error) {
 	var comment Comment
@@ -491,11 +498,17 @@ func (s *Service) Comment(ctx context.Context, author actors.Actor, in CommentBo
 			if cerr != nil {
 				return fmt.Errorf("parent: %w", cerr)
 			}
+			if parent.DeletedAt != nil || parent.RemovedAt != nil {
+				return ErrRepliesClosed
+			}
 			parentID = &parent.ID
 			post, err = q.PostByID(ctx, parent.PostID)
 		}
 		if err != nil {
 			return fmt.Errorf("post: %w", err)
+		}
+		if RepliesClosed(post) {
+			return ErrRepliesClosed
 		}
 		c, err := q.CommunityByID(ctx, post.CommunityID)
 		if err != nil {

@@ -21,6 +21,7 @@ var (
 	ErrNotModerator  = errors.New("only the community's owners and moderators can change it")
 	ErrLastOwner     = errors.New("the last owner cannot leave the community")
 	ErrNotActive     = errors.New("the community is moving and is read-only for now")
+	ErrNotLocal      = errors.New("this community is hosted on another site and changes there")
 	ErrAccentUnknown = errors.New("unknown accent")
 )
 
@@ -97,6 +98,12 @@ func Update(ctx context.Context, tx pgx.Tx, editor actors.Actor, communityID int
 	c, err := q.CommunityByID(ctx, communityID)
 	if err != nil {
 		return Community{}, fmt.Errorf("community %d: %w", communityID, err)
+	}
+	// A remote community changes on its own installation; this copy follows its Updates.
+	if g, err := actors.ByID(ctx, tx, c.ActorID); err != nil {
+		return Community{}, fmt.Errorf("group %d: %w", c.ActorID, err)
+	} else if !g.Local {
+		return Community{}, ErrNotLocal
 	}
 	if c.State != "active" {
 		return Community{}, ErrNotActive

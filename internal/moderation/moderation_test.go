@@ -511,3 +511,35 @@ func TestOnlyAnAdminBlocksAPeerAndTheDomainIsNormalised(t *testing.T) {
 		t.Fatalf("a member listed the peers: %v", err)
 	}
 }
+
+func TestAModeratorCannotBanAnOwnerOrAnotherModerator(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	community, err := moderationCommunityID(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.SetRole(ctx, f.owner, community, f.member.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Ban(ctx, f.member, community, f.owner.ID, "", nil); !errors.Is(err, moderation.ErrOutranked) {
+		t.Fatalf("a moderator banned the owner: %v", err)
+	}
+	tx, err := f.svc.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := person(t, tx, "trusted")
+	if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state, role) VALUES ($1, $2, 'accepted', 'moderator')`, community, other.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Ban(ctx, f.member, community, other.ID, "", nil); !errors.Is(err, moderation.ErrOutranked) {
+		t.Fatalf("a moderator banned another moderator: %v", err)
+	}
+	if err := f.svc.Ban(ctx, f.owner, community, other.ID, "", nil); err != nil {
+		t.Fatalf("the owner could not ban a moderator: %v", err)
+	}
+}

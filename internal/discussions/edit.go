@@ -86,6 +86,10 @@ func (s *Service) EditPost(ctx context.Context, author actors.Actor, ref string,
 				return err
 			}
 		}
+		if post.Held {
+			// Peers see a held post only when a moderator publishes it.
+			return nil
+		}
 		return s.SendPostUpdate(ctx, tx, author, post)
 	})
 	return post, err

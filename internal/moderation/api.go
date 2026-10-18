@@ -100,7 +100,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoObject):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin), errors.Is(err, ErrNotOwner):
+	case errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAdmin), errors.Is(err, ErrNotOwner), errors.Is(err, ErrOutranked):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrBanned), errors.Is(err, ErrSelfBan), errors.Is(err, ErrAlreadyDone):
 		return huma.Error409Conflict(err.Error())

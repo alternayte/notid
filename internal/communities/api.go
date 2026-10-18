@@ -378,6 +378,8 @@ func apiError(err error) error {
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
+	case errors.Is(err, ErrNotLocal):
+		return huma.Error409Conflict("This community is hosted on another site. Change it there.")
 	case errors.Is(err, ErrLastOwner):
 		return huma.Error409Conflict("You are the last owner. Add another owner before you leave.")
 	case errors.Is(err, actors.ErrNameTaken):
