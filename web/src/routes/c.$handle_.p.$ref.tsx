@@ -12,6 +12,7 @@ import {
 import { About } from '~/communities/About'
 import { accentAttr } from '~/communities/accents'
 import { Age } from '~/discussions/Age'
+import { CommentAuthorActions, PostAuthorActions } from '~/discussions/AuthorActions'
 import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
 import { SaveButton } from '~/discussions/SaveButton'
 import { type Node, tree } from '~/discussions/tree'
@@ -127,6 +128,7 @@ function ThreadPage() {
                   canModerate={canModerate}
                   canReport={signInToReport}
                 />
+                {me?.handle === p.author.handle && !p.removed && open && <PostAuthorActions post={p} handle={handle} />}
               </div>
             </article>
             <section
@@ -157,6 +159,15 @@ function ThreadPage() {
                     <>
                       <Votes apId={n.apId} score={n.score} viewer={n.viewer} label={`${n.author}'s comment`} />
                       <SaveButton apId={n.apId} initial={n.viewer.saved} label={`${n.author}'s comment`} />
+                      {me?.handle === n.authorHandle && !n.gone && open && (
+                        <CommentAuthorActions
+                          commentRef={n.ref}
+                          body={n.markdown}
+                          onChanged={() =>
+                            queryClient.invalidateQueries({ queryKey: threadQueryKey({ path: { ref } }) })
+                          }
+                        />
+                      )}
                     </>
                   )}
                   onReply={open && !p.locked && !p.removed && me ? (n, text) => reply(n.apId, text) : undefined}
@@ -176,7 +187,12 @@ function ThreadPage() {
   )
 }
 
-type ThreadNode = CommentNode & Pick<Node, 'apId' | 'score' | 'viewer'> & { replies: ThreadNode[] }
+type ThreadNode = CommentNode &
+  Pick<Node, 'apId' | 'score' | 'viewer' | 'ref'> & {
+    authorHandle: string
+    markdown: string
+    replies: ThreadNode[]
+  }
 
 function node(n: Node): ThreadNode {
   const a = splitHandle(n.author.handle)
@@ -184,6 +200,9 @@ function node(n: Node): ThreadNode {
     apId: n.apId,
     score: n.score,
     viewer: n.viewer,
+    ref: n.ref,
+    markdown: n.body,
+    authorHandle: n.author.handle,
     gone: n.gone,
     id: n.ref,
     author: n.author.displayName || a.name,

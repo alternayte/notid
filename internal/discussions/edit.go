@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,7 +20,7 @@ var ErrNotAuthor = errors.New("only the author can change that")
 type EditPostBody struct {
 	Title string `json:"title" minLength:"1" maxLength:"200"`
 	Body  string `json:"body,omitempty" maxLength:"40000" doc:"Markdown"`
-	URL   string `json:"url,omitempty" format:"uri" maxLength:"2000"`
+	URL   string `json:"url,omitempty" maxLength:"2000"`
 	NSFW  bool   `json:"nsfw"`
 }
 
@@ -28,8 +29,26 @@ type EditCommentBody struct {
 	Body string `json:"body" minLength:"1" maxLength:"20000" doc:"Markdown"`
 }
 
+// ErrBadURL refuses a link that is not an absolute http(s) address.
+var ErrBadURL = errors.New("a link needs a full address, starting with http:// or https://")
+
+// validLink checks a link a person typed.
+func validLink(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ErrBadURL
+	}
+	return nil
+}
+
 // EditPost changes a post's title, text, link and NSFW flag and sends an Update.
 func (s *Service) EditPost(ctx context.Context, author actors.Actor, ref string, in EditPostBody) (Post, error) {
+	if err := validLink(in.URL); err != nil {
+		return Post{}, err
+	}
 	var post Post
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		q := discussionsdb.New(tx)

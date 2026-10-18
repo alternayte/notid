@@ -358,7 +358,7 @@ func apiError(err error) error {
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrNotTrusted):
 		return huma.Error429TooManyRequests(err.Error())
-	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, media.ErrNotYours):
+	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, ErrBadURL), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")

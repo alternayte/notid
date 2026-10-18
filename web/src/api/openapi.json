@@ -351,6 +351,10 @@
           "author": {
             "$ref": "#/components/schemas/Author"
           },
+          "body": {
+            "description": "Markdown source, so the author can edit it",
+            "type": "string"
+          },
           "bodyHtml": {
             "type": "string"
           },
@@ -380,6 +384,7 @@
         "required": [
           "apId",
           "ref",
+          "body",
           "parentRef",
           "bodyHtml",
           "gone",
@@ -684,7 +689,6 @@
             "type": "string"
           },
           "url": {
-            "format": "uri",
             "maxLength": 2000,
             "type": "string"
           }
@@ -1253,6 +1257,10 @@
           "author": {
             "$ref": "#/components/schemas/Author"
           },
+          "body": {
+            "description": "Markdown source, so the author can edit it",
+            "type": "string"
+          },
           "bodyHtml": {
             "description": "Sanitized HTML from the Markdown body",
             "type": "string"
@@ -1310,6 +1318,7 @@
         },
         "required": [
           "apId",
+          "body",
           "ref",
           "community",
           "communityTitle",

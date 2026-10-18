@@ -139,6 +139,10 @@ export type CommentPage = {
 export type CommentView = {
     apId: string;
     author: Author;
+    /**
+     * Markdown source, so the author can edit it
+     */
+    body: string;
     bodyHtml: string;
     /**
      * true when the comment was deleted or removed
@@ -513,6 +517,10 @@ export type PostPage = {
 export type PostView = {
     apId: string;
     author: Author;
+    /**
+     * Markdown source, so the author can edit it
+     */
+    body: string;
     /**
      * Sanitized HTML from the Markdown body
      */

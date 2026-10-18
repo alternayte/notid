@@ -34,6 +34,7 @@ type Viewer struct {
 // PostView is a post as a reader sees it.
 type PostView struct {
 	ApID           string    `json:"apId"`
+	Body           string    `json:"body" doc:"Markdown source, so the author can edit it"`
 	Ref            string    `json:"ref"`
 	Community      string    `json:"community" doc:"Handle of the community"`
 	CommunityTitle string    `json:"communityTitle"`
@@ -57,6 +58,7 @@ type PostView struct {
 type CommentView struct {
 	ApID      string    `json:"apId"`
 	Ref       string    `json:"ref"`
+	Body      string    `json:"body" doc:"Markdown source, so the author can edit it"`
 	ParentRef string    `json:"parentRef" doc:"Ref of the comment this replies to; empty for a reply to the post"`
 	BodyHTML  string    `json:"bodyHtml"`
 	Gone      bool      `json:"gone" doc:"true when the comment was deleted or removed"`
@@ -120,7 +122,7 @@ type postRow struct {
 
 func (s *Service) postView(r postRow) PostView {
 	v := PostView{
-		ApID: r.ApID, Ref: r.Ref, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
+		ApID: r.ApID, Ref: r.Ref, Body: r.Body, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
 		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW, Locked: r.Locked, Removed: r.RemovedAt != nil,
 		Author:    s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
 		Published: r.Published, Score: r.Score, Comments: r.CommentCount,
@@ -317,6 +319,7 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 			c.ParentRef = refs[*r.ParentID]
 		}
 		if !r.Gone {
+			c.Body = r.Body
 			c.BodyHTML = s.Markdown.HTML(r.Body)
 			c.Author = s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot)
 		}
