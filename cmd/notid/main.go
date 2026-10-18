@@ -110,6 +110,7 @@ func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slo
 	public := edge.Handler(hosts, edge.Routes{
 		Federation: a.federation,
 		API:        a.api,
+		Media:      a.media,
 		Web:        edge.NewWebProxy(cfg.WebUpstream, log),
 	}, log)
 	return edge.Serve(ctx, cfg, t, hosts, public, edge.InternalHandler(a.api), log)

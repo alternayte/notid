@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image"
+	"image/png"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"slices"
 	"testing"
 	"time"
@@ -19,6 +23,7 @@ import (
 	"github.com/alternayte/notid/internal/communities"
 	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/platform"
+	"github.com/alternayte/notid/internal/platform/media"
 	"github.com/alternayte/notid/internal/platform/pgtest"
 )
 
@@ -276,5 +281,80 @@ func TestTopAndActiveSortsFollowTheirFormulas(t *testing.T) {
 		if got := refs(page); !slices.Equal(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.sort, got, c.want)
 		}
+	}
+}
+
+func TestImagePostUsesOnlyTheAuthorsOwnUpload(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	var me, other actors.Actor
+	var groupApID string
+	committed(t, pool, func(tx pgx.Tx) {
+		me, other = trustedPerson(t, tx), trustedPerson(t, tx)
+		c, err := communities.CreateLocal(ctx, tx, local(t), me, "c"+uuid.NewString()[:8], communities.Settings{Title: "Pictures"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+			t.Fatal(err)
+		}
+	})
+	mediaSvc := &media.Service{Pool: pool, Store: media.Dir(t.TempDir()), Tuning: platform.DefaultTuning(), AppOrigin: "https://notid.test"}
+	svc := &discussions.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning(), MediaURL: mediaSvc.URL,
+		SendPost: func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { return nil },
+	}
+	mux := http.NewServeMux()
+	api := platform.NewAPI(mux, "test")
+	svc.Register(api)
+	mediaSvc.Register(api)
+	call := func(as actors.Actor, r *http.Request) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(accounts.WithActor(r.Context(), &as)))
+		return w
+	}
+
+	var form bytes.Buffer
+	mw := multipart.NewWriter(&form)
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", `form-data; name="file"; filename="a.png"`)
+	h.Set("Content-Type", "image/png")
+	part, _ := mw.CreatePart(h)
+	if err := png.Encode(part, image.NewRGBA(image.Rect(0, 0, 8, 8))); err != nil {
+		t.Fatal(err)
+	}
+	mw.Close()
+	r := httptest.NewRequest(http.MethodPost, "/api/media", &form)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	w := call(other, r)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("upload: %d %s", w.Code, w.Body)
+	}
+	var up media.Uploaded
+	if err := json.Unmarshal(w.Body.Bytes(), &up); err != nil {
+		t.Fatal(err)
+	}
+
+	post := func(as actors.Actor) *httptest.ResponseRecorder {
+		b, _ := json.Marshal(map[string]any{"community": groupApID, "title": "A picture", "image": up.Key})
+		r := httptest.NewRequest(http.MethodPost, "/api/posts", bytes.NewReader(b))
+		r.Header.Set("Content-Type", "application/json")
+		return call(as, r)
+	}
+	if w := post(me); w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("posting another person's upload: %d %s", w.Code, w.Body)
+	}
+	w = post(other)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("post own image: %d %s", w.Code, w.Body)
+	}
+	var created discussions.Created
+	_ = json.Unmarshal(w.Body.Bytes(), &created)
+	th, err := svc.Thread(ctx, created.Ref, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !th.Post.Image || th.Post.URL != up.URL {
+		t.Fatalf("image post %+v, upload %+v", th.Post, up)
 	}
 }

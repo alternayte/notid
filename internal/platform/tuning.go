@@ -43,6 +43,11 @@ type Tuning struct {
 	TopWeekWindow     time.Duration
 	ThreadMaxComments int32
 	SavedPerPage      int32
+
+	MaxUploadBytes    int64
+	MaxImagePixels    int64
+	ImageMaxDimension int
+	JPEGQuality       int
 }
 
 func DefaultTuning() Tuning {
@@ -84,5 +89,10 @@ func DefaultTuning() Tuning {
 		TopWeekWindow:     7 * 24 * time.Hour,
 		ThreadMaxComments: 500,
 		SavedPerPage:      25,
+
+		MaxUploadBytes:    10 << 20,
+		MaxImagePixels:    50_000_000,
+		ImageMaxDimension: 2560,
+		JPEGQuality:       85,
 	}
 }

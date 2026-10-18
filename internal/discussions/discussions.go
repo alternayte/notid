@@ -57,6 +57,7 @@ type NewPost struct {
 	Title       string
 	Body        string
 	URL         string
+	MediaID     *int64
 	NSFW        bool
 	Published   time.Time
 }
@@ -75,7 +76,7 @@ func InsertPost(ctx context.Context, tx pgx.Tx, p NewPost) (Post, bool, error) {
 	q := discussionsdb.New(tx)
 	post, err := q.InsertPost(ctx, discussionsdb.InsertPostParams{
 		ApID: p.ApID, Ref: Ref(p.ApID), Local: local, CommunityID: p.CommunityID, AuthorID: p.Author.ID,
-		Title: p.Title, Body: p.Body, Url: p.URL, Nsfw: p.NSFW, Published: p.Published,
+		Title: p.Title, Body: p.Body, Url: p.URL, MediaID: p.MediaID, Nsfw: p.NSFW, Published: p.Published,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		post, err = q.PostByApID(ctx, p.ApID)

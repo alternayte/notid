@@ -23,6 +23,7 @@ import (
 	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/federation"
 	"github.com/alternayte/notid/internal/platform"
+	"github.com/alternayte/notid/internal/platform/media"
 	"github.com/alternayte/notid/internal/portability"
 )
 
@@ -34,6 +35,7 @@ type app struct {
 	pool       *pgxpool.Pool
 	api        http.Handler
 	federation http.Handler
+	media      http.Handler
 	doc        huma.API
 	river      *river.Client[pgx.Tx]
 }
@@ -84,6 +86,12 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	markdown := platform.NewMarkdown()
 	communitiesSvc := &communities.Service{Pool: pool, Local: local, Markdown: markdown}
 	communitiesSvc.Register(api)
+	store, err := media.NewStore(cfg)
+	if err != nil {
+		return nil, err
+	}
+	mediaSvc := &media.Service{Pool: pool, Store: store, Tuning: t, AppOrigin: cfg.AppOrigin, Log: log}
+	mediaSvc.Register(api)
 	discussionsSvc := &discussions.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t}
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
@@ -125,7 +133,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.SendComment = fed.SendComment
 	discussionsSvc.SendVote = fed.SendVote
 	discussionsSvc.NewActivityID = federation.NewActivityID
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), doc: api, river: rc}, nil
+	discussionsSvc.MediaURL = mediaSvc.URL
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaSvc.Handler(), doc: api, river: rc}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.

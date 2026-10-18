@@ -1,9 +1,9 @@
 -- name: InsertPost :one
 INSERT INTO posts (
-    ap_id, ref, local, community_id, author_id, title, body, url, nsfw,
+    ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
     published, sort_at
 ) VALUES (
-    @ap_id, @ref, @local, @community_id, @author_id, @title, @body, @url, @nsfw,
+    @ap_id, @ref, @local, @community_id, @author_id, @title, @body, @url, sqlc.narg(media_id), @nsfw,
     @published, least(@published::timestamptz, now())
 )
 ON CONFLICT (ap_id) DO NOTHING
@@ -83,7 +83,7 @@ SELECT c.id FROM communities c WHERE c.domain = @domain AND lower(c.name) = lowe
 -- New: newest first by feed time.
 -- name: CommunityPostsNew :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -101,7 +101,7 @@ LIMIT @lim;
 -- Active: latest reply first; a post without replies counts from its own feed time.
 -- name: CommunityPostsActive :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -119,7 +119,7 @@ LIMIT @lim;
 -- Top: highest score first, among posts whose feed time is after since.
 -- name: CommunityPostsTop :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -138,7 +138,7 @@ LIMIT @lim;
 -- Home: posts from the communities the reader joined, newest first by feed time.
 -- name: HomeFeed :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -156,7 +156,7 @@ LIMIT @lim;
 
 -- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -201,6 +201,7 @@ DELETE FROM saves WHERE actor_id = @actor_id AND comment_id = @comment_id;
 SELECT
     s.created_at AS saved_at, s.comment_id,
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    (p.media_id IS NOT NULL)::boolean AS has_image,
     pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,

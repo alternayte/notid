@@ -202,7 +202,7 @@ func (q *Queries) CommunityIDByHandle(ctx context.Context, arg CommunityIDByHand
 
 const communityPostsActive = `-- name: CommunityPostsActive :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -239,6 +239,7 @@ type CommunityPostsActiveRow struct {
 	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
+	HasImage          bool
 	AuthorName        string
 	AuthorDomain      string
 	AuthorDisplayName string
@@ -280,6 +281,7 @@ func (q *Queries) CommunityPostsActive(ctx context.Context, arg CommunityPostsAc
 			&i.ActiveAt,
 			&i.Score,
 			&i.CommentCount,
+			&i.HasImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -304,7 +306,7 @@ func (q *Queries) CommunityPostsActive(ctx context.Context, arg CommunityPostsAc
 const communityPostsNew = `-- name: CommunityPostsNew :many
 
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -341,6 +343,7 @@ type CommunityPostsNewRow struct {
 	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
+	HasImage          bool
 	AuthorName        string
 	AuthorDomain      string
 	AuthorDisplayName string
@@ -384,6 +387,7 @@ func (q *Queries) CommunityPostsNew(ctx context.Context, arg CommunityPostsNewPa
 			&i.ActiveAt,
 			&i.Score,
 			&i.CommentCount,
+			&i.HasImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -407,7 +411,7 @@ func (q *Queries) CommunityPostsNew(ctx context.Context, arg CommunityPostsNewPa
 
 const communityPostsTop = `-- name: CommunityPostsTop :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -446,6 +450,7 @@ type CommunityPostsTopRow struct {
 	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
+	HasImage          bool
 	AuthorName        string
 	AuthorDomain      string
 	AuthorDisplayName string
@@ -488,6 +493,7 @@ func (q *Queries) CommunityPostsTop(ctx context.Context, arg CommunityPostsTopPa
 			&i.ActiveAt,
 			&i.Score,
 			&i.CommentCount,
+			&i.HasImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -527,7 +533,7 @@ func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 
 const homeFeed = `-- name: HomeFeed :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -565,6 +571,7 @@ type HomeFeedRow struct {
 	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
+	HasImage          bool
 	AuthorName        string
 	AuthorDomain      string
 	AuthorDisplayName string
@@ -606,6 +613,7 @@ func (q *Queries) HomeFeed(ctx context.Context, arg HomeFeedParams) ([]HomeFeedR
 			&i.ActiveAt,
 			&i.Score,
 			&i.CommentCount,
+			&i.HasImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -687,11 +695,11 @@ func (q *Queries) InsertComment(ctx context.Context, arg InsertCommentParams) (C
 
 const insertPost = `-- name: InsertPost :one
 INSERT INTO posts (
-    ap_id, ref, local, community_id, author_id, title, body, url, nsfw,
+    ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
     published, sort_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9,
-    $10, least($10::timestamptz, now())
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    $11, least($11::timestamptz, now())
 )
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
@@ -706,6 +714,7 @@ type InsertPostParams struct {
 	Title       string
 	Body        string
 	Url         string
+	MediaID     *int64
 	Nsfw        bool
 	Published   time.Time
 }
@@ -720,6 +729,7 @@ func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, e
 		arg.Title,
 		arg.Body,
 		arg.Url,
+		arg.MediaID,
 		arg.Nsfw,
 		arg.Published,
 	)
@@ -865,7 +875,7 @@ func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
 
 const postByRef = `-- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, (p.media_id IS NOT NULL)::boolean AS has_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -896,6 +906,7 @@ type PostByRefRow struct {
 	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
+	HasImage          bool
 	AuthorName        string
 	AuthorDomain      string
 	AuthorDisplayName string
@@ -924,6 +935,7 @@ func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRef
 		&i.ActiveAt,
 		&i.Score,
 		&i.CommentCount,
+		&i.HasImage,
 		&i.AuthorName,
 		&i.AuthorDomain,
 		&i.AuthorDisplayName,
@@ -1071,6 +1083,7 @@ const savedItems = `-- name: SavedItems :many
 SELECT
     s.created_at AS saved_at, s.comment_id,
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    (p.media_id IS NOT NULL)::boolean AS has_image,
     pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,
@@ -1116,6 +1129,7 @@ type SavedItemsRow struct {
 	SortAt                   time.Time
 	Score                    int32
 	CommentCount             int32
+	HasImage                 bool
 	AuthorName               string
 	AuthorDomain             string
 	AuthorDisplayName        string
@@ -1164,6 +1178,7 @@ func (q *Queries) SavedItems(ctx context.Context, arg SavedItemsParams) ([]Saved
 			&i.SortAt,
 			&i.Score,
 			&i.CommentCount,
+			&i.HasImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,

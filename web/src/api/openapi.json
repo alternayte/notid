@@ -774,6 +774,11 @@
             "maxLength": 500,
             "type": "string"
           },
+          "image": {
+            "description": "Key of an image you uploaded; the post links to it. Do not set url too",
+            "maxLength": 40,
+            "type": "string"
+          },
           "title": {
             "maxLength": 200,
             "minLength": 1,
@@ -848,6 +853,10 @@
             "description": "Plain text from the start of the body, for lists",
             "type": "string"
           },
+          "image": {
+            "description": "true when url is an image uploaded to this site",
+            "type": "boolean"
+          },
           "nsfw": {
             "type": "boolean"
           },
@@ -881,6 +890,7 @@
           "bodyHtml",
           "excerpt",
           "url",
+          "image",
           "nsfw",
           "author",
           "published",
@@ -1336,6 +1346,42 @@
           "post",
           "comments",
           "truncated"
+        ],
+        "type": "object"
+      },
+      "Uploaded": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/Uploaded.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "height": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "key": {
+            "description": "Pass this as image when you post, or as the banner of a community theme",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "url",
+          "width",
+          "height"
         ],
         "type": "object"
       },
@@ -3415,6 +3461,92 @@
         "summary": "List my saved posts and comments, newest save first",
         "tags": [
           "discussions"
+        ]
+      }
+    },
+    "/api/media": {
+      "post": {
+        "operationId": "uploadImage",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "image/jpeg,image/png,image/webp"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uploaded"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Upload an image. EXIF, GPS and other metadata are removed before it is stored",
+        "tags": [
+          "media"
         ]
       }
     },

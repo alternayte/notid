@@ -15,6 +15,7 @@ import (
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
 	"github.com/alternayte/notid/internal/platform"
+	"github.com/alternayte/notid/internal/platform/media"
 )
 
 // Service serves posting, commenting and voting. Federation supplies the
@@ -28,12 +29,15 @@ type Service struct {
 	SendComment   func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
 	SendVote      func(ctx context.Context, tx pgx.Tx, voter actors.Actor, communityID int64, objectApID string, value int16, voteID, previousID string) error
 	NewActivityID func(actorApID string) (string, error)
+	// MediaURL is where an uploaded image with a storage key is served.
+	MediaURL func(key string) string
 }
 
 var (
 	ErrNoCommunity = errors.New("no community at that address")
 	ErrNotActive   = errors.New("the community does not accept posts here now")
 	ErrNoObject    = errors.New("no post or comment at that address")
+	ErrURLAndImage = errors.New("a post links to a URL or shows an image, not both")
 )
 
 type postBody struct {
@@ -41,6 +45,7 @@ type postBody struct {
 	Title     string `json:"title" minLength:"1" maxLength:"200"`
 	Body      string `json:"body,omitempty" maxLength:"40000" doc:"Markdown"`
 	URL       string `json:"url,omitempty" format:"uri" maxLength:"2000"`
+	Image     string `json:"image,omitempty" maxLength:"40" doc:"Key of an image you uploaded; the post links to it. Do not set url too"`
 }
 
 type commentBody struct {
@@ -197,7 +202,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrBadCursor):
+	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
@@ -240,9 +245,19 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in postBody) (P
 		if err := writable(discussionsdb.CommunityByIDRow(c)); err != nil {
 			return err
 		}
-		post, _, err = InsertPost(ctx, tx, NewPost{
-			CommunityID: c.ID, Author: author, Title: in.Title, Body: in.Body, URL: in.URL, Published: time.Now(),
-		})
+		np := NewPost{CommunityID: c.ID, Author: author, Title: in.Title, Body: in.Body, URL: in.URL, Published: time.Now()}
+		if in.Image != "" {
+			if in.URL != "" {
+				return ErrURLAndImage
+			}
+			m, err := media.Owned(ctx, tx, in.Image, author.ID)
+			if err != nil {
+				return err
+			}
+			// Peers see an image post as a link to the image, as Lemmy does.
+			np.URL, np.MediaID = s.MediaURL(m.StorageKey), &m.ID
+		}
+		post, _, err = InsertPost(ctx, tx, np)
 		if err != nil {
 			return err
 		}

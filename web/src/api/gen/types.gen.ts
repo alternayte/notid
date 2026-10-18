@@ -305,6 +305,10 @@ export type PostBody = {
      * AP ID of the community
      */
     community: string;
+    /**
+     * Key of an image you uploaded; the post links to it. Do not set url too
+     */
+    image?: string;
     title: string;
     url?: string;
 };
@@ -338,6 +342,10 @@ export type PostView = {
      * Plain text from the start of the body, for lists
      */
     excerpt: string;
+    /**
+     * true when url is an image uploaded to this site
+     */
+    image: boolean;
     nsfw: boolean;
     published: string;
     ref: string;
@@ -523,6 +531,20 @@ export type ThreadView = {
     truncated: boolean;
 };
 
+export type Uploaded = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    height: number;
+    /**
+     * Pass this as image when you post, or as the banner of a community theme
+     */
+    key: string;
+    url: string;
+    width: number;
+};
+
 export type User = {
     createdAt: string;
     email: string;
@@ -699,6 +721,10 @@ export type PostBodyWritable = {
      * AP ID of the community
      */
     community: string;
+    /**
+     * Key of an image you uploaded; the post links to it. Do not set url too
+     */
+    image?: string;
     title: string;
     url?: string;
 };
@@ -783,6 +809,16 @@ export type ThreadViewWritable = {
      * true when the post has more comments than one page holds
      */
     truncated: boolean;
+};
+
+export type UploadedWritable = {
+    height: number;
+    /**
+     * Pass this as image when you post, or as the banner of a community theme
+     */
+    key: string;
+    url: string;
+    width: number;
 };
 
 export type VoteBodyWritable = {
@@ -1871,6 +1907,45 @@ export type SavedResponses = {
 };
 
 export type SavedResponse = SavedResponses[keyof SavedResponses];
+
+export type UploadImageData = {
+    body?: {
+        file: Blob | File;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/media';
+};
+
+export type UploadImageErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Request Entity Too Large
+     */
+    413: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type UploadImageError = UploadImageErrors[keyof UploadImageErrors];
+
+export type UploadImageResponses = {
+    /**
+     * Created
+     */
+    201: Uploaded;
+};
+
+export type UploadImageResponse = UploadImageResponses[keyof UploadImageResponses];
 
 export type CreatePostData = {
     body: PostBodyWritable;

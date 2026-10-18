@@ -40,6 +40,7 @@ type PostView struct {
 	BodyHTML       string    `json:"bodyHtml" doc:"Sanitized HTML from the Markdown body"`
 	Excerpt        string    `json:"excerpt" doc:"Plain text from the start of the body, for lists"`
 	URL            string    `json:"url"`
+	Image          bool      `json:"image" doc:"true when url is an image uploaded to this site"`
 	NSFW           bool      `json:"nsfw"`
 	Author         Author    `json:"author"`
 	Published      time.Time `json:"published"`
@@ -104,7 +105,7 @@ func (s *Service) author(name, domain, displayName string, bot bool) Author {
 // postRow holds the columns every post query shares; sqlc makes one type per query.
 type postRow struct {
 	ApID, Ref, Title, Body, URL                    string
-	NSFW, AuthorBot, MyVoteCounted, Saved          bool
+	NSFW, AuthorBot, MyVoteCounted, Saved, Image   bool
 	Published                                      time.Time
 	Score, CommentCount                            int32
 	AuthorName, AuthorDomain, AuthorDisplayName    string
@@ -115,7 +116,7 @@ type postRow struct {
 func (s *Service) postView(r postRow) PostView {
 	return PostView{
 		ApID: r.ApID, Ref: r.Ref, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
-		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, NSFW: r.NSFW,
+		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW,
 		Author:    s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
 		Published: r.Published, Score: r.Score, Comments: r.CommentCount,
 		Viewer: Viewer{Vote: r.MyVote, VoteCounted: r.MyVoteCounted, Saved: r.Saved},
@@ -130,6 +131,7 @@ func listRow(r discussionsdb.CommunityPostsNewRow) postRow {
 		MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
+		Image: r.HasImage,
 	}
 }
 
@@ -321,6 +323,7 @@ func (s *Service) Saved(ctx context.Context, viewer actors.Actor, before string)
 			MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 			AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 			CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
+			Image: r.HasImage,
 		})}
 		if r.CommentID != nil {
 			item.Comment = &CommentView{
