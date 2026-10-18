@@ -15,6 +15,7 @@ import (
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/federation/federationdb"
 	"github.com/alternayte/notid/internal/moderation"
+	"github.com/alternayte/notid/internal/platform"
 )
 
 // rejection is an activity the inbox refuses, with the status it answers.
@@ -81,7 +82,7 @@ func (s *Server) receive(r *http.Request) (activity, error) {
 	if peer == "" {
 		return act, reject(http.StatusUnauthorized, "keyId is not an http(s) URL")
 	}
-	if err := s.checkPeer(ctx, peer); err != nil {
+	if err := s.checkBlocked(ctx, peer); err != nil {
 		return act, err
 	}
 	if err := checkSignedRequest(r, sig, body, time.Now(), s.Tuning.SignatureMaxSkew); err != nil {
@@ -90,6 +91,10 @@ func (s *Server) receive(r *http.Request) (activity, error) {
 	signer, err := s.verifySigner(ctx, r, sig)
 	if err != nil {
 		return act, err
+	}
+	// Charged only once the signature holds, so a forged keyId cannot spend a real peer's allowance.
+	if !s.Limits.Allow(peer, time.Now()) {
+		return act, reject(http.StatusTooManyRequests, "too many activities from %s", peer)
 	}
 	// A site ban stops the person here, not only in the web app.
 	if banned, err := moderation.SiteBanned(ctx, s.Pool, signer.ID); err != nil {
@@ -116,7 +121,7 @@ func (s *Server) receive(r *http.Request) (activity, error) {
 	return act, s.enqueueReceived(ctx, act.ID, body, signer.ApID, peer)
 }
 
-func (s *Server) checkPeer(ctx context.Context, peer string) error {
+func (s *Server) checkBlocked(ctx context.Context, peer string) error {
 	p, err := federationdb.New(s.Pool).PeerByDomain(ctx, peer)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("peer %s: %w", peer, err)
@@ -124,15 +129,21 @@ func (s *Server) checkPeer(ctx context.Context, peer string) error {
 	if err == nil && p.Blocked {
 		return reject(http.StatusForbidden, "this installation does not federate with %s", peer)
 	}
-	if !s.Limits.Allow(peer, time.Now()) {
-		return reject(http.StatusTooManyRequests, "too many activities from %s", peer)
-	}
 	return nil
+}
+
+// keyStored reports whether checking a key needs no fetch.
+func (s *Server) keyStored(ctx context.Context, keyID string) bool {
+	a, err := actors.ByApID(ctx, s.Pool, keyOwner(keyID))
+	return err == nil && (a.Local || (a.FetchedAt != nil && time.Since(*a.FetchedAt) < s.Tuning.ActorRefresh))
 }
 
 // verifySigner checks the signature against the signer's key. When it fails,
 // it fetches the actor once more, because the key may have rotated.
 func (s *Server) verifySigner(ctx context.Context, r *http.Request, sig signatureParams) (actors.Actor, error) {
+	if !s.keyStored(ctx, sig.KeyID) && !s.KeyFetches.Allow(platform.ClientIP(ctx), time.Now()) {
+		return actors.Actor{}, reject(http.StatusTooManyRequests, "too many unknown keys from this address")
+	}
 	signer, err := s.actorForKey(ctx, sig.KeyID, false)
 	if err != nil {
 		return actors.Actor{}, reject(http.StatusUnauthorized, "signer unknown: %v", err)
@@ -142,6 +153,9 @@ func (s *Server) verifySigner(ctx context.Context, r *http.Request, sig signatur
 	}
 	if signer.Local {
 		return actors.Actor{}, reject(http.StatusUnauthorized, "%v", errBadSignature)
+	}
+	if !s.KeyFetches.Allow(platform.ClientIP(ctx), time.Now()) {
+		return actors.Actor{}, reject(http.StatusTooManyRequests, "too many failed signatures from this address")
 	}
 	signer, err = s.actorForKey(ctx, sig.KeyID, true)
 	if err != nil {

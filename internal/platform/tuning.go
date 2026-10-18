@@ -34,9 +34,13 @@ type Tuning struct {
 	DeliveryBadRequestRetries int
 	PeerInboxPerMinute        int
 	PeerInboxBurst            int
-	DeliveryWorkers           int
-	InboxWorkers              int
-	ProbeInterval             time.Duration
+	// KeyFetchesPerMinute caps, per client address, inbox requests signed by
+	// keys notid must fetch first.
+	KeyFetchesPerMinute int
+	KeyFetchesBurst     int
+	DeliveryWorkers     int
+	InboxWorkers        int
+	ProbeInterval       time.Duration
 
 	PostsPerPage      int32
 	TopDayWindow      time.Duration
@@ -107,6 +111,8 @@ func DefaultTuning() Tuning {
 		DeliveryBadRequestRetries: 5,
 		PeerInboxPerMinute:        300,
 		PeerInboxBurst:            100,
+		KeyFetchesPerMinute:       120,
+		KeyFetchesBurst:           60,
 		DeliveryWorkers:           20,
 		InboxWorkers:              10,
 		ProbeInterval:             time.Minute,

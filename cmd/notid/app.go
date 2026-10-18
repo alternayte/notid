@@ -114,6 +114,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Tuning:       t,
 		HTTP:         platform.NewGuard(cfg.FederationHTTP, t).Client(),
 		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
+		KeyFetches:   federation.NewPeerLimits(t.KeyFetchesPerMinute, t.KeyFetchesBurst),
 		Markdown:     markdown,
 	}
 	probes := &portability.Service{Pool: pool, Local: local, HTTP: fed.HTTP, Tuning: t, Log: log}
@@ -165,7 +166,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	mediaMux := http.NewServeMux()
 	mediaMux.Handle("/media/", mediaSvc.Handler())
 	mediaMux.Handle("/proxy", proxy)
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaMux, doc: api, river: rc}, nil
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: platform.WithClientIP(fed.Handler()), media: mediaMux, doc: api, river: rc}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.

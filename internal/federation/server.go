@@ -32,8 +32,11 @@ type Server struct {
 	HTTP  *http.Client
 	River *river.Client[pgx.Tx]
 	// Limits holds the per-peer inbox rate limits.
-	Limits   *PeerLimits
-	Markdown *platform.Markdown
+	Limits *PeerLimits
+	// KeyFetches limits, per client address, the inbox requests that make
+	// notid fetch a key it does not hold.
+	KeyFetches *PeerLimits
+	Markdown   *platform.Markdown
 	// WellKnown answers /.well-known/notid, the cutover probe.
 	WellKnown http.HandlerFunc
 }

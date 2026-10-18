@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -125,8 +126,9 @@ func testServer(t *testing.T, peer *fakePeer) *Server {
 		Log:    slog.New(slog.DiscardHandler),
 		Local:  actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: sealer},
 		Tuning: tuning, HTTP: peer.client(),
-		Limits:   NewPeerLimits(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
-		Markdown: platform.NewMarkdown(),
+		Limits:     NewPeerLimits(tuning.PeerInboxPerMinute, tuning.PeerInboxBurst),
+		KeyFetches: NewPeerLimits(tuning.KeyFetchesPerMinute, tuning.KeyFetchesBurst),
+		Markdown:   platform.NewMarkdown(),
 	}
 	workers := river.NewWorkers()
 	s.AddWorkers(workers)
@@ -562,5 +564,36 @@ func TestRemotePersonPostsCommentsAndVotesInALocalGroup(t *testing.T) {
 	}
 	if toOther != 3 || toOrigin != 0 {
 		t.Fatalf("announces: %d to the other follower (want the post, the reply and the Like), %d back to the origin", toOther, toOrigin)
+	}
+}
+
+func TestForgedSignaturesDoNotSpendAPeersAllowance(t *testing.T) {
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	s.Limits = NewPeerLimits(60, 2)
+	g := testGroup(t, s)
+	wrong, _ := testKey(t)
+	for range 3 {
+		if w := post(s, peer.signedBy(wrong, "/c/"+g.name+"/inbox", follow(peer, g))); w.Code != http.StatusUnauthorized {
+			t.Fatalf("forged signature: %d %s", w.Code, w.Body)
+		}
+	}
+	if w := post(s, peer.signedBy(peer.key, "/c/"+g.name+"/inbox", follow(peer, g))); w.Code != http.StatusAccepted {
+		t.Fatalf("the real peer was limited after forgeries: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestUnknownKeysFromOneAddressAreLimitedBeforeAnyFetch(t *testing.T) {
+	peer := newFakePeer(t)
+	s := testServer(t, peer)
+	s.KeyFetches = NewPeerLimits(60, 2)
+	g := testGroup(t, s)
+	codes := []int{}
+	for i := range 3 {
+		actor := "http://k" + strconv.Itoa(i) + "-" + peer.host + "/u/bob"
+		codes = append(codes, post(s, peer.signedAs(actor, peer.key, "/c/"+g.name+"/inbox", follow(peer, g))).Code)
+	}
+	if codes[2] != http.StatusTooManyRequests {
+		t.Fatalf("answers %v, want the third refused with 429", codes)
 	}
 }
