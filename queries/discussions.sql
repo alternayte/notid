@@ -379,7 +379,7 @@ WHERE id = @id AND author_id = @author_id AND deleted_at IS NULL AND removed_at 
 RETURNING *;
 
 -- name: TombstonePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE id = @id AND deleted_at IS NULL
 RETURNING *;
@@ -404,7 +404,7 @@ WHERE ap_id = @ap_id AND NOT local AND deleted_at IS NULL
 RETURNING *;
 
 -- name: TombstoneRemotePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE ap_id = @ap_id AND deleted_at IS NULL
 RETURNING *;
@@ -416,7 +416,7 @@ RETURNING *;
 
 -- A person who deleted their account takes their content with them.
 -- name: TombstonePostsOfAuthor :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = @author_id AND deleted_at IS NULL;
 

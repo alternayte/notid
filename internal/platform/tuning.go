@@ -80,10 +80,20 @@ type Tuning struct {
 	PreviewReadBytes int64
 	PreviewWorkers   int
 
-	MaxUploadBytes    int64
-	MaxImagePixels    int64
-	ImageMaxDimension int
-	JPEGQuality       int
+	MaxUploadBytes int64
+	MaxImagePixels int64
+	// DecodeMaxBytes caps the memory one decode may take, from the image
+	// header's size and pixel format; UploadDecoders decode at once.
+	DecodeMaxBytes int64
+	UploadDecoders int
+	// MediaMaxAge is how long browsers keep an uploaded image.
+	MediaMaxAge time.Duration
+	// An upload no post or banner uses is deleted after MediaGrace, checked
+	// every MediaSweepInterval.
+	MediaGrace         time.Duration
+	MediaSweepInterval time.Duration
+	ImageMaxDimension  int
+	JPEGQuality        int
 }
 
 func DefaultTuning() Tuning {
@@ -150,9 +160,14 @@ func DefaultTuning() Tuning {
 		PreviewReadBytes: 512 << 10,
 		PreviewWorkers:   4,
 
-		MaxUploadBytes:    10 << 20,
-		MaxImagePixels:    50_000_000,
-		ImageMaxDimension: 2560,
-		JPEGQuality:       85,
+		MaxUploadBytes:     10 << 20,
+		MaxImagePixels:     50_000_000,
+		DecodeMaxBytes:     384 << 20,
+		UploadDecoders:     2,
+		MediaMaxAge:        24 * time.Hour,
+		MediaGrace:         24 * time.Hour,
+		MediaSweepInterval: time.Hour,
+		ImageMaxDimension:  2560,
+		JPEGQuality:        85,
 	}
 }

@@ -88,7 +88,8 @@ func (q *Queries) DeleteOwnComments(ctx context.Context, authorID int64) error {
 }
 
 const deleteOwnPosts = `-- name: DeleteOwnPosts :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = $1 AND deleted_at IS NULL
 `
 

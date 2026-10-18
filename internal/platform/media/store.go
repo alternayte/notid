@@ -21,6 +21,8 @@ import (
 type Store interface {
 	Put(ctx context.Context, key, mime string, data []byte) error
 	Open(ctx context.Context, key string) (io.ReadCloser, error)
+	// Delete removes a file; a missing file is not an error.
+	Delete(ctx context.Context, key string) error
 }
 
 var ErrNoFile = errors.New("no media file with that key")
@@ -60,6 +62,13 @@ func (d Dir) Open(_ context.Context, key string) (io.ReadCloser, error) {
 		return nil, ErrNoFile
 	}
 	return f, err
+}
+
+func (d Dir) Delete(_ context.Context, key string) error {
+	if err := os.Remove(d.path(key)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("delete media: %w", err)
+	}
+	return nil
 }
 
 // Bucket stores media in an S3-compatible bucket.
@@ -105,4 +114,11 @@ func (b *Bucket) Open(ctx context.Context, key string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("stat %s: %w", key, err)
 	}
 	return obj, nil
+}
+
+func (b *Bucket) Delete(ctx context.Context, key string) error {
+	if err := b.client.RemoveObject(ctx, b.name, key, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("delete %s: %w", key, err)
+	}
+	return nil
 }

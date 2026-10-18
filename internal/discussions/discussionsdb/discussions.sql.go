@@ -2384,7 +2384,7 @@ func (q *Queries) TombstoneCommentsOfAuthor(ctx context.Context, authorID int64)
 }
 
 const tombstonePost = `-- name: TombstonePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
@@ -2431,7 +2431,7 @@ func (q *Queries) TombstonePost(ctx context.Context, id int64) (Post, error) {
 }
 
 const tombstonePostsOfAuthor = `-- name: TombstonePostsOfAuthor :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = $1 AND deleted_at IS NULL
 `
@@ -2477,7 +2477,7 @@ func (q *Queries) TombstoneRemoteComment(ctx context.Context, apID string) (Comm
 }
 
 const tombstoneRemotePost = `-- name: TombstoneRemotePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
     preview_title = '', preview_description = '', preview_image = ''
 WHERE ap_id = $1 AND deleted_at IS NULL
 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image

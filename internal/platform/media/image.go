@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -48,7 +49,8 @@ func Process(r io.Reader, t platform.Tuning) (Image, error) {
 		return Image{}, ErrNotAnImage
 	}
 	// The header check stops decompression bombs before the full decode allocates.
-	if int64(cfg.Width)*int64(cfg.Height) > t.MaxImagePixels {
+	pixels := int64(cfg.Width) * int64(cfg.Height)
+	if pixels > t.MaxImagePixels || pixels*(bytesPerPixel(cfg.ColorModel)+4) > t.DecodeMaxBytes {
 		return Image{}, ErrTooLarge
 	}
 	img, err := imaging.Decode(bytes.NewReader(raw), imaging.AutoOrientation(true))
@@ -71,6 +73,22 @@ func Process(r io.Reader, t platform.Tuning) (Image, error) {
 	}
 	b := img.Bounds()
 	return Image{Data: out.Bytes(), Mime: mime, Width: b.Dx(), Height: b.Dy()}, nil
+}
+
+// bytesPerPixel is what a decoded pixel of the model takes in memory. The
+// decode is followed by one 4-byte-per-pixel copy for orientation or scaling.
+func bytesPerPixel(m color.Model) int64 {
+	switch m {
+	case color.RGBA64Model, color.NRGBA64Model:
+		return 8
+	case color.Gray16Model:
+		return 2
+	case color.GrayModel, color.AlphaModel:
+		return 1
+	case color.YCbCrModel:
+		return 3
+	}
+	return 4
 }
 
 func opaque(img image.Image) bool {

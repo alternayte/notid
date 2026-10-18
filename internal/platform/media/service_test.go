@@ -6,6 +6,12 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/alternayte/notid/internal/communities"
+	"github.com/alternayte/notid/internal/discussions"
+	"github.com/alternayte/notid/internal/discussions/discussionsdb"
 
 	"bytes"
 	"context"
@@ -140,5 +146,81 @@ func TestAnUploadIsCappedRefusedWhenAnonymousAndLeavesNoTempFile(t *testing.T) {
 	}
 	if left, _ := os.ReadDir(tmp); len(left) != 0 {
 		t.Fatalf("temp files left: %v", left)
+	}
+}
+
+func TestImagesOfRemovedPostsAreHiddenAndUnusedUploadsAreSwept(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	s, err := platform.NewSealer(bytes.Repeat([]byte{1}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := uploader(t, pool, s)
+	dir := t.TempDir()
+	svc := &media.Service{Pool: pool, Tuning: platform.DefaultTuning(), AppOrigin: "https://notid.test", Log: slog.New(slog.DiscardHandler), Store: media.Dir(dir)}
+	save := func() media.Media {
+		m, err := svc.Save(ctx, owner.ID, bytes.NewReader(pngBytes(t, 16, 16)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	posted, unattached, banner := save(), save(), save()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trusted := "trusted"
+	if _, err := tx.Exec(ctx, `UPDATE actors SET trust = $2 WHERE id = $1`, owner.ID, trusted); err != nil {
+		t.Fatal(err)
+	}
+	owner.Trust = &trusted
+	c, err := communities.CreateLocal(ctx, tx, actors.Local{AppOrigin: "https://notid.test", AppDomain: "notid.test", Sealer: s}, owner,
+		"m"+uuid.NewString()[:8], communities.Settings{Title: "Media", Theme: communities.Theme{Banner: banner.StorageKey}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	post, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{CommunityID: c.ID, Author: owner, Title: "Bench", URL: "https://notid.test/media/" + posted.StorageKey, MediaID: &posted.ID, Published: time.Now()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	served := func(m media.Media) int {
+		w := httptest.NewRecorder()
+		svc.Handler().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/media/"+m.StorageKey, nil))
+		return w.Code
+	}
+	if code := served(posted); code != http.StatusOK {
+		t.Fatalf("a posted image answered %d", code)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE posts SET removed_at = now() WHERE id = $1`, post.ID); err != nil {
+		t.Fatal(err)
+	}
+	if code := served(posted); code != http.StatusNotFound {
+		t.Fatalf("the image of a removed post answered %d", code)
+	}
+	if _, err := discussionsdb.New(pool).TombstonePost(ctx, post.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Only this owner's uploads pass the grace time, so other tests' fresh uploads stay.
+	if _, err := pool.Exec(ctx, `UPDATE media SET created_at = now() - interval '2 days' WHERE owner_id = $1`, owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Sweep(ctx, time.Now().Add(-svc.Tuning.MediaGrace)); err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range []media.Media{posted, unattached} {
+		if _, err := media.Owned(ctx, pool, m.StorageKey, owner.ID); !errors.Is(err, media.ErrNotYours) {
+			t.Fatalf("unused upload %s kept its row: %v", m.StorageKey, err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, m.StorageKey[:2], m.StorageKey)); !os.IsNotExist(err) {
+			t.Fatalf("unused upload %s kept its file: %v", m.StorageKey, err)
+		}
+	}
+	if code := served(banner); code != http.StatusOK {
+		t.Fatalf("a banner in use answered %d after the sweep", code)
 	}
 }

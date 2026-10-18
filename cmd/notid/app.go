@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/alternayte/auth-all/humaauth"
 	"github.com/danielgtaylor/huma/v2"
@@ -123,14 +124,16 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	fed.AddWorkers(workers)
 	probes.AddWorkers(workers)
 	accountsSvc.AddWorkers(workers)
+	mediaSvc.AddWorkers(workers)
 	discussionsSvc.AddWorkers(workers)
 	rcfg := &river.Config{Workers: workers, Logger: log}
 	if work {
 		rcfg.Queues = fed.Queues()
 		maps.Copy(rcfg.Queues, probes.Queues())
 		maps.Copy(rcfg.Queues, accountsSvc.Queues())
+		maps.Copy(rcfg.Queues, mediaSvc.Queues())
 		maps.Copy(rcfg.Queues, discussionsSvc.Queues())
-		rcfg.PeriodicJobs = append(probes.PeriodicJobs(), accountsSvc.PeriodicJobs()...)
+		rcfg.PeriodicJobs = slices.Concat(probes.PeriodicJobs(), accountsSvc.PeriodicJobs(), mediaSvc.PeriodicJobs())
 	}
 	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
 	if err != nil {

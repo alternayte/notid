@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
@@ -33,6 +34,9 @@ type Service struct {
 	Tuning    platform.Tuning
 	AppOrigin string
 	Log       *slog.Logger
+
+	decodeOnce  sync.Once
+	decodeSlots chan struct{}
 }
 
 // keyPattern is the only shape a storage key has; checking it keeps request
@@ -68,13 +72,23 @@ func Owned(ctx context.Context, db mediadb.DBTX, key string, ownerID int64) (Med
 // ErrQuota is returned when an upload would pass the owner's total allowance.
 var ErrQuota = errors.New("your upload allowance is full")
 
-// Save processes an upload, stores the file and records it for owner.
+// Save processes an upload, stores the file and records it for owner. The
+// owner's uploads are serialised, so parallel uploads cannot pass the allowance.
 func (s *Service) Save(ctx context.Context, ownerID int64, r io.Reader) (Media, error) {
-	img, err := Process(r, s.Tuning)
+	img, err := s.process(ctx, r)
 	if err != nil {
 		return Media{}, err
 	}
-	used, err := mediadb.New(s.Pool).OwnerBytes(ctx, ownerID)
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return Media{}, fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	q := mediadb.New(tx)
+	if err := q.LockOwnerUploads(ctx, ownerID); err != nil {
+		return Media{}, fmt.Errorf("lock uploads: %w", err)
+	}
+	used, err := q.OwnerBytes(ctx, ownerID)
 	if err != nil {
 		return Media{}, fmt.Errorf("upload allowance: %w", err)
 	}
@@ -86,14 +100,33 @@ func (s *Service) Save(ctx context.Context, ownerID int64, r io.Reader) (Media, 
 		return Media{}, err
 	}
 	sum := sha256.Sum256(img.Data)
-	m, err := mediadb.New(s.Pool).InsertMedia(ctx, mediadb.InsertMediaParams{
+	m, err := q.InsertMedia(ctx, mediadb.InsertMediaParams{
 		OwnerID: ownerID, StorageKey: key, Mime: img.Mime, Bytes: int64(len(img.Data)), Sha256: sum[:],
 		Width: int32(img.Width), Height: int32(img.Height),
 	})
+	if err == nil {
+		err = tx.Commit(ctx)
+	}
 	if err != nil {
+		if derr := s.Store.Delete(context.WithoutCancel(ctx), key); derr != nil {
+			s.Log.WarnContext(ctx, "orphan media file", "key", key, "err", derr)
+		}
 		return Media{}, fmt.Errorf("record media: %w", err)
 	}
 	return m, nil
+}
+
+// process decodes and re-encodes an upload. Decoding is the costly step, so
+// only a few run at once.
+func (s *Service) process(ctx context.Context, r io.Reader) (Image, error) {
+	s.decodeOnce.Do(func() { s.decodeSlots = make(chan struct{}, max(1, s.Tuning.UploadDecoders)) })
+	select {
+	case s.decodeSlots <- struct{}{}:
+	case <-ctx.Done():
+		return Image{}, ctx.Err()
+	}
+	defer func() { <-s.decodeSlots }()
+	return Process(r, s.Tuning)
 }
 
 type Uploaded struct {
@@ -140,7 +173,8 @@ func (s *Service) Register(api huma.API) {
 	})
 }
 
-// Handler serves /media/{key}. Files never change, so they cache for a year.
+// Handler serves /media/{key}. A file never changes, but a moderator can hide
+// it, so browsers keep it for a day only.
 func (s *Service) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key, ok := strings.CutPrefix(r.URL.Path, "/media/")
@@ -148,8 +182,8 @@ func (s *Service) Handler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		m, err := mediadb.New(s.Pool).MediaByKey(r.Context(), key)
-		if errors.Is(err, pgx.ErrNoRows) {
+		m, err := mediadb.New(s.Pool).MediaToServe(r.Context(), key)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && m.Hidden) {
 			http.NotFound(w, r)
 			return
 		}
@@ -172,7 +206,7 @@ func (s *Service) Handler() http.Handler {
 		h := w.Header()
 		h.Set("Content-Type", m.Mime)
 		h.Set("Content-Length", strconv.FormatInt(m.Bytes, 10))
-		h.Set("Cache-Control", "public, max-age=31536000, immutable")
+		h.Set("Cache-Control", "public, max-age="+strconv.Itoa(int(s.Tuning.MediaMaxAge.Seconds())))
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
 		if r.Method == http.MethodHead {

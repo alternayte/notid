@@ -27,7 +27,8 @@ LIMIT 1;
 
 -- Deletion tombstones the content so the threads it joined stay readable.
 -- name: DeleteOwnPosts :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false, media_id = NULL,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = @author_id AND deleted_at IS NULL;
 
 -- name: DeleteOwnComments :exec

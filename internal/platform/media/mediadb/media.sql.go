@@ -7,7 +7,48 @@ package mediadb
 
 import (
 	"context"
+	"time"
 )
+
+const deleteUnusedMedia = `-- name: DeleteUnusedMedia :many
+DELETE FROM media m
+WHERE m.id IN (
+    SELECT u.id FROM media u
+    WHERE u.created_at < $1
+      AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.media_id = u.id)
+      AND NOT EXISTS (SELECT 1 FROM communities c WHERE c.theme->>'banner' = u.storage_key)
+    ORDER BY u.id
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING m.storage_key
+`
+
+type DeleteUnusedMediaParams struct {
+	Before time.Time
+	Lim    int32
+}
+
+// Uploads that no post and no community banner uses, once their grace time has passed.
+func (q *Queries) DeleteUnusedMedia(ctx context.Context, arg DeleteUnusedMediaParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteUnusedMedia, arg.Before, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var storage_key string
+		if err := rows.Scan(&storage_key); err != nil {
+			return nil, err
+		}
+		items = append(items, storage_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const insertMedia = `-- name: InsertMedia :one
 INSERT INTO media (owner_id, storage_key, mime, bytes, sha256, width, height)
@@ -50,6 +91,15 @@ func (q *Queries) InsertMedia(ctx context.Context, arg InsertMediaParams) (Mediu
 	return i, err
 }
 
+const lockOwnerUploads = `-- name: LockOwnerUploads :exec
+SELECT pg_advisory_xact_lock($1::bigint)
+`
+
+func (q *Queries) LockOwnerUploads(ctx context.Context, ownerID int64) error {
+	_, err := q.db.Exec(ctx, lockOwnerUploads, ownerID)
+	return err
+}
+
 const mediaByKey = `-- name: MediaByKey :one
 SELECT id, owner_id, storage_key, mime, bytes, sha256, width, height, created_at FROM media WHERE storage_key = $1
 `
@@ -67,6 +117,45 @@ func (q *Queries) MediaByKey(ctx context.Context, storageKey string) (Medium, er
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const mediaToServe = `-- name: MediaToServe :one
+SELECT m.id, m.owner_id, m.storage_key, m.mime, m.bytes, m.sha256, m.width, m.height, m.created_at,
+    (EXISTS (SELECT 1 FROM posts p WHERE p.media_id = m.id)
+     AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.media_id = m.id AND p.removed_at IS NULL))::boolean AS hidden
+FROM media m WHERE m.storage_key = $1
+`
+
+type MediaToServeRow struct {
+	ID         int64
+	OwnerID    int64
+	StorageKey string
+	Mime       string
+	Bytes      int64
+	Sha256     []byte
+	Width      int32
+	Height     int32
+	CreatedAt  time.Time
+	Hidden     bool
+}
+
+// An image only removed posts use is not served; the file stays so a restore works.
+func (q *Queries) MediaToServe(ctx context.Context, storageKey string) (MediaToServeRow, error) {
+	row := q.db.QueryRow(ctx, mediaToServe, storageKey)
+	var i MediaToServeRow
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.StorageKey,
+		&i.Mime,
+		&i.Bytes,
+		&i.Sha256,
+		&i.Width,
+		&i.Height,
+		&i.CreatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
