@@ -8,6 +8,8 @@ package moderationdb
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const activeBan = `-- name: ActiveBan :one
@@ -249,6 +251,41 @@ func (q *Queries) InsertReport(ctx context.Context, arg InsertReportParams) (Rep
 	return i, err
 }
 
+const moderationCounts = `-- name: ModerationCounts :many
+SELECT action,
+    count(*)::int AS total,
+    count(*) FILTER (WHERE created_at >= now() - $1::interval)::int AS recent
+FROM moderation_log
+GROUP BY action
+ORDER BY action
+`
+
+type ModerationCountsRow struct {
+	Action string
+	Total  int32
+	Recent int32
+}
+
+func (q *Queries) ModerationCounts(ctx context.Context, since pgtype.Interval) ([]ModerationCountsRow, error) {
+	rows, err := q.db.Query(ctx, moderationCounts, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ModerationCountsRow
+	for rows.Next() {
+		var i ModerationCountsRow
+		if err := rows.Scan(&i.Action, &i.Total, &i.Recent); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const moderationLog = `-- name: ModerationLog :many
 SELECT
     l.id, l.action, l.reason, l.expires_at, l.created_at, l.target_ap_id,
@@ -446,6 +483,40 @@ func (q *Queries) ReportCommunity(ctx context.Context, id int64) (int64, error) 
 	var community_id int64
 	err := row.Scan(&community_id)
 	return community_id, err
+}
+
+const reportCounts = `-- name: ReportCounts :one
+SELECT
+    count(*)::int AS filed,
+    count(*) FILTER (WHERE state = 'upheld')::int AS upheld,
+    count(*) FILTER (WHERE state = 'dismissed')::int AS dismissed,
+    count(*) FILTER (WHERE created_at >= now() - $1::interval)::int AS filed_recent,
+    count(*) FILTER (WHERE state = 'upheld' AND resolved_at >= now() - $1::interval)::int AS upheld_recent,
+    count(*) FILTER (WHERE state = 'dismissed' AND resolved_at >= now() - $1::interval)::int AS dismissed_recent
+FROM reports
+`
+
+type ReportCountsRow struct {
+	Filed           int32
+	Upheld          int32
+	Dismissed       int32
+	FiledRecent     int32
+	UpheldRecent    int32
+	DismissedRecent int32
+}
+
+func (q *Queries) ReportCounts(ctx context.Context, since pgtype.Interval) (ReportCountsRow, error) {
+	row := q.db.QueryRow(ctx, reportCounts, since)
+	var i ReportCountsRow
+	err := row.Scan(
+		&i.Filed,
+		&i.Upheld,
+		&i.Dismissed,
+		&i.FiledRecent,
+		&i.UpheldRecent,
+		&i.DismissedRecent,
+	)
+	return i, err
 }
 
 const reportForModeration = `-- name: ReportForModeration :one

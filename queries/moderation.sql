@@ -150,3 +150,21 @@ LIMIT @lim;
 -- name: ActorIDByHandle :one
 SELECT id FROM actors
 WHERE domain = @domain AND lower(name) = lower(@name) AND deleted_at IS NULL AND kind = 'person';
+
+-- name: ModerationCounts :many
+SELECT action,
+    count(*)::int AS total,
+    count(*) FILTER (WHERE created_at >= now() - @since::interval)::int AS recent
+FROM moderation_log
+GROUP BY action
+ORDER BY action;
+
+-- name: ReportCounts :one
+SELECT
+    count(*)::int AS filed,
+    count(*) FILTER (WHERE state = 'upheld')::int AS upheld,
+    count(*) FILTER (WHERE state = 'dismissed')::int AS dismissed,
+    count(*) FILTER (WHERE created_at >= now() - @since::interval)::int AS filed_recent,
+    count(*) FILTER (WHERE state = 'upheld' AND resolved_at >= now() - @since::interval)::int AS upheld_recent,
+    count(*) FILTER (WHERE state = 'dismissed' AND resolved_at >= now() - @since::interval)::int AS dismissed_recent
+FROM reports;

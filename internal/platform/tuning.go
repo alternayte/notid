@@ -56,6 +56,8 @@ type Tuning struct {
 	NewRemoteWritesPerDay int
 	InvitesPerTrustedUser int
 	UploadQuotaBytes      int64
+	// TransparencyWindow is the recent window the public counts report.
+	TransparencyWindow time.Duration
 
 	MaxUploadBytes    int64
 	MaxImagePixels    int64
@@ -113,6 +115,7 @@ func DefaultTuning() Tuning {
 		NewRemoteWritesPerDay: 3,
 		InvitesPerTrustedUser: 3,
 		UploadQuotaBytes:      100 << 20,
+		TransparencyWindow:    30 * 24 * time.Hour,
 
 		MaxUploadBytes:    10 << 20,
 		MaxImagePixels:    50_000_000,

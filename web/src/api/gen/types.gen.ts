@@ -154,6 +154,19 @@ export type CommentView = {
     viewer: Viewer;
 };
 
+export type Counts = {
+    /**
+     * Community and site bans
+     */
+    bans: number;
+    commentsRemoved: number;
+    postsLocked: number;
+    postsRemoved: number;
+    reportsDismissed: number;
+    reportsFiled: number;
+    reportsUpheld: number;
+};
+
 export type CreateBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -850,6 +863,18 @@ export type ThreadView = {
     truncated: boolean;
 };
 
+export type Transparency = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    allTime: Counts;
+    /**
+     * The transparency window, 30 days
+     */
+    recent: Counts;
+};
+
 export type TrustBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -1320,6 +1345,14 @@ export type ThreadViewWritable = {
     truncated: boolean;
 };
 
+export type TransparencyWritable = {
+    allTime: Counts;
+    /**
+     * The transparency window, 30 days
+     */
+    recent: Counts;
+};
+
 export type TrustBodyWritable = {
     /**
      * true promotes the person, false demotes them
@@ -1347,6 +1380,31 @@ export type VoteBodyWritable = {
      */
     value: -1 | 0 | 1;
 };
+
+export type AboutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/about';
+};
+
+export type AboutErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type AboutError = AboutErrors[keyof AboutErrors];
+
+export type AboutResponses = {
+    /**
+     * OK
+     */
+    200: Transparency;
+};
+
+export type AboutResponse = AboutResponses[keyof AboutResponses];
 
 export type SiteBansData = {
     body?: never;

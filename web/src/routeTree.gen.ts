@@ -18,6 +18,9 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpecimenRouteImport } from './routes/specimen'
 import { Route as SubmitRouteImport } from './routes/submit'
+import { Route as AboutFederationRouteImport } from './routes/about.federation'
+import { Route as AboutFeedsRouteImport } from './routes/about.feeds'
+import { Route as AboutModerationRouteImport } from './routes/about.moderation'
 import { Route as CHandleRouteImport } from './routes/c.$handle'
 import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
@@ -72,6 +75,21 @@ const SubmitRoute = SubmitRouteImport.update({
   path: '/submit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutFederationRoute = AboutFederationRouteImport.update({
+  id: '/about/federation',
+  path: '/about/federation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutFeedsRoute = AboutFeedsRouteImport.update({
+  id: '/about/feeds',
+  path: '/about/feeds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutModerationRoute = AboutModerationRouteImport.update({
+  id: '/about/moderation',
+  path: '/about/moderation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CHandleRoute = CHandleRouteImport.update({
   id: '/c/$handle',
   path: '/c/$handle',
@@ -123,6 +141,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
+  '/about/federation': typeof AboutFederationRoute
+  '/about/feeds': typeof AboutFeedsRoute
+  '/about/moderation': typeof AboutModerationRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
@@ -142,6 +163,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
+  '/about/federation': typeof AboutFederationRoute
+  '/about/feeds': typeof AboutFeedsRoute
+  '/about/moderation': typeof AboutModerationRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
@@ -162,6 +186,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/specimen': typeof SpecimenRoute
   '/submit': typeof SubmitRoute
+  '/about/federation': typeof AboutFederationRoute
+  '/about/feeds': typeof AboutFeedsRoute
+  '/about/moderation': typeof AboutModerationRoute
   '/c/$handle': typeof CHandleRoute
   '/communities/new': typeof CommunitiesNewRoute
   '/login_/verify': typeof LoginVerifyRoute
@@ -183,6 +210,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/specimen'
     | '/submit'
+    | '/about/federation'
+    | '/about/feeds'
+    | '/about/moderation'
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
@@ -202,6 +232,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/specimen'
     | '/submit'
+    | '/about/federation'
+    | '/about/feeds'
+    | '/about/moderation'
     | '/c/$handle'
     | '/communities/new'
     | '/login/verify'
@@ -221,6 +254,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/specimen'
     | '/submit'
+    | '/about/federation'
+    | '/about/feeds'
+    | '/about/moderation'
     | '/c/$handle'
     | '/communities/new'
     | '/login_/verify'
@@ -241,6 +277,9 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SpecimenRoute: typeof SpecimenRoute
   SubmitRoute: typeof SubmitRoute
+  AboutFederationRoute: typeof AboutFederationRoute
+  AboutFeedsRoute: typeof AboutFeedsRoute
+  AboutModerationRoute: typeof AboutModerationRoute
   CHandleRoute: typeof CHandleRoute
   CommunitiesNewRoute: typeof CommunitiesNewRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
@@ -316,6 +355,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubmitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about/federation': {
+      id: '/about/federation'
+      path: '/about/federation'
+      fullPath: '/about/federation'
+      preLoaderRoute: typeof AboutFederationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about/feeds': {
+      id: '/about/feeds'
+      path: '/about/feeds'
+      fullPath: '/about/feeds'
+      preLoaderRoute: typeof AboutFeedsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about/moderation': {
+      id: '/about/moderation'
+      path: '/about/moderation'
+      fullPath: '/about/moderation'
+      preLoaderRoute: typeof AboutModerationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$handle': {
       id: '/c/$handle'
       path: '/c/$handle'
@@ -385,6 +445,9 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SpecimenRoute: SpecimenRoute,
   SubmitRoute: SubmitRoute,
+  AboutFederationRoute: AboutFederationRoute,
+  AboutFeedsRoute: AboutFeedsRoute,
+  AboutModerationRoute: AboutModerationRoute,
   CHandleRoute: CHandleRoute,
   CommunitiesNewRoute: CommunitiesNewRoute,
   LoginVerifyRoute: LoginVerifyRoute,

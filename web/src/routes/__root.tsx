@@ -45,7 +45,18 @@ function Layout() {
       </div>
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-(--container-page) flex-wrap items-center justify-between gap-4 px-5 py-6 font-sans text-xs text-ink-faint sm:px-8">
-          <span>Open Communities is free software under the AGPL-3.0.</span>
+          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+            <span>Open Communities is free software under the AGPL-3.0.</span>
+            <Link to="/about/feeds" className="font-semibold text-ink-soft hover:text-ink">
+              Feeds
+            </Link>
+            <Link to="/about/moderation" className="font-semibold text-ink-soft hover:text-ink">
+              Moderation
+            </Link>
+            <Link to="/about/federation" className="font-semibold text-ink-soft hover:text-ink">
+              Federation
+            </Link>
+          </div>
           <ThemeSwitch />
         </div>
       </footer>

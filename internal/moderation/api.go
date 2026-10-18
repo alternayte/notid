@@ -217,6 +217,16 @@ func (s *Service) Register(api huma.API) {
 		entries, err := s.Log(ctx, in.Handle)
 		return &struct{ Body logOut }{logOut{Entries: entries}}, apiError(err)
 	})
+	huma.Register(api, huma.Operation{
+		OperationID: "about", Method: http.MethodGet, Path: "/api/about",
+		Summary: "Read the public moderation counts", Tags: []string{"about"},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body Transparency }, error) {
+		t, err := s.PublicCounts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &struct{ Body Transparency }{t}, nil
+	})
 	s.registerSiteAdmin(api)
 }
 

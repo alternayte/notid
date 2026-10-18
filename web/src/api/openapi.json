@@ -390,6 +390,50 @@
         ],
         "type": "object"
       },
+      "Counts": {
+        "additionalProperties": false,
+        "properties": {
+          "bans": {
+            "description": "Community and site bans",
+            "format": "int64",
+            "type": "integer"
+          },
+          "commentsRemoved": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "postsLocked": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "postsRemoved": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reportsDismissed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reportsFiled": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reportsUpheld": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "postsRemoved",
+          "commentsRemoved",
+          "postsLocked",
+          "bans",
+          "reportsFiled",
+          "reportsUpheld",
+          "reportsDismissed"
+        ],
+        "type": "object"
+      },
       "CreateBody": {
         "additionalProperties": false,
         "properties": {
@@ -2016,6 +2060,32 @@
         ],
         "type": "object"
       },
+      "Transparency": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/Transparency.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "allTime": {
+            "$ref": "#/components/schemas/Counts"
+          },
+          "recent": {
+            "$ref": "#/components/schemas/Counts",
+            "description": "The transparency window, 30 days"
+          }
+        },
+        "required": [
+          "allTime",
+          "recent"
+        ],
+        "type": "object"
+      },
       "TrustBody": {
         "additionalProperties": false,
         "properties": {
@@ -2184,6 +2254,37 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/about": {
+      "get": {
+        "operationId": "about",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transparency"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Read the public moderation counts",
+        "tags": [
+          "about"
+        ]
+      }
+    },
     "/api/admin/bans": {
       "get": {
         "operationId": "siteBans",
