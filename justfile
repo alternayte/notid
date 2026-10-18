@@ -48,6 +48,15 @@ check: db
       (cd web && bun run --silent typecheck && bun run --silent lint && bun run --silent test)
     fi
 
+# Run the web dev server on every interface and print its tailnet URL, for a phone on Tailscale.
+web-dev-tailnet port="3002":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ts=$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)
+    ip=$("$ts" ip -4 2>/dev/null | head -n1 || true)
+    echo "Open http://${ip:-<tailscale-ip>}:{{port}}/ on any device in the tailnet."
+    cd web && bun --bun vite dev --port {{port}} --strictPort --host 0.0.0.0
+
 # Full suite with the race detector, and every web test.
 test: db
     go test -race -count=1 ./...

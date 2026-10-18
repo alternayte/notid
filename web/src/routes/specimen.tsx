@@ -257,54 +257,10 @@ function Swatches() {
   )
 }
 
-const typeSets = [
-  { value: 'geist', label: 'Geist', note: 'Geist and Geist Mono, as on /dev/null and Vercel' },
-  { value: 'inter', label: 'Inter', note: 'Inter with optical sizes, as on Bluesky' },
-  { value: 'bricolage', label: 'Bricolage', note: 'Bricolage Grotesque headlines over Inter text' },
-  { value: 'newsprint', label: 'Newsprint', note: 'Newsreader and Source Sans 3, the first proposal' },
-] as const
-
-function TypeSwitch() {
-  const [type, setType] = useState('geist')
-  useEffect(() => {
-    const saved = localStorage.getItem('oc-type')
-    if (saved) setType(saved)
-  }, [])
-  useEffect(() => {
-    document.documentElement.dataset.type = type
-    localStorage.setItem('oc-type', type)
-  }, [type])
-  const current = typeSets.find((t) => t.value === type)
-  return (
-    <div className="flex flex-col gap-2">
-      <fieldset className="m-0 flex w-fit flex-wrap rounded-pill border border-rule p-0.5 font-sans text-sm">
-        <legend className="sr-only">Type set</legend>
-        {typeSets.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            aria-pressed={type === t.value}
-            onClick={() => setType(t.value)}
-            className={
-              type === t.value
-                ? 'rounded-pill bg-ink px-4 py-1.5 font-semibold text-paper'
-                : 'rounded-pill px-4 py-1.5 font-semibold text-ink-soft hover:text-ink'
-            }
-          >
-            {t.label}
-          </button>
-        ))}
-      </fieldset>
-      <p className="font-sans text-xs text-ink-faint">{current?.note}</p>
-    </div>
-  )
-}
-
 function TypeScale() {
   return (
     <section aria-labelledby="type" className="flex flex-col gap-4">
-      <SectionTitle id="type">Type · major third on 17 px</SectionTitle>
-      <TypeSwitch />
+      <SectionTitle id="type">Type · Bricolage Grotesque and Inter, major third on 17 px</SectionTitle>
       <div className="flex flex-col gap-3">
         <p className="font-display text-4xl tracking-tight">Communities that can leave</p>
         <p className="font-display text-2xl tracking-tight">Headlines set tight, in the display face</p>

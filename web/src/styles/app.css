@@ -1,49 +1,8 @@
-/* Direction: a broadsheet's opinion pages on warm newsprint — Newsreader headlines over hairline column rules, ink-black type, and one proofreader's vermilion reserved for marks and actions. */
+/* Direction: a broadsheet's opinion pages reset for a phone — Bricolage Grotesque headlines over hairline column rules on warm newsprint, Inter for reading and furniture, and one proofreader's vermilion reserved for marks and actions. */
 
 @import "tailwindcss";
-@import "@fontsource-variable/newsreader/opsz.css";
-@import "@fontsource-variable/newsreader/opsz-italic.css";
-@import "@fontsource-variable/source-sans-3/wght.css";
-@import "@fontsource-variable/geist/wght.css";
-@import "@fontsource-variable/geist-mono/wght.css";
-@import "@fontsource-variable/inter/opsz.css";
 @import "@fontsource-variable/bricolage-grotesque/index.css";
-
-/* Type sets under review at GATE 2. Each sets the display face (headlines),
-   the text face (reading), the furniture face (labels, buttons) and figures. */
-:root,
-:root[data-type="geist"] {
-  --type-display: "Geist Variable", system-ui, sans-serif;
-  --type-text: "Geist Variable", system-ui, sans-serif;
-  --type-ui: "Geist Variable", system-ui, sans-serif;
-  --type-mono: "Geist Mono Variable", ui-monospace, monospace;
-  --type-display-tracking: -0.025em;
-  --type-display-weight: 600;
-}
-:root[data-type="inter"] {
-  --type-display: "Inter Variable", system-ui, sans-serif;
-  --type-text: "Inter Variable", system-ui, sans-serif;
-  --type-ui: "Inter Variable", system-ui, sans-serif;
-  --type-mono: ui-monospace, "SF Mono", Menlo, monospace;
-  --type-display-tracking: -0.022em;
-  --type-display-weight: 650;
-}
-:root[data-type="bricolage"] {
-  --type-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
-  --type-text: "Inter Variable", system-ui, sans-serif;
-  --type-ui: "Inter Variable", system-ui, sans-serif;
-  --type-mono: ui-monospace, "SF Mono", Menlo, monospace;
-  --type-display-tracking: -0.02em;
-  --type-display-weight: 650;
-}
-:root[data-type="newsprint"] {
-  --type-display: "Newsreader Variable", Georgia, serif;
-  --type-text: "Newsreader Variable", Georgia, serif;
-  --type-ui: "Source Sans 3 Variable", Arial, sans-serif;
-  --type-mono: "Source Sans 3 Variable", Arial, sans-serif;
-  --type-display-tracking: -0.012em;
-  --type-display-weight: 600;
-}
+@import "@fontsource-variable/inter/opsz.css";
 
 /* Colour. Light is the paper by day; dark is the same paper under a reading lamp. */
 :root {
@@ -139,14 +98,14 @@
   --color-focus: var(--focus);
 }
 
-/* Type: a major-third scale (1.25) on a 17px reading size. Newsreader sets
-   headlines and reading text; Source Sans 3 sets the furniture: kickers,
-   bylines, buttons, counts. */
+/* Type: a major-third scale (1.25) on a 17px reading size. Bricolage
+   Grotesque sets headlines; Inter sets reading text and the furniture:
+   kickers, bylines, buttons, counts. */
 @theme {
-  --font-display: var(--type-display);
-  --font-serif: var(--type-text);
-  --font-sans: var(--type-ui);
-  --font-mono: var(--type-mono);
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  --font-serif: "Inter Variable", system-ui, sans-serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
   --text-2xs: 0.694rem;
   --text-2xs--line-height: 1rem;
@@ -168,7 +127,7 @@
   --text-4xl--line-height: 3.3rem;
 
   --tracking-kicker: 0.08em;
-  --tracking-tight: var(--type-display-tracking);
+  --tracking-tight: -0.02em;
 
   /* Space: a 4px unit; layout moves in 8px steps; the column is a reading measure. */
   --spacing: 0.25rem;
@@ -182,7 +141,7 @@
 
 @layer base {
   .font-display {
-    font-weight: var(--type-display-weight);
+    font-weight: 650;
   }
 
   html {
@@ -221,10 +180,9 @@
 /* Long-form text rendered from Markdown by the Go renderer. */
 @layer components {
   .prose-news {
-    font-family: var(--type-text);
+    font-family: var(--font-serif);
     font-size: var(--text-base);
     line-height: 1.65;
-    font-variation-settings: "opsz" 16;
     max-width: var(--container-measure);
   }
   .prose-news > * + * {
