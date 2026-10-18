@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, community, communityPosts, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, homeFeed, leaveCommunity, listApiKeys, listSessions, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, signOut, signUp, signupMode, thread, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
-import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, ThreadData, ThreadError, ThreadResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
+import { adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, banActor, community, communityPosts, createApiKey, createComment, createCommunity, createPost, discoverCommunities, followCommunity, getSession, homeFeed, leaveCommunity, listApiKeys, listSessions, lockPost, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, moderationLog, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, removeObject, reportObject, reportQueue, resolveReport, restoreObject, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, signOut, signUp, signupMode, thread, unbanActor, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
+import type { AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, BanActorData, BanActorError, BanActorResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreatePostData, CreatePostError, CreatePostResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LockPostData, LockPostError, LockPostResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, ModerationLogData, ModerationLogError, ModerationLogResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, RemoveObjectData, RemoveObjectError, RemoveObjectResponse, ReportObjectData, ReportObjectError, ReportObjectResponse, ReportQueueData, ReportQueueError, ReportQueueResponse, ResolveReportData, ResolveReportError, ResolveReportResponse, RestoreObjectData, RestoreObjectError, RestoreObjectResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, ThreadData, ThreadError, ThreadResponse, UnbanActorData, UnbanActorError, UnbanActorResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -536,6 +536,24 @@ export const updateCommunityMutation = (options?: Partial<Options<UpdateCommunit
     return mutationOptions;
 };
 
+export const moderationLogQueryKey = (options: Options<ModerationLogData>) => createQueryKey('moderationLog', options);
+
+/**
+ * Read a community's public moderation log, newest first
+ */
+export const moderationLogOptions = (options: Options<ModerationLogData>) => queryOptions<ModerationLogResponse, ModerationLogError, ModerationLogResponse, ReturnType<typeof moderationLogQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await moderationLog({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: moderationLogQueryKey(options)
+});
+
 export const communityPostsQueryKey = (options: Options<CommunityPostsData>) => createQueryKey('communityPosts', options);
 
 /**
@@ -582,6 +600,41 @@ export const communityPostsInfiniteOptions = (options: Options<CommunityPostsDat
         queryKey: communityPostsInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const reportQueueQueryKey = (options: Options<ReportQueueData>) => createQueryKey('reportQueue', options);
+
+/**
+ * List a community's open reports for its moderators
+ */
+export const reportQueueOptions = (options: Options<ReportQueueData>) => queryOptions<ReportQueueResponse, ReportQueueError, ReportQueueResponse, ReturnType<typeof reportQueueQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await reportQueue({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: reportQueueQueryKey(options)
+});
+
+/**
+ * Close a report as upheld or dismissed
+ */
+export const resolveReportMutation = (options?: Partial<Options<ResolveReportData>>): UseMutationOptions<ResolveReportResponse, ResolveReportError, Options<ResolveReportData>> => {
+    const mutationOptions: UseMutationOptions<ResolveReportResponse, ResolveReportError, Options<ResolveReportData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await resolveReport({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 export const homeFeedQueryKey = (options?: Options<HomeFeedData>) => createQueryKey('homeFeed', options);
@@ -767,6 +820,91 @@ export const uploadImageMutation = (options?: Partial<Options<UploadImageData>>)
     return mutationOptions;
 };
 
+/**
+ * Ban a person from a community, for a number of days or until lifted
+ */
+export const banActorMutation = (options?: Partial<Options<BanActorData>>): UseMutationOptions<BanActorResponse, BanActorError, Options<BanActorData>> => {
+    const mutationOptions: UseMutationOptions<BanActorResponse, BanActorError, Options<BanActorData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await banActor({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Lock or unlock replies to a post
+ */
+export const lockPostMutation = (options?: Partial<Options<LockPostData>>): UseMutationOptions<LockPostResponse, LockPostError, Options<LockPostData>> => {
+    const mutationOptions: UseMutationOptions<LockPostResponse, LockPostError, Options<LockPostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await lockPost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a post or a comment from a community, and record it in the moderation log
+ */
+export const removeObjectMutation = (options?: Partial<Options<RemoveObjectData>>): UseMutationOptions<RemoveObjectResponse, RemoveObjectError, Options<RemoveObjectData>> => {
+    const mutationOptions: UseMutationOptions<RemoveObjectResponse, RemoveObjectError, Options<RemoveObjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeObject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Restore a removed post or comment
+ */
+export const restoreObjectMutation = (options?: Partial<Options<RestoreObjectData>>): UseMutationOptions<RestoreObjectResponse, RestoreObjectError, Options<RestoreObjectData>> => {
+    const mutationOptions: UseMutationOptions<RestoreObjectResponse, RestoreObjectError, Options<RestoreObjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreObject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Lift a ban
+ */
+export const unbanActorMutation = (options?: Partial<Options<UnbanActorData>>): UseMutationOptions<UnbanActorResponse, UnbanActorError, Options<UnbanActorData>> => {
+    const mutationOptions: UseMutationOptions<UnbanActorResponse, UnbanActorError, Options<UnbanActorData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await unbanActor({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const personQueryKey = (options: Options<PersonData>) => createQueryKey('person', options);
 
 /**
@@ -915,6 +1053,23 @@ export const threadOptions = (options: Options<ThreadData>) => queryOptions<Thre
     },
     queryKey: threadQueryKey(options)
 });
+
+/**
+ * Report a post or a comment to its community's moderators
+ */
+export const reportObjectMutation = (options?: Partial<Options<ReportObjectData>>): UseMutationOptions<ReportObjectResponse, ReportObjectError, Options<ReportObjectData>> => {
+    const mutationOptions: UseMutationOptions<ReportObjectResponse, ReportObjectError, Options<ReportObjectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reportObject({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Save or unsave a post or a comment

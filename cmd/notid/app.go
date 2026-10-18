@@ -22,6 +22,7 @@ import (
 	"github.com/alternayte/notid/internal/communities"
 	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/federation"
+	"github.com/alternayte/notid/internal/moderation"
 	"github.com/alternayte/notid/internal/platform"
 	"github.com/alternayte/notid/internal/platform/media"
 	"github.com/alternayte/notid/internal/portability"
@@ -36,6 +37,7 @@ type app struct {
 	api        http.Handler
 	federation http.Handler
 	media      http.Handler
+	moderation *moderation.Service
 	doc        huma.API
 	river      *river.Client[pgx.Tx]
 }
@@ -93,6 +95,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	}
 	mediaSvc := &media.Service{Pool: pool, Store: store, Tuning: t, AppOrigin: cfg.AppOrigin, Log: log}
 	mediaSvc.Register(api)
+	moderationSvc := &moderation.Service{Pool: pool, Local: local, Tuning: t}
+	moderationSvc.Register(api)
 	discussionsSvc := &discussions.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t}
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))

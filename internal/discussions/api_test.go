@@ -414,3 +414,36 @@ func TestSearchLeavesOutCommunitiesNoOneHereFollows(t *testing.T) {
 		t.Fatalf("comments %+v", comments.Comments)
 	}
 }
+
+func TestABannedMemberCannotWriteInTheCommunity(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	var me actors.Actor
+	var groupApID string
+	committed(t, pool, func(tx pgx.Tx) {
+		me = trustedPerson(t, tx)
+		c, err := communities.CreateLocal(ctx, tx, local(t), me, "c"+uuid.NewString()[:8], communities.Settings{Title: "Closed doors"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO bans (community_id, actor_id) VALUES ($1, $2)`, c.ID, me.ID); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+			t.Fatal(err)
+		}
+	})
+	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
+	mux := http.NewServeMux()
+	svc.Register(platform.NewAPI(mux, "test"))
+	for _, path := range []string{"/api/posts"} {
+		b, _ := json.Marshal(map[string]any{"community": groupApID, "title": "Let me in"})
+		r := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(b))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(accounts.WithActor(r.Context(), &me)))
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("%s from a banned member: %d %s", path, w.Code, w.Body)
+		}
+	}
+}

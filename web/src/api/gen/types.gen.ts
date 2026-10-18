@@ -76,6 +76,29 @@ export type Author = {
     handle: string;
 };
 
+export type BanBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    /**
+     * Community handle
+     */
+    community: string;
+    /**
+     * 0 bans until an owner lifts it
+     */
+    days?: number;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
+};
+
 export type CommentBody = {
     /**
      * A URL to the JSON Schema for this object.
@@ -211,6 +234,23 @@ export type Detail = {
     title: string;
 };
 
+export type Entry = {
+    action: string;
+    createdAt: string;
+    expiresAt?: string;
+    id: number;
+    /**
+     * Handle of the moderator or owner
+     */
+    moderator: string;
+    reason: string;
+    /**
+     * Handle of the person acted on
+     */
+    target?: string;
+    targetApId?: string;
+};
+
 export type ErrorDetail = {
     /**
      * Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id'
@@ -272,6 +312,26 @@ export type List = {
     communities: Array<Summary>;
 };
 
+export type LockBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    locked: boolean;
+    /**
+     * AP ID of the post
+     */
+    object: string;
+};
+
+export type LogOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    entries: Array<Entry>;
+};
+
 export type MagicLinkVerifyResponse = {
     redirectTo: string;
 };
@@ -310,6 +370,21 @@ export type MessageResponse = {
 export type MyMembership = {
     role: 'member' | 'moderator' | 'owner';
     state: 'pending' | 'accepted';
+};
+
+export type ObjectBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
 };
 
 export type Person = {
@@ -372,6 +447,10 @@ export type PostView = {
      * true when url is an image uploaded to this site
      */
     image: boolean;
+    /**
+     * true when replies are closed
+     */
+    locked: boolean;
     nsfw: boolean;
     published: string;
     ref: string;
@@ -448,6 +527,56 @@ export type ProfileBody = {
      */
     bot: boolean;
     displayName: string;
+};
+
+export type QueueOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    reports: Array<Report>;
+};
+
+export type Report = {
+    /**
+     * Plain text excerpt
+     */
+    commentBody?: string;
+    commentRef?: string;
+    createdAt: string;
+    id: number;
+    postApId?: string;
+    postRef?: string;
+    postTitle?: string;
+    reason: string;
+    /**
+     * Who reported it; shown to moderators only
+     */
+    reporter: string;
+    state: 'open' | 'upheld' | 'dismissed';
+};
+
+export type ReportBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    reason: string;
+};
+
+export type ResolveBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * true keeps the report as a real problem, false dismisses it
+     */
+    upheld: boolean;
 };
 
 export type RevokeAllResponse = {
@@ -671,6 +800,25 @@ export type AddressBodyWritable = {
     community: string;
 };
 
+export type BanBodyWritable = {
+    /**
+     * Person's handle: name on this site, else name@domain
+     */
+    actor: string;
+    /**
+     * Community handle
+     */
+    community: string;
+    /**
+     * 0 bans until an owner lifts it
+     */
+    days?: number;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
+};
+
 export type CommentBodyWritable = {
     /**
      * Markdown
@@ -789,6 +937,18 @@ export type ListWritable = {
     communities: Array<Summary>;
 };
 
+export type LockBodyWritable = {
+    locked: boolean;
+    /**
+     * AP ID of the post
+     */
+    object: string;
+};
+
+export type LogOutWritable = {
+    entries: Array<Entry>;
+};
+
 export type MeWritable = {
     bot: boolean;
     displayName: string;
@@ -806,6 +966,17 @@ export type MembershipWritable = {
      * pending until the community's host accepts the follow; none after leaving
      */
     state: 'pending' | 'accepted' | 'none';
+};
+
+export type ObjectBodyWritable = {
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    /**
+     * Shown in the public moderation log
+     */
+    reason?: string;
 };
 
 export type PostBodyWritable = {
@@ -884,6 +1055,25 @@ export type ProfileBodyWritable = {
      */
     bot: boolean;
     displayName: string;
+};
+
+export type QueueOutWritable = {
+    reports: Array<Report>;
+};
+
+export type ReportBodyWritable = {
+    /**
+     * AP ID of the post or comment
+     */
+    object: string;
+    reason: string;
+};
+
+export type ResolveBodyWritable = {
+    /**
+     * true keeps the report as a real problem, false dismisses it
+     */
+    upheld: boolean;
 };
 
 export type SaveBodyWritable = {
@@ -1846,6 +2036,41 @@ export type UpdateCommunityResponses = {
 
 export type UpdateCommunityResponse = UpdateCommunityResponses[keyof UpdateCommunityResponses];
 
+export type ModerationLogData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/communities/{handle}/log';
+};
+
+export type ModerationLogErrors = {
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type ModerationLogError = ModerationLogErrors[keyof ModerationLogErrors];
+
+export type ModerationLogResponses = {
+    /**
+     * OK
+     */
+    200: LogOut;
+};
+
+export type ModerationLogResponse = ModerationLogResponses[keyof ModerationLogResponses];
+
 export type CommunityPostsData = {
     body?: never;
     path: {
@@ -1889,6 +2114,97 @@ export type CommunityPostsResponses = {
 };
 
 export type CommunityPostsResponse = CommunityPostsResponses[keyof CommunityPostsResponses];
+
+export type ReportQueueData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/communities/{handle}/reports';
+};
+
+export type ReportQueueErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type ReportQueueError = ReportQueueErrors[keyof ReportQueueErrors];
+
+export type ReportQueueResponses = {
+    /**
+     * OK
+     */
+    200: QueueOut;
+};
+
+export type ReportQueueResponse = ReportQueueResponses[keyof ReportQueueResponses];
+
+export type ResolveReportData = {
+    body: ResolveBodyWritable;
+    path: {
+        handle: string;
+        id: number;
+    };
+    query?: never;
+    url: '/api/communities/{handle}/reports/{id}';
+};
+
+export type ResolveReportErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type ResolveReportError = ResolveReportErrors[keyof ResolveReportErrors];
+
+export type ResolveReportResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type ResolveReportResponse = ResolveReportResponses[keyof ResolveReportResponses];
 
 export type HomeFeedData = {
     body?: never;
@@ -2118,6 +2434,231 @@ export type UploadImageResponses = {
 
 export type UploadImageResponse = UploadImageResponses[keyof UploadImageResponses];
 
+export type BanActorData = {
+    body: BanBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/moderation/ban';
+};
+
+export type BanActorErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type BanActorError = BanActorErrors[keyof BanActorErrors];
+
+export type BanActorResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type BanActorResponse = BanActorResponses[keyof BanActorResponses];
+
+export type LockPostData = {
+    body: LockBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/moderation/lock';
+};
+
+export type LockPostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type LockPostError = LockPostErrors[keyof LockPostErrors];
+
+export type LockPostResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type LockPostResponse = LockPostResponses[keyof LockPostResponses];
+
+export type RemoveObjectData = {
+    body: ObjectBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/moderation/remove';
+};
+
+export type RemoveObjectErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type RemoveObjectError = RemoveObjectErrors[keyof RemoveObjectErrors];
+
+export type RemoveObjectResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RemoveObjectResponse = RemoveObjectResponses[keyof RemoveObjectResponses];
+
+export type RestoreObjectData = {
+    body: ObjectBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/moderation/restore';
+};
+
+export type RestoreObjectErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type RestoreObjectError = RestoreObjectErrors[keyof RestoreObjectErrors];
+
+export type RestoreObjectResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RestoreObjectResponse = RestoreObjectResponses[keyof RestoreObjectResponses];
+
+export type UnbanActorData = {
+    body: BanBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/moderation/unban';
+};
+
+export type UnbanActorErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type UnbanActorError = UnbanActorErrors[keyof UnbanActorErrors];
+
+export type UnbanActorResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type UnbanActorResponse = UnbanActorResponses[keyof UnbanActorResponses];
+
 export type PersonData = {
     body?: never;
     path: {
@@ -2308,6 +2849,43 @@ export type ThreadResponses = {
 };
 
 export type ThreadResponse = ThreadResponses[keyof ThreadResponses];
+
+export type ReportObjectData = {
+    body: ReportBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/reports';
+};
+
+export type ReportObjectErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type ReportObjectError = ReportObjectErrors[keyof ReportObjectErrors];
+
+export type ReportObjectResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type ReportObjectResponse = ReportObjectResponses[keyof ReportObjectResponses];
 
 export type SaveData = {
     body: SaveBodyWritable;

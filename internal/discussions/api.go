@@ -14,6 +14,7 @@ import (
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/discussions/discussionsdb"
+	"github.com/alternayte/notid/internal/moderation"
 	"github.com/alternayte/notid/internal/platform"
 	"github.com/alternayte/notid/internal/platform/media"
 )
@@ -38,6 +39,7 @@ var (
 	ErrNotActive   = errors.New("the community does not accept posts here now")
 	ErrNoObject    = errors.New("no post or comment at that address")
 	ErrURLAndImage = errors.New("a post links to a URL or shows an image, not both")
+	ErrBanned      = errors.New("you are banned from this community")
 )
 
 type postBody struct {
@@ -238,12 +240,26 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject), errors.Is(err, ErrNoPerson):
 		return huma.Error404NotFound(err.Error())
+	case errors.Is(err, ErrBanned):
+		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
 	}
 	return err
+}
+
+// forbidden refuses a write from a person banned from the community.
+func forbidden(ctx context.Context, tx pgx.Tx, communityID, actorID int64) error {
+	banned, err := moderation.Banned(ctx, tx, communityID, actorID)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return ErrBanned
+	}
+	return nil
 }
 
 // inTx runs fn in a transaction and commits when it succeeds.
@@ -279,6 +295,9 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in postBody) (P
 			return fmt.Errorf("community: %w", err)
 		}
 		if err := writable(discussionsdb.CommunityByIDRow(c)); err != nil {
+			return err
+		}
+		if err := forbidden(ctx, tx, c.ID, author.ID); err != nil {
 			return err
 		}
 		np := NewPost{CommunityID: c.ID, Author: author, Title: in.Title, Body: in.Body, URL: in.URL, Published: time.Now()}
@@ -330,6 +349,9 @@ func (s *Service) Comment(ctx context.Context, author actors.Actor, in commentBo
 		if err := writable(c); err != nil {
 			return err
 		}
+		if err := forbidden(ctx, tx, c.ID, author.ID); err != nil {
+			return err
+		}
 		comment, _, err = InsertComment(ctx, tx, NewComment{
 			PostID: post.ID, ParentID: parentID, Author: author, Body: in.Body, Published: time.Now(),
 		})
@@ -367,6 +389,9 @@ func (s *Service) Vote(ctx context.Context, voter actors.Actor, objectApID strin
 			return fmt.Errorf("community: %w", err)
 		}
 		if err := writable(c); err != nil {
+			return err
+		}
+		if err := forbidden(ctx, tx, c.ID, voter.ID); err != nil {
 			return err
 		}
 		var voteID *string

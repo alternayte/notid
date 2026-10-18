@@ -14,6 +14,7 @@ import (
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
 	"github.com/alternayte/notid/internal/communities/communitiesdb"
+	"github.com/alternayte/notid/internal/moderation"
 	"github.com/alternayte/notid/internal/platform"
 	"github.com/alternayte/notid/internal/platform/media"
 )
@@ -320,6 +321,8 @@ func apiError(err error) error {
 		return huma.Error409Conflict("That name is taken. Choose another.")
 	case errors.Is(err, actors.ErrNameInvalid):
 		return huma.Error422UnprocessableEntity("A name has 3 to 20 characters: lowercase letters, digits and underscores, starting with a letter.")
+	case errors.Is(err, ErrBanned):
+		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrAccentUnknown):
 		return huma.Error422UnprocessableEntity("Choose one of the listed accents.")
 	case errors.Is(err, media.ErrNotYours):
@@ -410,6 +413,9 @@ func (s *Service) Detail(ctx context.Context, domain, name string, viewer *actor
 
 var ErrNotACommunity = errors.New("the address names no community")
 
+// ErrBanned is returned to a person banned from a community they try to join.
+var ErrBanned = errors.New("you are banned from this community")
+
 // address turns a bare local name into a handle Resolve accepts.
 func (s *Service) address(ref string) string {
 	ref = strings.TrimSpace(ref)
@@ -458,6 +464,11 @@ func (s *Service) Follow(ctx context.Context, person actors.Actor, ref string) (
 		}
 		if g.Local && c.State != "active" {
 			return ErrNotActive
+		}
+		if banned, err := moderation.Banned(ctx, tx, c.ID, person.ID); err != nil {
+			return err
+		} else if banned {
+			return ErrBanned
 		}
 		state, followID := "accepted", (*string)(nil)
 		if !g.Local {

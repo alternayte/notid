@@ -42,6 +42,7 @@ type PostView struct {
 	URL            string    `json:"url"`
 	Image          bool      `json:"image" doc:"true when url is an image uploaded to this site"`
 	NSFW           bool      `json:"nsfw"`
+	Locked         bool      `json:"locked" doc:"true when replies are closed"`
 	Author         Author    `json:"author"`
 	Published      time.Time `json:"published"`
 	Score          int32     `json:"score"`
@@ -106,6 +107,7 @@ func (s *Service) author(name, domain, displayName string, bot bool) Author {
 type postRow struct {
 	ApID, Ref, Title, Body, URL                    string
 	NSFW, AuthorBot, MyVoteCounted, Saved, Image   bool
+	Locked                                         bool
 	Published                                      time.Time
 	Score, CommentCount                            int32
 	AuthorName, AuthorDomain, AuthorDisplayName    string
@@ -116,7 +118,7 @@ type postRow struct {
 func (s *Service) postView(r postRow) PostView {
 	return PostView{
 		ApID: r.ApID, Ref: r.Ref, Community: s.Local.Handle(r.CommunityName, r.CommunityDomain),
-		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW,
+		CommunityTitle: r.CommunityTitle, Title: r.Title, BodyHTML: s.Markdown.HTML(r.Body), Excerpt: s.Markdown.Text(r.Body, excerptBytes), URL: r.URL, Image: r.Image, NSFW: r.NSFW, Locked: r.Locked,
 		Author:    s.author(r.AuthorName, r.AuthorDomain, r.AuthorDisplayName, r.AuthorBot),
 		Published: r.Published, Score: r.Score, Comments: r.CommentCount,
 		Viewer: Viewer{Vote: r.MyVote, VoteCounted: r.MyVoteCounted, Saved: r.Saved},
@@ -131,7 +133,7 @@ func listRow(r discussionsdb.CommunityPostsNewRow) postRow {
 		MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
-		Image: r.HasImage,
+		Image: r.HasImage, Locked: r.Locked,
 	}
 }
 
@@ -323,7 +325,7 @@ func (s *Service) Saved(ctx context.Context, viewer actors.Actor, before string)
 			MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 			AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 			CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
-			Image: r.HasImage,
+			Image: r.HasImage, Locked: r.Locked,
 		})}
 		if r.CommentID != nil {
 			item.Comment = &CommentView{
