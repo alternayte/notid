@@ -122,7 +122,9 @@ func (s *Service) postView(r postRow) PostView {
 	}
 }
 
-func listRow(r discussionsdb.CommunityPostsRow) postRow {
+// listRow maps a post list row; every list query selects the same columns,
+// so its rows convert to CommunityPostsNewRow.
+func listRow(r discussionsdb.CommunityPostsNewRow) postRow {
 	return postRow{
 		ApID: r.ApID, Ref: r.Ref, Title: r.Title, Body: r.Body, URL: r.Url, NSFW: r.Nsfw, AuthorBot: r.AuthorBot,
 		MyVoteCounted: r.MyVoteCounted, Saved: r.Saved, Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
@@ -131,26 +133,43 @@ func listRow(r discussionsdb.CommunityPostsRow) postRow {
 	}
 }
 
-// cursor is a keyset position: a time and an id, written as "unixmicro.id".
-func encodeCursor(at time.Time, id int64) string {
-	return strconv.FormatInt(at.UnixMicro(), 10) + "." + strconv.FormatInt(id, 10)
+// A cursor is a keyset position of two integers, "key.id": a time in unix
+// microseconds or a score, then the post id.
+func encodeCursor(key, id int64) string {
+	return strconv.FormatInt(key, 10) + "." + strconv.FormatInt(id, 10)
 }
 
-func decodeCursor(c string) (time.Time, int64, error) {
+func decodeCursor(c string) (key, id int64, err error) {
 	if c == "" {
-		return time.UnixMicro(math.MaxInt64 / 2), math.MaxInt64, nil
+		return math.MaxInt64, math.MaxInt64, nil
 	}
 	a, b, ok := strings.Cut(c, ".")
-	at, err1 := strconv.ParseInt(a, 10, 64)
+	key, err1 := strconv.ParseInt(a, 10, 64)
 	id, err2 := strconv.ParseInt(b, 10, 64)
 	if !ok || err1 != nil || err2 != nil {
-		return time.Time{}, 0, ErrBadCursor
+		return 0, 0, ErrBadCursor
 	}
-	return time.UnixMicro(at), id, nil
+	return key, id, nil
 }
 
-// CommunityPosts lists a community's posts, newest first by feed time.
-func (s *Service) CommunityPosts(ctx context.Context, handle, before string, viewer *actors.Actor) (PostPage, error) {
+// cursorTime turns a cursor key into a time Postgres accepts; the empty
+// cursor's key is far past any real time.
+func cursorTime(key int64) time.Time {
+	const maxMicros = 1 << 52
+	return time.UnixMicro(min(key, maxMicros))
+}
+
+// Sorts of a community's posts. The formulas are published; see queries/discussions.sql.
+const (
+	SortNew     = "new"
+	SortActive  = "active"
+	SortTopDay  = "top-day"
+	SortTopWeek = "top-week"
+	SortTopAll  = "top-all"
+)
+
+// CommunityPosts lists a community's posts in one of the published sorts.
+func (s *Service) CommunityPosts(ctx context.Context, handle, sort, before string, viewer *actors.Actor) (PostPage, error) {
 	q := discussionsdb.New(s.Pool)
 	domain, name := s.Local.SplitHandle(handle)
 	communityID, err := q.CommunityIDByHandle(ctx, discussionsdb.CommunityIDByHandleParams{Domain: domain, Name: name})
@@ -160,27 +179,85 @@ func (s *Service) CommunityPosts(ctx context.Context, handle, before string, vie
 	if err != nil {
 		return PostPage{}, fmt.Errorf("community %s: %w", handle, err)
 	}
-	at, id, err := decodeCursor(before)
+	key, id, err := decodeCursor(before)
 	if err != nil {
 		return PostPage{}, err
 	}
 	limit := s.Tuning.PostsPerPage
-	rows, err := q.CommunityPosts(ctx, discussionsdb.CommunityPostsParams{
-		CommunityID: communityID, Viewer: viewerID(viewer), BeforeAt: at, BeforeID: id, Lim: limit + 1,
-	})
+	var rows []discussionsdb.CommunityPostsNewRow
+	var next func(r discussionsdb.CommunityPostsNewRow) int64
+	switch sort {
+	case SortActive:
+		var rs []discussionsdb.CommunityPostsActiveRow
+		rs, err = q.CommunityPostsActive(ctx, discussionsdb.CommunityPostsActiveParams{
+			CommunityID: communityID, Viewer: viewerID(viewer), BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+		})
+		for _, r := range rs {
+			rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+		}
+		next = func(r discussionsdb.CommunityPostsNewRow) int64 { return r.ActiveAt.UnixMicro() }
+	case SortTopDay, SortTopWeek, SortTopAll:
+		since := time.Time{}
+		switch sort {
+		case SortTopDay:
+			since = time.Now().Add(-s.Tuning.TopDayWindow)
+		case SortTopWeek:
+			since = time.Now().Add(-s.Tuning.TopWeekWindow)
+		}
+		var rs []discussionsdb.CommunityPostsTopRow
+		rs, err = q.CommunityPostsTop(ctx, discussionsdb.CommunityPostsTopParams{
+			CommunityID: communityID, Viewer: viewerID(viewer), Since: since,
+			BeforeScore: int32(min(key, math.MaxInt32)), BeforeID: id, Lim: limit + 1,
+		})
+		for _, r := range rs {
+			rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+		}
+		next = func(r discussionsdb.CommunityPostsNewRow) int64 { return int64(r.Score) }
+	default:
+		rows, err = q.CommunityPostsNew(ctx, discussionsdb.CommunityPostsNewParams{
+			CommunityID: communityID, Viewer: viewerID(viewer), BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+		})
+		next = func(r discussionsdb.CommunityPostsNewRow) int64 { return r.SortAt.UnixMicro() }
+	}
 	if err != nil {
 		return PostPage{}, fmt.Errorf("posts of %s: %w", handle, err)
 	}
-	page := PostPage{Posts: make([]PostView, 0, len(rows))}
+	return s.page(rows, limit, next), nil
+}
+
+// HomeFeed lists posts from the communities reader joined, newest first by
+// feed time. It has no other sort and no ranking (Invariant 11).
+func (s *Service) HomeFeed(ctx context.Context, reader actors.Actor, before string) (PostPage, error) {
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return PostPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).HomeFeed(ctx, discussionsdb.HomeFeedParams{
+		Viewer: &reader.ID, Reader: reader.ID, BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return PostPage{}, fmt.Errorf("home feed: %w", err)
+	}
+	rows := make([]discussionsdb.CommunityPostsNewRow, 0, len(rs))
+	for _, r := range rs {
+		rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+	}
+	return s.page(rows, limit, func(r discussionsdb.CommunityPostsNewRow) int64 { return r.SortAt.UnixMicro() }), nil
+}
+
+// page keeps the first limit rows and makes the cursor of the last one when more follow.
+func (s *Service) page(rows []discussionsdb.CommunityPostsNewRow, limit int32, key func(discussionsdb.CommunityPostsNewRow) int64) PostPage {
+	page := PostPage{Posts: make([]PostView, 0, min(len(rows), int(limit)))}
 	for i, r := range rows {
 		if int32(i) == limit {
 			last := rows[i-1]
-			page.Next = encodeCursor(last.SortAt, last.ID)
+			page.Next = encodeCursor(key(last), last.ID)
 			break
 		}
 		page.Posts = append(page.Posts, s.postView(listRow(r)))
 	}
-	return page, nil
+	return page
 }
 
 // Thread reads a post by its ref, with its comments.
@@ -198,7 +275,7 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 	if err != nil {
 		return ThreadView{}, fmt.Errorf("comments of %s: %w", ref, err)
 	}
-	t := ThreadView{Post: s.postView(listRow(discussionsdb.CommunityPostsRow(p))), Comments: make([]CommentView, 0, len(rows))}
+	t := ThreadView{Post: s.postView(listRow(discussionsdb.CommunityPostsNewRow(p))), Comments: make([]CommentView, 0, len(rows))}
 	refs := make(map[int64]string, len(rows))
 	for i, r := range rows {
 		if int32(i) == limit {
@@ -224,19 +301,19 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 
 // Saved lists what viewer saved, newest save first.
 func (s *Service) Saved(ctx context.Context, viewer actors.Actor, before string) (SavedPage, error) {
-	at, _, err := decodeCursor(before)
+	key, _, err := decodeCursor(before)
 	if err != nil {
 		return SavedPage{}, err
 	}
 	limit := s.Tuning.SavedPerPage
-	rows, err := discussionsdb.New(s.Pool).SavedItems(ctx, discussionsdb.SavedItemsParams{Viewer: viewer.ID, Before: at, Lim: limit + 1})
+	rows, err := discussionsdb.New(s.Pool).SavedItems(ctx, discussionsdb.SavedItemsParams{Viewer: viewer.ID, Before: cursorTime(key), Lim: limit + 1})
 	if err != nil {
 		return SavedPage{}, fmt.Errorf("saved: %w", err)
 	}
 	page := SavedPage{Items: make([]SavedItem, 0, len(rows))}
 	for i, r := range rows {
 		if int32(i) == limit {
-			page.Next = encodeCursor(rows[i-1].SavedAt, 0)
+			page.Next = encodeCursor(rows[i-1].SavedAt.UnixMicro(), 0)
 			break
 		}
 		item := SavedItem{SavedAt: r.SavedAt, Post: s.postView(postRow{

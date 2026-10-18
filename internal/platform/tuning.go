@@ -39,6 +39,8 @@ type Tuning struct {
 	ProbeInterval             time.Duration
 
 	PostsPerPage      int32
+	TopDayWindow      time.Duration
+	TopWeekWindow     time.Duration
 	ThreadMaxComments int32
 	SavedPerPage      int32
 }
@@ -78,6 +80,8 @@ func DefaultTuning() Tuning {
 		ProbeInterval:             time.Minute,
 
 		PostsPerPage:      25,
+		TopDayWindow:      24 * time.Hour,
+		TopWeekWindow:     7 * 24 * time.Hour,
 		ThreadMaxComments: 500,
 		SavedPerPage:      25,
 	}

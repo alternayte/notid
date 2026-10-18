@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
@@ -142,5 +145,136 @@ func TestPostReplySaveAndReadThroughTheAPI(t *testing.T) {
 	send(http.MethodGet, "/api/me/saved", nil, &saved)
 	if len(saved.Items) != 0 {
 		t.Fatalf("unsaved item still listed: %+v", saved)
+	}
+}
+
+// committed runs fn in a transaction that commits, for code that reads through the pool.
+func committed(t *testing.T, pool *pgxpool.Pool, fn func(tx pgx.Tx)) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn(tx)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func refs(p discussions.PostPage) []string {
+	out := make([]string, len(p.Posts))
+	for i, v := range p.Posts {
+		out[i] = v.Ref
+	}
+	return out
+}
+
+func TestInvariant11HomeFeedSortsByFeedTimeSoAFutureDatedRemotePostDoesNotLead(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
+	var reader actors.Actor
+	var localID, remoteID int64
+	committed(t, pool, func(tx pgx.Tx) {
+		reader = trustedPerson(t, tx)
+		c, err := communities.CreateLocal(ctx, tx, local(t), reader, "c"+uuid.NewString()[:8], communities.Settings{Title: "Here"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		localID = c.ID
+		g := remoteActor(t, tx, "group")
+		if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, 'peer.example', $2) RETURNING id`, g.ID, g.Name).Scan(&remoteID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state) VALUES ($1, $2, 'accepted')`, remoteID, reader.ID); err != nil {
+			t.Fatal(err)
+		}
+	})
+	var future, later, elsewhere discussions.Post
+	committed(t, pool, func(tx pgx.Tx) {
+		var err error
+		future, _, err = discussions.InsertPost(ctx, tx, discussions.NewPost{
+			ApID: "https://peer.example/post/" + uuid.NewString(), CommunityID: remoteID, Author: remoteActor(t, tx, "person"),
+			Title: "From the future", Published: time.Now().Add(72 * time.Hour),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	committed(t, pool, func(tx pgx.Tx) {
+		var err error
+		if later, _, err = discussions.InsertPost(ctx, tx, discussions.NewPost{CommunityID: localID, Author: reader, Title: "Later", Published: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+		// A community the reader did not join stays out of the home feed.
+		g := remoteActor(t, tx, "group")
+		var otherID int64
+		if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, 'peer.example', $2) RETURNING id`, g.ID, g.Name).Scan(&otherID); err != nil {
+			t.Fatal(err)
+		}
+		if elsewhere, _, err = discussions.InsertPost(ctx, tx, discussions.NewPost{
+			ApID: "https://peer.example/post/" + uuid.NewString(), CommunityID: otherID, Author: remoteActor(t, tx, "person"),
+			Title: "Elsewhere", Published: time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	feed, err := svc.HomeFeed(ctx, reader, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := refs(feed); !slices.Equal(got, []string{later.Ref, future.Ref}) {
+		t.Fatalf("home feed %v, want later %s then future %s, without %s", got, later.Ref, future.Ref, elsewhere.Ref)
+	}
+}
+
+func TestTopAndActiveSortsFollowTheirFormulas(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
+	name := "c" + uuid.NewString()[:8]
+	var old, popular, quiet, replied discussions.Post
+	committed(t, pool, func(tx pgx.Tx) {
+		owner := trustedPerson(t, tx)
+		c, err := communities.CreateLocal(ctx, tx, local(t), owner, name, communities.Settings{Title: "Sorts"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		post := func(title string, published time.Time, score int) discussions.Post {
+			p, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{CommunityID: c.ID, Author: owner, Title: title, Published: published})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tx.Exec(ctx, `UPDATE posts SET score = $2 WHERE id = $1`, p.ID, score); err != nil {
+				t.Fatal(err)
+			}
+			return p
+		}
+		old = post("Old and loved", time.Now().Add(-10*24*time.Hour), 50)
+		popular = post("Popular", time.Now().Add(-2*time.Hour), 10)
+		quiet = post("Quiet", time.Now().Add(-time.Hour), 1)
+		replied = post("Replied to", time.Now().Add(-3*time.Hour), 0)
+		if _, _, err := discussions.InsertComment(ctx, tx, discussions.NewComment{PostID: replied.ID, Author: owner, Body: "Bump", Published: time.Now().Add(time.Hour)}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	cases := []struct {
+		sort string
+		want []string
+	}{
+		{discussions.SortTopDay, []string{popular.Ref, quiet.Ref, replied.Ref}},
+		{discussions.SortTopAll, []string{old.Ref, popular.Ref, quiet.Ref, replied.Ref}},
+		{discussions.SortActive, []string{replied.Ref, quiet.Ref, popular.Ref, old.Ref}},
+		{discussions.SortNew, []string{quiet.Ref, popular.Ref, replied.Ref, old.Ref}},
+	}
+	for _, c := range cases {
+		page, err := svc.CommunityPosts(ctx, name, c.sort, "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := refs(page); !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", c.sort, got, c.want)
+		}
 	}
 }

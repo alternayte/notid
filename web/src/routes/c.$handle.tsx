@@ -11,15 +11,28 @@ import { Kicker } from '~/ui/Kicker'
 import { Button } from '~/ui/primitives/button'
 import { Page } from './__root'
 
+const sorts = [
+  { value: 'new', label: 'New' },
+  { value: 'active', label: 'Active' },
+  { value: 'top-day', label: 'Top today' },
+  { value: 'top-week', label: 'Top this week' },
+  { value: 'top-all', label: 'Top all time' },
+] as const
+
+type Sort = (typeof sorts)[number]['value']
+
 export const Route = createFileRoute('/c/$handle')({
-  loader: async ({ context, params }) => {
+  validateSearch: (s: Record<string, unknown>): { sort?: Sort } =>
+    sorts.some((o) => o.value === s.sort) && s.sort !== 'new' ? { sort: s.sort as Sort } : {},
+  loaderDeps: ({ search }) => ({ sort: search.sort ?? 'new' }),
+  loader: async ({ context, params, deps }) => {
     let c: Detail
     try {
       c = await context.queryClient.ensureQueryData(communityOptions({ path: { handle: params.handle } }))
     } catch {
       throw notFound()
     }
-    await context.queryClient.ensureInfiniteQueryData(postsOptions(params.handle))
+    await context.queryClient.ensureInfiniteQueryData(postsOptions(params.handle, deps.sort))
     return c
   },
   head: ({ loaderData }) => ({
@@ -28,14 +41,15 @@ export const Route = createFileRoute('/c/$handle')({
   component: CommunityPage,
 })
 
-const postsOptions = (handle: string) => ({
-  ...communityPostsInfiniteOptions({ path: { handle } }),
+const postsOptions = (handle: string, sort: Sort) => ({
+  ...communityPostsInfiniteOptions({ path: { handle }, query: { sort } }),
   initialPageParam: '',
   getNextPageParam: (last: { next: string }) => last.next || undefined,
 })
 
 function CommunityPage() {
   const { handle } = Route.useParams()
+  const sort = Route.useSearch().sort ?? 'new'
   const { data: c } = useSuspenseQuery(communityOptions({ path: { handle } }))
   const { data: me } = useQuery({ ...meOptions(), retry: false })
   const canManage = c.local && (c.membership?.role === 'owner' || c.membership?.role === 'moderator')
@@ -71,12 +85,25 @@ function CommunityPage() {
         </header>
         <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <section aria-labelledby="posts" className="flex flex-col gap-4">
-            <h2
-              id="posts"
-              className="border-b border-rule-strong pb-1 font-sans text-xs font-bold uppercase tracking-kicker"
-            >
-              Posts · New
-            </h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-rule-strong pb-1">
+              <h2 id="posts" className="font-sans text-xs font-bold uppercase tracking-kicker">
+                Posts
+              </h2>
+              <nav aria-label="Sort posts" className="flex flex-wrap gap-x-4 gap-y-1">
+                {sorts.map((o) => (
+                  <Link
+                    key={o.value}
+                    to="/c/$handle"
+                    params={{ handle }}
+                    search={o.value === 'new' ? {} : { sort: o.value }}
+                    activeOptions={{ exact: true }}
+                    className="font-sans text-xs font-semibold text-ink-soft no-underline hover:text-ink data-[status=active]:text-ink data-[status=active]:underline data-[status=active]:decoration-mark data-[status=active]:decoration-2 data-[status=active]:underline-offset-[0.4em]"
+                  >
+                    {o.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
             {me && (c.state === 'active' || !c.local) && (
               <Link
                 to="/submit"
@@ -89,7 +116,7 @@ function CommunityPage() {
                 Start a post in {c.title || c.name}
               </Link>
             )}
-            <Posts handle={handle} />
+            <Posts handle={handle} sort={sort} />
           </section>
           <About community={c} />
         </div>
@@ -98,10 +125,10 @@ function CommunityPage() {
   )
 }
 
-function Posts({ handle }: { handle: string }) {
+function Posts({ handle, sort }: { handle: string; sort: Sort }) {
   // The loader fills this query, so data is present on the first render.
   const { data, isError, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery(
-    postsOptions(handle),
+    postsOptions(handle, sort),
   )
   if (isError && !data) {
     return (

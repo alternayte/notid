@@ -1679,6 +1679,10 @@ export type CommunityPostsData = {
     };
     query?: {
         /**
+         * new: newest first by feed time. active: latest reply first. top-*: highest score first, within the last day, week or all time
+         */
+        sort?: 'new' | 'active' | 'top-day' | 'top-week' | 'top-all';
+        /**
          * Cursor from the previous page's next
          */
         before?: string;
@@ -1711,6 +1715,44 @@ export type CommunityPostsResponses = {
 };
 
 export type CommunityPostsResponse = CommunityPostsResponses[keyof CommunityPostsResponses];
+
+export type HomeFeedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/feed';
+};
+
+export type HomeFeedErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type HomeFeedError = HomeFeedErrors[keyof HomeFeedErrors];
+
+export type HomeFeedResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type HomeFeedResponse = HomeFeedResponses[keyof HomeFeedResponses];
 
 export type PreviewMarkdownData = {
     body: PreviewBodyWritable;

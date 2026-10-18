@@ -130,9 +130,24 @@ func (s *Service) registerReads(api huma.API) {
 		Summary: "List a community's posts, newest first", Tags: tags, Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
 	}, func(ctx context.Context, in *struct {
 		Handle string `path:"handle" maxLength:"300"`
+		Sort   string `query:"sort" enum:"new,active,top-day,top-week,top-all" default:"new" doc:"new: newest first by feed time. active: latest reply first. top-*: highest score first, within the last day, week or all time"`
 		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
 	}) (*struct{ Body PostPage }, error) {
-		p, err := s.CommunityPosts(ctx, in.Handle, in.Before, accounts.ActorFrom(ctx))
+		p, err := s.CommunityPosts(ctx, in.Handle, in.Sort, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "homeFeed", Method: http.MethodGet, Path: "/api/feed",
+		Summary: "List posts from my communities, newest first by feed time", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct {
+		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
+	}) (*struct{ Body PostPage }, error) {
+		person, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		p, err := s.HomeFeed(ctx, person, in.Before)
 		return &struct{ Body PostPage }{p}, apiError(err)
 	})
 	huma.Register(api, huma.Operation{

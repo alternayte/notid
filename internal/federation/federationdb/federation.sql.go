@@ -438,7 +438,7 @@ func (q *Queries) PeerOK(ctx context.Context, domain string) error {
 }
 
 const postDoc = `-- name: PostDoc :one
-SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
+SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, p.active_at, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
 FROM posts p
 JOIN actors au ON au.id = p.author_id
 JOIN communities c ON c.id = p.community_id
@@ -474,6 +474,7 @@ type PostDocRow struct {
 	DeliveryState *string
 	DeliveryError string
 	Search        interface{}
+	ActiveAt      *time.Time
 	AuthorApID    string
 	GroupApID     string
 }
@@ -509,6 +510,7 @@ func (q *Queries) PostDoc(ctx context.Context, apID string) (PostDocRow, error) 
 		&i.DeliveryState,
 		&i.DeliveryError,
 		&i.Search,
+		&i.ActiveAt,
 		&i.AuthorApID,
 		&i.GroupApID,
 	)

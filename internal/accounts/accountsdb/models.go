@@ -196,6 +196,7 @@ type Post struct {
 	DeliveryState *string
 	DeliveryError string
 	Search        interface{}
+	ActiveAt      *time.Time
 }
 
 type ReceivedActivity struct {

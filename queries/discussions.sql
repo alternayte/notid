@@ -26,7 +26,7 @@ RETURNING *;
 
 -- name: BumpCommentCount :exec
 UPDATE posts SET comment_count = comment_count + 1,
-    last_comment_at = greatest(coalesce(last_comment_at, @at::timestamptz), @at::timestamptz)
+    last_comment_at = greatest(coalesce(last_comment_at, least(@at::timestamptz, now())), least(@at::timestamptz, now()))
 WHERE id = @id;
 
 -- name: CommentByApID :one
@@ -77,10 +77,13 @@ WHERE c.id = @id;
 -- name: CommunityIDByHandle :one
 SELECT c.id FROM communities c WHERE c.domain = @domain AND lower(c.name) = lower(@name);
 
--- Posts a reader sees in a community, newest first, from before the cursor.
--- name: CommunityPosts :many
+-- Every post list selects the same columns, so its rows convert to PostListRow.
+-- The sort formulas are published on the about pages; change both together.
+
+-- New: newest first by feed time.
+-- name: CommunityPostsNew :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -90,15 +93,70 @@ JOIN actors a ON a.id = p.author_id
 JOIN communities c ON c.id = p.community_id
 LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
-WHERE p.community_id = @community_id
-  AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+WHERE p.community_id = @community_id AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT @lim;
+
+-- Active: latest reply first; a post without replies counts from its own feed time.
+-- name: CommunityPostsActive :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.community_id = @community_id AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.active_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.active_at DESC, p.id DESC
+LIMIT @lim;
+
+-- Top: highest score first, among posts whose feed time is after since.
+-- name: CommunityPostsTop :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.community_id = @community_id AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND p.sort_at > @since::timestamptz
+  AND (p.score, p.id) < (@before_score::int, @before_id::bigint)
+ORDER BY p.score DESC, p.id DESC
+LIMIT @lim;
+
+-- Home: posts from the communities the reader joined, newest first by feed time.
+-- name: HomeFeed :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+JOIN memberships m ON m.community_id = p.community_id AND m.actor_id = @reader::bigint AND m.state = 'accepted'
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT @lim;
 
 -- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,

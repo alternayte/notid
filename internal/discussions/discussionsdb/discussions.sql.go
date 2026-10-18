@@ -42,7 +42,7 @@ func (q *Queries) AdjustPostScore(ctx context.Context, arg AdjustPostScoreParams
 
 const bumpCommentCount = `-- name: BumpCommentCount :exec
 UPDATE posts SET comment_count = comment_count + 1,
-    last_comment_at = greatest(coalesce(last_comment_at, $1::timestamptz), $1::timestamptz)
+    last_comment_at = greatest(coalesce(last_comment_at, least($1::timestamptz, now())), least($1::timestamptz, now()))
 WHERE id = $2
 `
 
@@ -200,9 +200,9 @@ func (q *Queries) CommunityIDByHandle(ctx context.Context, arg CommunityIDByHand
 	return id, err
 }
 
-const communityPosts = `-- name: CommunityPosts :many
+const communityPostsActive = `-- name: CommunityPostsActive :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -212,14 +212,13 @@ JOIN actors a ON a.id = p.author_id
 JOIN communities c ON c.id = p.community_id
 LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
-WHERE p.community_id = $2
-  AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
-  AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
-ORDER BY p.sort_at DESC, p.id DESC
+WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.active_at, p.id) < ($3::timestamptz, $4::bigint)
+ORDER BY p.active_at DESC, p.id DESC
 LIMIT $5
 `
 
-type CommunityPostsParams struct {
+type CommunityPostsActiveParams struct {
 	Viewer      *int64
 	CommunityID int64
 	BeforeAt    time.Time
@@ -227,7 +226,7 @@ type CommunityPostsParams struct {
 	Lim         int32
 }
 
-type CommunityPostsRow struct {
+type CommunityPostsActiveRow struct {
 	ID                int64
 	ApID              string
 	Ref               string
@@ -237,6 +236,7 @@ type CommunityPostsRow struct {
 	Nsfw              bool
 	Published         time.Time
 	SortAt            time.Time
+	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
 	AuthorName        string
@@ -251,9 +251,9 @@ type CommunityPostsRow struct {
 	Saved             bool
 }
 
-// Posts a reader sees in a community, newest first, from before the cursor.
-func (q *Queries) CommunityPosts(ctx context.Context, arg CommunityPostsParams) ([]CommunityPostsRow, error) {
-	rows, err := q.db.Query(ctx, communityPosts,
+// Active: latest reply first; a post without replies counts from its own feed time.
+func (q *Queries) CommunityPostsActive(ctx context.Context, arg CommunityPostsActiveParams) ([]CommunityPostsActiveRow, error) {
+	rows, err := q.db.Query(ctx, communityPostsActive,
 		arg.Viewer,
 		arg.CommunityID,
 		arg.BeforeAt,
@@ -264,9 +264,9 @@ func (q *Queries) CommunityPosts(ctx context.Context, arg CommunityPostsParams) 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CommunityPostsRow
+	var items []CommunityPostsActiveRow
 	for rows.Next() {
-		var i CommunityPostsRow
+		var i CommunityPostsActiveRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ApID,
@@ -277,6 +277,215 @@ func (q *Queries) CommunityPosts(ctx context.Context, arg CommunityPostsParams) 
 			&i.Nsfw,
 			&i.Published,
 			&i.SortAt,
+			&i.ActiveAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const communityPostsNew = `-- name: CommunityPostsNew :many
+
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT $5
+`
+
+type CommunityPostsNewParams struct {
+	Viewer      *int64
+	CommunityID int64
+	BeforeAt    time.Time
+	BeforeID    int64
+	Lim         int32
+}
+
+type CommunityPostsNewRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	SortAt            time.Time
+	ActiveAt          *time.Time
+	Score             int32
+	CommentCount      int32
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+// Every post list selects the same columns, so its rows convert to PostListRow.
+// The sort formulas are published on the about pages; change both together.
+// New: newest first by feed time.
+func (q *Queries) CommunityPostsNew(ctx context.Context, arg CommunityPostsNewParams) ([]CommunityPostsNewRow, error) {
+	rows, err := q.db.Query(ctx, communityPostsNew,
+		arg.Viewer,
+		arg.CommunityID,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CommunityPostsNewRow
+	for rows.Next() {
+		var i CommunityPostsNewRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.ActiveAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const communityPostsTop = `-- name: CommunityPostsTop :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND p.sort_at > $3::timestamptz
+  AND (p.score, p.id) < ($4::int, $5::bigint)
+ORDER BY p.score DESC, p.id DESC
+LIMIT $6
+`
+
+type CommunityPostsTopParams struct {
+	Viewer      *int64
+	CommunityID int64
+	Since       time.Time
+	BeforeScore int32
+	BeforeID    int64
+	Lim         int32
+}
+
+type CommunityPostsTopRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	SortAt            time.Time
+	ActiveAt          *time.Time
+	Score             int32
+	CommentCount      int32
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+// Top: highest score first, among posts whose feed time is after since.
+func (q *Queries) CommunityPostsTop(ctx context.Context, arg CommunityPostsTopParams) ([]CommunityPostsTopRow, error) {
+	rows, err := q.db.Query(ctx, communityPostsTop,
+		arg.Viewer,
+		arg.CommunityID,
+		arg.Since,
+		arg.BeforeScore,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CommunityPostsTopRow
+	for rows.Next() {
+		var i CommunityPostsTopRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.ActiveAt,
 			&i.Score,
 			&i.CommentCount,
 			&i.AuthorName,
@@ -314,6 +523,108 @@ type DeleteVoteParams struct {
 func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 	_, err := q.db.Exec(ctx, deleteVote, arg.ActorID, arg.PostID, arg.CommentID)
 	return err
+}
+
+const homeFeed = `-- name: HomeFeed :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+JOIN memberships m ON m.community_id = p.community_id AND m.actor_id = $2::bigint AND m.state = 'accepted'
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
+  AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT $5
+`
+
+type HomeFeedParams struct {
+	Viewer   *int64
+	Reader   int64
+	BeforeAt time.Time
+	BeforeID int64
+	Lim      int32
+}
+
+type HomeFeedRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	SortAt            time.Time
+	ActiveAt          *time.Time
+	Score             int32
+	CommentCount      int32
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+	MyVote            int16
+	MyVoteCounted     bool
+	Saved             bool
+}
+
+// Home: posts from the communities the reader joined, newest first by feed time.
+func (q *Queries) HomeFeed(ctx context.Context, arg HomeFeedParams) ([]HomeFeedRow, error) {
+	rows, err := q.db.Query(ctx, homeFeed,
+		arg.Viewer,
+		arg.Reader,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HomeFeedRow
+	for rows.Next() {
+		var i HomeFeedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.ActiveAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertComment = `-- name: InsertComment :one
@@ -383,7 +694,7 @@ INSERT INTO posts (
     $10, least($10::timestamptz, now())
 )
 ON CONFLICT (ap_id) DO NOTHING
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
 `
 
 type InsertPostParams struct {
@@ -441,6 +752,7 @@ func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, e
 		&i.DeliveryState,
 		&i.DeliveryError,
 		&i.Search,
+		&i.ActiveAt,
 	)
 	return i, err
 }
@@ -472,7 +784,7 @@ func (q *Queries) InsertVote(ctx context.Context, arg InsertVoteParams) error {
 }
 
 const postByApID = `-- name: PostByApID :one
-SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search FROM posts WHERE ap_id = $1
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE ap_id = $1
 `
 
 func (q *Queries) PostByApID(ctx context.Context, apID string) (Post, error) {
@@ -506,12 +818,13 @@ func (q *Queries) PostByApID(ctx context.Context, apID string) (Post, error) {
 		&i.DeliveryState,
 		&i.DeliveryError,
 		&i.Search,
+		&i.ActiveAt,
 	)
 	return i, err
 }
 
 const postByID = `-- name: PostByID :one
-SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search FROM posts WHERE id = $1
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE id = $1
 `
 
 func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
@@ -545,13 +858,14 @@ func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
 		&i.DeliveryState,
 		&i.DeliveryError,
 		&i.Search,
+		&i.ActiveAt,
 	)
 	return i, err
 }
 
 const postByRef = `-- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -579,6 +893,7 @@ type PostByRefRow struct {
 	Nsfw              bool
 	Published         time.Time
 	SortAt            time.Time
+	ActiveAt          *time.Time
 	Score             int32
 	CommentCount      int32
 	AuthorName        string
@@ -606,6 +921,7 @@ func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRef
 		&i.Nsfw,
 		&i.Published,
 		&i.SortAt,
+		&i.ActiveAt,
 		&i.Score,
 		&i.CommentCount,
 		&i.AuthorName,
