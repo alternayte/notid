@@ -34,6 +34,7 @@ type Tuning struct {
 	PeerInboxBurst      int
 	DeliveryWorkers     int
 	InboxWorkers        int
+	ProbeInterval       time.Duration
 }
 
 func DefaultTuning() Tuning {
@@ -67,5 +68,6 @@ func DefaultTuning() Tuning {
 		PeerInboxBurst:      100,
 		DeliveryWorkers:     20,
 		InboxWorkers:        10,
+		ProbeInterval:       time.Minute,
 	}
 }

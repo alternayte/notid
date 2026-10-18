@@ -3,6 +3,7 @@ package communities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -40,9 +41,14 @@ func Create(ctx context.Context, tx pgx.Tx, local actors.Local, domain, name, ti
 	return c, g, nil
 }
 
-// DomainServed reports whether host is a verified community domain here.
-func DomainServed(pool communitiesdb.DBTX) func(ctx context.Context, host string) (bool, error) {
-	return func(ctx context.Context, host string) (bool, error) {
-		return communitiesdb.New(pool).DomainServed(ctx, host)
+// DomainState returns the state of the community on a verified community
+// domain here, or "" when host is not one.
+func DomainState(pool communitiesdb.DBTX) func(ctx context.Context, host string) (string, error) {
+	return func(ctx context.Context, host string) (string, error) {
+		state, err := communitiesdb.New(pool).DomainState(ctx, host)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return state, err
 	}
 }

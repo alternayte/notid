@@ -124,7 +124,12 @@ func NewKeyPair() (string, []byte, error) {
 
 // GroupURL is the AP ID of a community's group on its domain. It is fixed at creation and stored.
 func (l Local) GroupURL(domain, name string) string {
-	return scheme(l.AppOrigin) + "://" + l.host(domain) + "/c/" + name
+	return l.Origin(domain) + "/c/" + name
+}
+
+// Origin is the scheme and host this installation serves domain on.
+func (l Local) Origin(domain string) string {
+	return scheme(l.AppOrigin) + "://" + l.host(domain)
 }
 
 // host keeps the app origin's port, which dev and the harness need. One

@@ -17,8 +17,14 @@ func named(name string) http.Handler {
 func testHosts() Hosts {
 	return Hosts{
 		AppDomain: "app.test",
-		CommunityDomain: func(_ context.Context, h string) (bool, error) {
-			return h == "club.test", nil
+		CommunityDomain: func(_ context.Context, h string) (string, error) {
+			switch h {
+			case "club.test":
+				return "active", nil
+			case "gone.test":
+				return "departed", nil
+			}
+			return "", nil
 		},
 	}
 }
@@ -47,6 +53,24 @@ func TestUnknownHostGets421(t *testing.T) {
 	w := serve(testHandler(), "GET", "/", "evil.test", "")
 	if w.Code != http.StatusMisdirectedRequest {
 		t.Fatalf("got %d", w.Code)
+	}
+}
+
+func TestInvariant3DepartedCommunityDomainGets503AndNoCertificate(t *testing.T) {
+	for _, path := range []string{"/c/wood/inbox", "/c/wood", "/.well-known/webfinger"} {
+		method := "GET"
+		if path == "/c/wood/inbox" {
+			method = "POST"
+		}
+		if w := serve(testHandler(), method, path, "gone.test", "application/activity+json"); w.Code != http.StatusServiceUnavailable {
+			t.Fatalf("%s %s: %d", method, path, w.Code)
+		}
+	}
+	if err := testHosts().CertDecision(context.Background(), "gone.test"); err == nil {
+		t.Fatal("a departed community domain may get a certificate")
+	}
+	if err := testHosts().CertDecision(context.Background(), "club.test"); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/alternayte/notid/internal/discussions"
 	"github.com/alternayte/notid/internal/federation"
 	"github.com/alternayte/notid/internal/platform"
+	"github.com/alternayte/notid/internal/portability"
 )
 
 // app holds the wired dependencies of one process.
@@ -99,11 +101,16 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Limits:       federation.NewPeerLimits(t.PeerInboxPerMinute, t.PeerInboxBurst),
 		Markdown:     platform.NewMarkdown(),
 	}
+	probes := &portability.Service{Pool: pool, Local: local, HTTP: fed.HTTP, Tuning: t, Log: log}
+	fed.WellKnown = probes.WellKnown
 	workers := river.NewWorkers()
 	fed.AddWorkers(workers)
+	probes.AddWorkers(workers)
 	rcfg := &river.Config{Workers: workers, Logger: log}
 	if work {
 		rcfg.Queues = fed.Queues()
+		maps.Copy(rcfg.Queues, probes.Queues())
+		rcfg.PeriodicJobs = probes.PeriodicJobs()
 	}
 	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
 	if err != nil {

@@ -17,28 +17,49 @@ import (
 // Hosts decides which request hosts this installation serves.
 type Hosts struct {
 	AppDomain string
-	// CommunityDomain reports whether host is a verified community domain. Nil means none.
-	CommunityDomain func(ctx context.Context, host string) (bool, error)
+	// CommunityDomain returns the state of the community on a verified
+	// community domain, or "" when host is not one. Nil means none.
+	CommunityDomain func(ctx context.Context, host string) (string, error)
 }
 
-func (h Hosts) Allowed(ctx context.Context, host string) (bool, error) {
+// HostState is how this installation treats a request host.
+type HostState int
+
+const (
+	HostUnknown HostState = iota
+	HostServed
+	// HostDeparted is a community domain whose community moved away.
+	HostDeparted
+)
+
+func (h Hosts) State(ctx context.Context, host string) (HostState, error) {
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	if host == h.AppDomain {
-		return true, nil
+		return HostServed, nil
 	}
 	if h.CommunityDomain == nil {
-		return false, nil
+		return HostUnknown, nil
 	}
-	return h.CommunityDomain(ctx, host)
+	state, err := h.CommunityDomain(ctx, host)
+	switch {
+	case err != nil:
+		return HostUnknown, err
+	case state == "":
+		return HostUnknown, nil
+	case state == "departed":
+		return HostDeparted, nil
+	}
+	return HostServed, nil
 }
 
-// CertDecision allows a certificate only for the app domain or a verified community domain.
+// CertDecision allows a certificate only for the app domain or a verified
+// community domain whose community has not departed.
 func (h Hosts) CertDecision(ctx context.Context, name string) error {
-	ok, err := h.Allowed(ctx, name)
+	state, err := h.State(ctx, name)
 	if err != nil {
 		return fmt.Errorf("check host %q: %w", name, err)
 	}
-	if !ok {
+	if state != HostServed {
 		return fmt.Errorf("host %q is not served here", name)
 	}
 	return nil
@@ -59,14 +80,20 @@ func Handler(hosts Hosts, routes Routes, log *slog.Logger) http.Handler {
 			healthz(w, r)
 			return
 		}
-		ok, err := hosts.Allowed(r.Context(), requestHost(r))
+		state, err := hosts.State(r.Context(), requestHost(r))
 		if err != nil {
 			log.ErrorContext(r.Context(), "host lookup failed", "host", r.Host, "err", err)
 			http.Error(w, "host lookup failed", http.StatusServiceUnavailable)
 			return
 		}
-		if !ok {
+		switch state {
+		case HostUnknown:
 			http.Error(w, "misdirected request", http.StatusMisdirectedRequest)
+			return
+		case HostDeparted:
+			// Senders with stale DNS retry and reach the new installation later.
+			w.Header().Set("Retry-After", "300")
+			http.Error(w, "this community moved to another installation", http.StatusServiceUnavailable)
 			return
 		}
 		orNotFound(route(r, routes)).ServeHTTP(w, r)

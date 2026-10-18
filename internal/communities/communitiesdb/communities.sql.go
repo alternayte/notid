@@ -33,17 +33,18 @@ func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Commun
 	return i, err
 }
 
-const domainServed = `-- name: DomainServed :one
-SELECT EXISTS (
-    SELECT 1 FROM community_domains WHERE domain = $1 AND verified_at IS NOT NULL
-)
+const domainState = `-- name: DomainState :one
+SELECT c.state
+FROM community_domains d
+JOIN communities c ON c.id = d.community_id
+WHERE d.domain = $1 AND d.verified_at IS NOT NULL
 `
 
-func (q *Queries) DomainServed(ctx context.Context, domain string) (bool, error) {
-	row := q.db.QueryRow(ctx, domainServed, domain)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+func (q *Queries) DomainState(ctx context.Context, domain string) (string, error) {
+	row := q.db.QueryRow(ctx, domainState, domain)
+	var state string
+	err := row.Scan(&state)
+	return state, err
 }
 
 const insertCommunity = `-- name: InsertCommunity :one

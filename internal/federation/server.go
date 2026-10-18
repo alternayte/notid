@@ -34,6 +34,8 @@ type Server struct {
 	// Limits holds the per-peer inbox rate limits.
 	Limits   *PeerLimits
 	Markdown *platform.Markdown
+	// WellKnown answers /.well-known/notid, the cutover probe.
+	WellKnown http.HandlerFunc
 }
 
 // Handler routes the ActivityPub endpoints. The edge sends only ActivityPub
@@ -44,6 +46,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /.well-known/nodeinfo", s.nodeInfoIndex)
 	mux.HandleFunc("GET /nodeinfo/2.1", s.nodeInfo)
 	mux.HandleFunc("GET /actor", s.application)
+	if s.WellKnown != nil {
+		mux.HandleFunc("GET /.well-known/notid", s.WellKnown)
+	}
 	mux.HandleFunc("POST /inbox", s.inbox)
 	mux.HandleFunc("POST /u/{name}/inbox", s.inbox)
 	mux.HandleFunc("POST /c/{name}/inbox", s.inbox)

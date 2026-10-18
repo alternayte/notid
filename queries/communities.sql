@@ -24,7 +24,8 @@ RETURNING *;
 INSERT INTO community_domains (domain, txt_token, created_by, verified_at, community_id)
 VALUES (@domain, @txt_token, @created_by, now(), @community_id);
 
--- name: DomainServed :one
-SELECT EXISTS (
-    SELECT 1 FROM community_domains WHERE domain = @domain AND verified_at IS NOT NULL
-);
+-- name: DomainState :one
+SELECT c.state
+FROM community_domains d
+JOIN communities c ON c.id = d.community_id
+WHERE d.domain = @domain AND d.verified_at IS NOT NULL;

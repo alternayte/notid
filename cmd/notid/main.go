@@ -26,6 +26,8 @@ commands:
   migrate   apply database migrations
   community create <name> [-domain d] [-title t]
             create a community and its group
+  community freeze <domain>
+            make a community read-only before a move
   openapi   print the OpenAPI document
   version   print the version
 `
@@ -96,7 +98,7 @@ func serve(ctx context.Context, cfg platform.Config, t platform.Tuning, log *slo
 		<-ctx.Done()
 		return nil
 	}
-	hosts := edge.Hosts{AppDomain: cfg.AppDomain, CommunityDomain: communities.DomainServed(a.pool)}
+	hosts := edge.Hosts{AppDomain: cfg.AppDomain, CommunityDomain: communities.DomainState(a.pool)}
 	public := edge.Handler(hosts, edge.Routes{
 		Federation: a.federation,
 		API:        a.api,

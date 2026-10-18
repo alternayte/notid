@@ -95,8 +95,8 @@ func newCertMagic(cfg platform.Config, hosts Hosts, log *slog.Logger) (*certmagi
 func redirectHTTPS(hosts Hosts) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := requestHost(r)
-		ok, err := hosts.Allowed(r.Context(), host)
-		if err != nil || !ok {
+		state, err := hosts.State(r.Context(), host)
+		if err != nil || state != HostServed {
 			http.Error(w, "misdirected request", http.StatusMisdirectedRequest)
 			return
 		}
