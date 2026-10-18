@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/png"
 	"mime/multipart"
@@ -445,5 +446,160 @@ func TestABannedMemberCannotWriteInTheCommunity(t *testing.T) {
 		if w.Code != http.StatusForbidden {
 			t.Fatalf("%s from a banned member: %d %s", path, w.Code, w.Body)
 		}
+	}
+}
+
+// newPerson makes a local person who has not been promoted yet.
+func newPerson(t *testing.T, tx pgx.Tx) actors.Actor {
+	t.Helper()
+	trustedPerson(t, tx) // creates the auth user pattern; the next one starts new
+	id := uuid.New()
+	ctx := context.Background()
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO auth_users (id, email, email_normalized, display_name, image_url, created_at, updated_at) VALUES ($1, $2, $2, '', '', now(), now())`,
+		id, id.String()+"@example.org"); err != nil {
+		t.Fatal(err)
+	}
+	a, err := local(t).CreatePerson(ctx, tx, id, "n"+id.String()[:8], "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+func TestAHeldPostStaysOutUntilAModeratorPublishesIt(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := trustedPerson(t, tx)
+	author := newPerson(t, tx)
+	name := "h" + uuid.NewString()[:8]
+	c, err := communities.CreateLocal(ctx, tx, local(t), owner, name, communities.Settings{Title: "Reviewed", HoldNewPosts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state) VALUES ($1, $2, 'accepted')`, c.ID, author.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var groupApID string
+	if err := pool.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+		t.Fatal(err)
+	}
+	sent := 0
+	svc := &discussions.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning(),
+		SendPost: func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error {
+			sent++
+			return nil
+		},
+		SendComment:   func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { return nil },
+		SendVote:      func(context.Context, pgx.Tx, actors.Actor, int64, string, int16, string, string) error { return nil },
+		NewActivityID: func(string) (string, error) { return "https://notid.test/a/" + uuid.NewString(), nil },
+	}
+	post, err := svc.Post(ctx, author, discussions.PostBody{Community: groupApID, Title: "Delayed", Body: "Body"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !post.Held || sent != 0 {
+		t.Fatalf("a new person's post was not held: held %v sends %d", post.Held, sent)
+	}
+	if _, err := svc.Thread(ctx, post.Ref, nil); err == nil {
+		t.Fatal("a held post is readable")
+	}
+	if page, err := svc.CommunityPosts(ctx, name, "new", "", nil); err != nil || len(page.Posts) != 0 {
+		t.Fatalf("a held post is in the list: %+v %v", page, err)
+	}
+	if _, err := svc.HeldPosts(ctx, author, name); !errors.Is(err, discussions.ErrNotModerator) {
+		t.Fatalf("the author listed held posts: %v", err)
+	}
+	held, err := svc.HeldPosts(ctx, owner, name)
+	if err != nil || len(held) != 1 || held[0].Title != "Delayed" {
+		t.Fatalf("held list %+v %v", held, err)
+	}
+	if err := svc.Publish(ctx, author, post.ApID); !errors.Is(err, discussions.ErrNotModerator) {
+		t.Fatalf("the author published own held post: %v", err)
+	}
+	if err := svc.Publish(ctx, owner, post.ApID); err != nil {
+		t.Fatal(err)
+	}
+	if sent != 1 {
+		t.Fatalf("publishing sent %d Creates", sent)
+	}
+	if _, err := svc.Thread(ctx, post.Ref, nil); err != nil {
+		t.Fatalf("published post is not readable: %v", err)
+	}
+}
+
+func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := trustedPerson(t, tx)
+	author := newPerson(t, tx)
+	name := "l" + uuid.NewString()[:8]
+	c, err := communities.CreateLocal(ctx, tx, local(t), owner, name, communities.Settings{Title: "Limited"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A community another installation hosts, which carries the smaller limit.
+	remoteName := "r" + uuid.NewString()[:8]
+	var remoteID int64
+	if err := tx.QueryRow(ctx,
+		`WITH g AS (
+		   INSERT INTO actors (ap_id, kind, local, domain, name) VALUES ('https://lemmy.test/c/' || $1, 'group', false, 'lemmy.test', $1) RETURNING id
+		 )
+		 INSERT INTO communities (actor_id, domain, name) SELECT id, 'lemmy.test', $1 FROM g RETURNING id`, remoteName).Scan(&remoteID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var groupApID, remoteApID string
+	if err := pool.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT ap_id FROM actors WHERE domain = 'lemmy.test' AND name = $1`, remoteName).Scan(&remoteApID); err != nil {
+		t.Fatal(err)
+	}
+	tuning := platform.DefaultTuning()
+	tuning.NewWritesPerDay = 3
+	tuning.NewRemoteWritesPerDay = 1
+	svc := &discussions.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: tuning,
+		SendPost:      func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { return nil },
+		SendComment:   func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { return nil },
+		SendVote:      func(context.Context, pgx.Tx, actors.Actor, int64, string, int16, string, string) error { return nil },
+		NewActivityID: func(string) (string, error) { return "https://notid.test/a/" + uuid.NewString(), nil },
+	}
+	post := func(community, title string) error {
+		_, err := svc.Post(ctx, author, discussions.PostBody{Community: community, Title: title})
+		return err
+	}
+	if err := post(groupApID, "One"); err != nil {
+		t.Fatal(err)
+	}
+	if err := post(remoteApID, "Remote"); err != nil {
+		t.Fatalf("a first remote write is inside the limit: %v", err)
+	}
+	if err := post(remoteApID, "Remote again"); !errors.Is(err, discussions.ErrNotTrusted) {
+		t.Fatalf("a second remote write passed the remote limit: %v", err)
+	}
+	if err := post(groupApID, "Two"); err != nil {
+		t.Fatal(err)
+	}
+	if err := post(groupApID, "Three"); !errors.Is(err, discussions.ErrNotTrusted) {
+		t.Fatalf("a new person wrote past the daily limit: %v", err)
+	}
+	if _, err := svc.Post(ctx, owner, discussions.PostBody{Community: groupApID, Title: "Trusted"}); err != nil {
+		t.Fatalf("a trusted person is limited: %v", err)
 	}
 }

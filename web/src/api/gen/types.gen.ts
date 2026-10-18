@@ -168,6 +168,10 @@ export type CreateBody = {
      */
     description: string;
     /**
+     * Hold a new person's posts until a moderator publishes them
+     */
+    holdNewPosts: boolean;
+    /**
      * Fixed forever; part of the community's address
      */
     name: string;
@@ -213,6 +217,10 @@ export type Detail = {
      * name for communities on this site's domain, else name@domain
      */
     handle: string;
+    /**
+     * A new person's posts wait for a moderator publication
+     */
+    holdNewPosts: boolean;
     /**
      * true when the community lives on this installation
      */
@@ -302,6 +310,40 @@ export type ErrorResponse = {
         code: string;
         message: string;
     };
+};
+
+export type HeldOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    posts: Array<PostView>;
+};
+
+export type InviteList = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * When each unused code was made
+     */
+    created: Array<string>;
+    /**
+     * Codes this person can still create; -1 means no limit
+     */
+    remaining: number;
+};
+
+export type InviteOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Share it once; the site stores only its hash
+     */
+    code: string;
 };
 
 export type List = {
@@ -537,6 +579,17 @@ export type ProfileBody = {
     displayName: string;
 };
 
+export type PublishBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * AP ID of the post
+     */
+    object: string;
+};
+
 export type QueueOut = {
     /**
      * A URL to the JSON Schema for this object.
@@ -664,6 +717,10 @@ export type SettingsBody = {
      * Markdown
      */
     description: string;
+    /**
+     * Hold a new person's posts until a moderator publishes them
+     */
+    holdNewPosts: boolean;
     nsfw: boolean;
     /**
      * One rule per item, in order
@@ -793,6 +850,17 @@ export type ThreadView = {
     truncated: boolean;
 };
 
+export type TrustBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * true promotes the person, false demotes them
+     */
+    trusted: boolean;
+};
+
 export type Uploaded = {
     /**
      * A URL to the JSON Schema for this object.
@@ -897,6 +965,10 @@ export type CreateBodyWritable = {
      */
     description: string;
     /**
+     * Hold a new person's posts until a moderator publishes them
+     */
+    holdNewPosts: boolean;
+    /**
      * Fixed forever; part of the community's address
      */
     name: string;
@@ -934,6 +1006,10 @@ export type DetailWritable = {
      * name for communities on this site's domain, else name@domain
      */
     handle: string;
+    /**
+     * A new person's posts wait for a moderator publication
+     */
+    holdNewPosts: boolean;
     /**
      * true when the community lives on this installation
      */
@@ -980,6 +1056,28 @@ export type ErrorModelWritable = {
      * A URI reference to human-readable documentation for the error.
      */
     type?: string;
+};
+
+export type HeldOutWritable = {
+    posts: Array<PostView>;
+};
+
+export type InviteListWritable = {
+    /**
+     * When each unused code was made
+     */
+    created: Array<string>;
+    /**
+     * Codes this person can still create; -1 means no limit
+     */
+    remaining: number;
+};
+
+export type InviteOutWritable = {
+    /**
+     * Share it once; the site stores only its hash
+     */
+    code: string;
 };
 
 export type ListWritable = {
@@ -1110,6 +1208,13 @@ export type ProfileBodyWritable = {
     displayName: string;
 };
 
+export type PublishBodyWritable = {
+    /**
+     * AP ID of the post
+     */
+    object: string;
+};
+
 export type QueueOutWritable = {
     reports: Array<Report>;
 };
@@ -1157,6 +1262,10 @@ export type SettingsBodyWritable = {
      * Markdown
      */
     description: string;
+    /**
+     * Hold a new person's posts until a moderator publishes them
+     */
+    holdNewPosts: boolean;
     nsfw: boolean;
     /**
      * One rule per item, in order
@@ -1209,6 +1318,13 @@ export type ThreadViewWritable = {
      * true when the post has more comments than one page holds
      */
     truncated: boolean;
+};
+
+export type TrustBodyWritable = {
+    /**
+     * true promotes the person, false demotes them
+     */
+    trusted: boolean;
 };
 
 export type UploadedWritable = {
@@ -1354,6 +1470,49 @@ export type SiteUnbanResponses = {
 };
 
 export type SiteUnbanResponse = SiteUnbanResponses[keyof SiteUnbanResponses];
+
+export type SetTrustData = {
+    body: TrustBodyWritable;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/admin/people/{handle}/trust';
+};
+
+export type SetTrustErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SetTrustError = SetTrustErrors[keyof SetTrustErrors];
+
+export type SetTrustResponses = {
+    /**
+     * OK
+     */
+    200: Profile;
+};
+
+export type SetTrustResponse = SetTrustResponses[keyof SetTrustResponses];
 
 export type SiteReportsData = {
     body?: never;
@@ -2264,6 +2423,49 @@ export type UpdateCommunityResponses = {
 
 export type UpdateCommunityResponse = UpdateCommunityResponses[keyof UpdateCommunityResponses];
 
+export type HeldPostsData = {
+    body?: never;
+    path: {
+        handle: string;
+    };
+    query?: never;
+    url: '/api/communities/{handle}/held';
+};
+
+export type HeldPostsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type HeldPostsError = HeldPostsErrors[keyof HeldPostsErrors];
+
+export type HeldPostsResponses = {
+    /**
+     * OK
+     */
+    200: HeldOut;
+};
+
+export type HeldPostsResponse = HeldPostsResponses[keyof HeldPostsResponses];
+
 export type ModerationLogData = {
     body?: never;
     path: {
@@ -2471,6 +2673,72 @@ export type HomeFeedResponses = {
 };
 
 export type HomeFeedResponse = HomeFeedResponses[keyof HomeFeedResponses];
+
+export type InvitesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/invites';
+};
+
+export type InvitesErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type InvitesError = InvitesErrors[keyof InvitesErrors];
+
+export type InvitesResponses = {
+    /**
+     * OK
+     */
+    200: InviteList;
+};
+
+export type InvitesResponse = InvitesResponses[keyof InvitesResponses];
+
+export type CreateInviteData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/invites';
+};
+
+export type CreateInviteErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CreateInviteError = CreateInviteErrors[keyof CreateInviteErrors];
+
+export type CreateInviteResponses = {
+    /**
+     * Created
+     */
+    201: InviteOut;
+};
+
+export type CreateInviteResponse = CreateInviteResponses[keyof CreateInviteResponses];
 
 export type PreviewMarkdownData = {
     body: PreviewBodyWritable;
@@ -3075,6 +3343,47 @@ export type CreatePostResponses = {
 };
 
 export type CreatePostResponse = CreatePostResponses[keyof CreatePostResponses];
+
+export type PublishPostData = {
+    body: PublishBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/posts/publish';
+};
+
+export type PublishPostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type PublishPostError = PublishPostErrors[keyof PublishPostErrors];
+
+export type PublishPostResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type PublishPostResponse = PublishPostResponses[keyof PublishPostResponses];
 
 export type ThreadData = {
     body?: never;

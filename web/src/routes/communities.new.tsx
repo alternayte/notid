@@ -45,7 +45,15 @@ function NewCommunity() {
         </section>
       ) : (
         <SettingsForm
-          initial={{ title: '', description: '', rules: [], theme: {}, appealsContact: '', nsfw: false }}
+          initial={{
+            title: '',
+            description: '',
+            rules: [],
+            theme: {},
+            appealsContact: '',
+            nsfw: false,
+            holdNewPosts: false,
+          }}
           submitLabel="Start the community"
           busyLabel="Starting…"
           onSubmit={async (values, form) => {

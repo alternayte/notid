@@ -6,6 +6,7 @@ import {
   meOptions,
   removeObjectMutation,
   resolveReportMutation,
+  setTrustMutation,
   siteBanMutation,
   siteBansOptions,
   siteBansQueryKey,
@@ -69,6 +70,7 @@ function AdminBody() {
   const resolve = useMutation(resolveReportMutation())
   const ban = useMutation(siteBanMutation())
   const unban = useMutation(siteUnbanMutation())
+  const trust = useMutation(setTrustMutation())
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
   async function act(fn: () => Promise<unknown>, message: string) {
@@ -144,6 +146,21 @@ function AdminBody() {
         <BanForm
           onBan={(actor, reason, days) =>
             act(() => ban.mutateAsync({ body: { actor, reason, days } }), `Banned ${actor}.`)
+          }
+        />
+      </section>
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-2xl tracking-tight">Trust levels</h2>
+        <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+          A new account becomes established on its own after a few days and a few posts that no moderator removed.
+          Promote one early, or demote one that went wrong.
+        </p>
+        <TrustForm
+          onSet={(handle, trusted) =>
+            act(
+              () => trust.mutateAsync({ path: { handle }, body: { trusted } }),
+              trusted ? `${handle} is established.` : `${handle} is new again.`,
+            )
           }
         />
       </section>
@@ -290,5 +307,47 @@ function BanForm({ onBan }: { onBan: (actor: string, reason: string, days: numbe
         Ban from the site
       </Button>
     </form>
+  )
+}
+
+function TrustForm({ onSet }: { onSet: (handle: string, trusted: boolean) => Promise<void> }) {
+  const id = useId()
+  const [handle, setHandle] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function run(trusted: boolean) {
+    setBusy(true)
+    await onSet(handle.trim().replace(/^[@!]/, ''), trusted)
+    setBusy(false)
+    setHandle('')
+  }
+
+  return (
+    <div className="flex max-w-(--container-measure) flex-col gap-2 border-t border-rule pt-4">
+      <label htmlFor={id} className={label}>
+        Their handle
+      </label>
+      <Input
+        id={id}
+        value={handle}
+        onChange={(e) => setHandle(e.target.value)}
+        placeholder="ada or sam@lemmy.example"
+        className="max-w-sm"
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" className="w-fit" disabled={busy || handle.trim() === ''} onClick={() => void run(true)}>
+          Promote to established
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-fit"
+          disabled={busy || handle.trim() === ''}
+          onClick={() => void run(false)}
+        >
+          Demote to new
+        </Button>
+      </div>
+    </div>
   )
 }

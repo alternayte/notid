@@ -32,17 +32,22 @@ type Service struct {
 	NewActivityID func(actorApID string) (string, error)
 	// MediaURL is where an uploaded image with a storage key is served.
 	MediaURL func(key string) string
+	// IsAdmin reports whether the person is a site admin, who may publish held
+	// posts of any local community.
+	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
 }
 
 var (
-	ErrNoCommunity = errors.New("no community at that address")
-	ErrNotActive   = errors.New("the community does not accept posts here now")
-	ErrNoObject    = errors.New("no post or comment at that address")
-	ErrURLAndImage = errors.New("a post links to a URL or shows an image, not both")
-	ErrBanned      = errors.New("you are banned from this community")
+	ErrNoCommunity  = errors.New("no community at that address")
+	ErrNotActive    = errors.New("the community does not accept posts here now")
+	ErrNoObject     = errors.New("no post or comment at that address")
+	ErrURLAndImage  = errors.New("a post links to a URL or shows an image, not both")
+	ErrBanned       = errors.New("you are banned from this community")
+	ErrNotModerator = errors.New("only the community's owners and moderators can do that")
+	ErrNotTrusted   = errors.New("new accounts cannot post that often yet")
 )
 
-type postBody struct {
+type PostBody struct {
 	Community string `json:"community" doc:"AP ID of the community" maxLength:"500"`
 	Title     string `json:"title" minLength:"1" maxLength:"200"`
 	Body      string `json:"body,omitempty" maxLength:"40000" doc:"Markdown"`
@@ -53,6 +58,18 @@ type postBody struct {
 type commentBody struct {
 	InReplyTo string `json:"inReplyTo" doc:"AP ID of the post or comment" maxLength:"500"`
 	Body      string `json:"body" minLength:"1" maxLength:"20000" doc:"Markdown"`
+}
+
+type heldPath struct {
+	Handle string `path:"handle" maxLength:"300"`
+}
+
+type heldOut struct {
+	Posts []PostView `json:"posts" nullable:"false"`
+}
+
+type publishBody struct {
+	Object string `json:"object" doc:"AP ID of the post" maxLength:"500"`
 }
 
 type voteBody struct {
@@ -70,7 +87,7 @@ func (s *Service) Register(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createPost", Method: http.MethodPost, Path: "/api/posts",
 		Summary: "Post in a community", Tags: []string{"discussions"}, Errors: errs, DefaultStatus: http.StatusCreated,
-	}, func(ctx context.Context, in *struct{ Body postBody }) (*struct{ Body Created }, error) {
+	}, func(ctx context.Context, in *struct{ Body PostBody }) (*struct{ Body Created }, error) {
 		person, err := signedIn(ctx)
 		if err != nil {
 			return nil, err
@@ -194,6 +211,33 @@ func (s *Service) registerReads(api huma.API) {
 		return &struct{ Body PostPage }{p}, apiError(err)
 	})
 	huma.Register(api, huma.Operation{
+		OperationID: "heldPosts", Method: http.MethodGet, Path: "/api/communities/{handle}/held",
+		Summary: "List the posts waiting for a moderator's publication", Tags: []string{"discussions"},
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, in *heldPath) (*struct{ Body heldOut }, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		posts, err := s.HeldPosts(ctx, me, in.Handle)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return &struct{ Body heldOut }{heldOut{Posts: posts}}, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "publishPost", Method: http.MethodPost, Path: "/api/posts/publish",
+		Summary: "Publish a held post and send it to the community's followers", Tags: []string{"discussions"},
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, in *struct{ Body publishBody }) (*struct{}, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.Publish(ctx, me, in.Body.Object))
+	})
+	huma.Register(api, huma.Operation{
 		OperationID: "save", Method: http.MethodPost, Path: "/api/saves",
 		Summary: "Save or unsave a post or a comment", Tags: tags, DefaultStatus: http.StatusNoContent,
 		Errors: []int{http.StatusUnauthorized, http.StatusNotFound},
@@ -240,14 +284,34 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject), errors.Is(err, ErrNoPerson):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrBanned):
+	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator):
 		return huma.Error403Forbidden(err.Error())
+	case errors.Is(err, ErrNotTrusted):
+		return huma.Error429TooManyRequests(err.Error())
 	case errors.Is(err, ErrBadCursor), errors.Is(err, ErrURLAndImage), errors.Is(err, media.ErrNotYours):
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
 	}
 	return err
+}
+
+// limitWrites caps what a new person writes in a day, with a smaller cap for
+// communities another installation hosts.
+func (s *Service) limitWrites(ctx context.Context, q *discussionsdb.Queries, author actors.Actor, remote bool) error {
+	if Counts(author) {
+		return nil
+	}
+	w, err := q.AuthorWritesSince(ctx, discussionsdb.AuthorWritesSinceParams{
+		AuthorID: author.ID, Since: time.Now().Add(-24 * time.Hour),
+	})
+	if err != nil {
+		return fmt.Errorf("write count: %w", err)
+	}
+	if int(w.Writes) >= s.Tuning.NewWritesPerDay || (remote && int(w.RemoteWrites) >= s.Tuning.NewRemoteWritesPerDay) {
+		return ErrNotTrusted
+	}
+	return nil
 }
 
 // forbidden refuses a write from a person banned from the community.
@@ -284,7 +348,7 @@ func writable(c discussionsdb.CommunityByIDRow) error {
 }
 
 // Post stores a local post and queues its delivery in one transaction.
-func (s *Service) Post(ctx context.Context, author actors.Actor, in postBody) (Post, error) {
+func (s *Service) Post(ctx context.Context, author actors.Actor, in PostBody) (Post, error) {
 	var post Post
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		c, err := discussionsdb.New(tx).CommunityByGroupApID(ctx, in.Community)
@@ -300,7 +364,12 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in postBody) (P
 		if err := forbidden(ctx, tx, c.ID, author.ID); err != nil {
 			return err
 		}
+		if err := s.limitWrites(ctx, discussionsdb.New(tx), author, !c.Local); err != nil {
+			return err
+		}
 		np := NewPost{CommunityID: c.ID, Author: author, Title: in.Title, Body: in.Body, URL: in.URL, Published: time.Now()}
+		// A new person's first posts wait for a moderator where the community asks for that.
+		np.Held = c.Local && c.HoldNewPosts && !Counts(author)
 		if in.Image != "" {
 			if in.URL != "" {
 				return ErrURLAndImage
@@ -315,6 +384,9 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in postBody) (P
 		post, _, err = InsertPost(ctx, tx, np)
 		if err != nil {
 			return err
+		}
+		if post.Held {
+			return nil
 		}
 		return s.SendPost(ctx, tx, author, post)
 	})
@@ -350,6 +422,9 @@ func (s *Service) Comment(ctx context.Context, author actors.Actor, in commentBo
 			return err
 		}
 		if err := forbidden(ctx, tx, c.ID, author.ID); err != nil {
+			return err
+		}
+		if err := s.limitWrites(ctx, q, author, !c.Local); err != nil {
 			return err
 		}
 		comment, _, err = InsertComment(ctx, tx, NewComment{

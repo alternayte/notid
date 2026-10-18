@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, BanActorData, BanActorErrors, BanActorResponses, CommunityData, CommunityErrors, CommunityPostsData, CommunityPostsErrors, CommunityPostsResponses, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DeleteMeData, DeleteMeErrors, DeleteMeResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, HomeFeedData, HomeFeedErrors, HomeFeedResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LockPostData, LockPostErrors, LockPostResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, ModerationLogData, ModerationLogErrors, ModerationLogResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, PersonCommentsData, PersonCommentsErrors, PersonCommentsResponses, PersonData, PersonErrors, PersonPostsData, PersonPostsErrors, PersonPostsResponses, PersonResponses, PreviewMarkdownData, PreviewMarkdownErrors, PreviewMarkdownResponses, RemoveObjectData, RemoveObjectErrors, RemoveObjectResponses, ReportObjectData, ReportObjectErrors, ReportObjectResponses, ReportQueueData, ReportQueueErrors, ReportQueueResponses, ResolveReportData, ResolveReportErrors, ResolveReportResponses, RestoreObjectData, RestoreObjectErrors, RestoreObjectResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveData, SavedData, SavedErrors, SavedResponses, SaveErrors, SaveResponses, SearchCommentsData, SearchCommentsErrors, SearchCommentsResponses, SearchCommunitiesData, SearchCommunitiesErrors, SearchCommunitiesResponses, SearchPostsData, SearchPostsErrors, SearchPostsResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, SiteBanData, SiteBanErrors, SiteBanResponses, SiteBansData, SiteBansErrors, SiteBansResponses, SiteReportsData, SiteReportsErrors, SiteReportsResponses, SiteUnbanData, SiteUnbanErrors, SiteUnbanResponses, ThreadData, ThreadErrors, ThreadResponses, UnbanActorData, UnbanActorErrors, UnbanActorResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
+import type { AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, BanActorData, BanActorErrors, BanActorResponses, CommunityData, CommunityErrors, CommunityPostsData, CommunityPostsErrors, CommunityPostsResponses, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DeleteMeData, DeleteMeErrors, DeleteMeResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, HeldPostsData, HeldPostsErrors, HeldPostsResponses, HomeFeedData, HomeFeedErrors, HomeFeedResponses, InvitesData, InvitesErrors, InvitesResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LockPostData, LockPostErrors, LockPostResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, ModerationLogData, ModerationLogErrors, ModerationLogResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, PersonCommentsData, PersonCommentsErrors, PersonCommentsResponses, PersonData, PersonErrors, PersonPostsData, PersonPostsErrors, PersonPostsResponses, PersonResponses, PreviewMarkdownData, PreviewMarkdownErrors, PreviewMarkdownResponses, PublishPostData, PublishPostErrors, PublishPostResponses, RemoveObjectData, RemoveObjectErrors, RemoveObjectResponses, ReportObjectData, ReportObjectErrors, ReportObjectResponses, ReportQueueData, ReportQueueErrors, ReportQueueResponses, ResolveReportData, ResolveReportErrors, ResolveReportResponses, RestoreObjectData, RestoreObjectErrors, RestoreObjectResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveData, SavedData, SavedErrors, SavedResponses, SaveErrors, SaveResponses, SearchCommentsData, SearchCommentsErrors, SearchCommentsResponses, SearchCommunitiesData, SearchCommunitiesErrors, SearchCommunitiesResponses, SearchPostsData, SearchPostsErrors, SearchPostsResponses, SetTrustData, SetTrustErrors, SetTrustResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, SiteBanData, SiteBanErrors, SiteBanResponses, SiteBansData, SiteBansErrors, SiteBansResponses, SiteReportsData, SiteReportsErrors, SiteReportsResponses, SiteUnbanData, SiteUnbanErrors, SiteUnbanResponses, ThreadData, ThreadErrors, ThreadResponses, UnbanActorData, UnbanActorErrors, UnbanActorResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -40,6 +40,18 @@ export const siteBan = <ThrowOnError extends boolean = false>(options: Options<S
  */
 export const siteUnban = <ThrowOnError extends boolean = false>(options: Options<SiteUnbanData, ThrowOnError>): RequestResult<SiteUnbanResponses, SiteUnbanErrors, ThrowOnError> => (options.client ?? client).post<SiteUnbanResponses, SiteUnbanErrors, ThrowOnError>({
     url: '/api/admin/bans/lift',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Promote or demote a person's trust level
+ */
+export const setTrust = <ThrowOnError extends boolean = false>(options: Options<SetTrustData, ThrowOnError>): RequestResult<SetTrustResponses, SetTrustErrors, ThrowOnError> => (options.client ?? client).post<SetTrustResponses, SetTrustErrors, ThrowOnError>({
+    url: '/api/admin/people/{handle}/trust',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -275,6 +287,11 @@ export const updateCommunity = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * List the posts waiting for a moderator's publication
+ */
+export const heldPosts = <ThrowOnError extends boolean = false>(options: Options<HeldPostsData, ThrowOnError>): RequestResult<HeldPostsResponses, HeldPostsErrors, ThrowOnError> => (options.client ?? client).get<HeldPostsResponses, HeldPostsErrors, ThrowOnError>({ url: '/api/communities/{handle}/held', ...options });
+
+/**
  * Read a community's public moderation log, newest first
  */
 export const moderationLog = <ThrowOnError extends boolean = false>(options: Options<ModerationLogData, ThrowOnError>): RequestResult<ModerationLogResponses, ModerationLogErrors, ThrowOnError> => (options.client ?? client).get<ModerationLogResponses, ModerationLogErrors, ThrowOnError>({ url: '/api/communities/{handle}/log', ...options });
@@ -305,6 +322,16 @@ export const resolveReport = <ThrowOnError extends boolean = false>(options: Opt
  * List posts from my communities, newest first by feed time
  */
 export const homeFeed = <ThrowOnError extends boolean = false>(options?: Options<HomeFeedData, ThrowOnError>): RequestResult<HomeFeedResponses, HomeFeedErrors, ThrowOnError> => (options?.client ?? client).get<HomeFeedResponses, HomeFeedErrors, ThrowOnError>({ url: '/api/feed', ...options });
+
+/**
+ * Read how many codes I can still create
+ */
+export const invites = <ThrowOnError extends boolean = false>(options?: Options<InvitesData, ThrowOnError>): RequestResult<InvitesResponses, InvitesErrors, ThrowOnError> => (options?.client ?? client).get<InvitesResponses, InvitesErrors, ThrowOnError>({ url: '/api/invites', ...options });
+
+/**
+ * Create an invite code; trusted accounts get a few, admins more
+ */
+export const createInvite = <ThrowOnError extends boolean = false>(options?: Options<CreateInviteData, ThrowOnError>): RequestResult<CreateInviteResponses, CreateInviteErrors, ThrowOnError> => (options?.client ?? client).post<CreateInviteResponses, CreateInviteErrors, ThrowOnError>({ url: '/api/invites', ...options });
 
 /**
  * Render Markdown as a post or comment will show it
@@ -443,6 +470,18 @@ export const personPosts = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const createPost = <ThrowOnError extends boolean = false>(options: Options<CreatePostData, ThrowOnError>): RequestResult<CreatePostResponses, CreatePostErrors, ThrowOnError> => (options.client ?? client).post<CreatePostResponses, CreatePostErrors, ThrowOnError>({
     url: '/api/posts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Publish a held post and send it to the community's followers
+ */
+export const publishPost = <ThrowOnError extends boolean = false>(options: Options<PublishPostData, ThrowOnError>): RequestResult<PublishPostResponses, PublishPostErrors, ThrowOnError> => (options.client ?? client).post<PublishPostResponses, PublishPostErrors, ThrowOnError>({
+    url: '/api/posts/publish',
     ...options,
     headers: {
         'Content-Type': 'application/json',

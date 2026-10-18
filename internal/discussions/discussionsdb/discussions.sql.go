@@ -237,6 +237,42 @@ func (q *Queries) AuthorPosts(ctx context.Context, arg AuthorPostsParams) ([]Aut
 	return items, nil
 }
 
+const authorWritesSince = `-- name: AuthorWritesSince :one
+SELECT
+  (SELECT count(*) FROM posts p
+     WHERE p.author_id = $1 AND p.local AND p.received_at > $2)
++ (SELECT count(*) FROM comments m
+     WHERE m.author_id = $1 AND m.local AND m.received_at > $2) AS writes,
+  (SELECT count(*) FROM posts p
+     JOIN communities c ON c.id = p.community_id
+     JOIN actors g ON g.id = c.actor_id
+     WHERE p.author_id = $1 AND p.local AND NOT g.local AND p.received_at > $2)
++ (SELECT count(*) FROM comments m
+     JOIN posts p ON p.id = m.post_id
+     JOIN communities c ON c.id = p.community_id
+     JOIN actors g ON g.id = c.actor_id
+     WHERE m.author_id = $1 AND m.local AND NOT g.local AND m.received_at > $2) AS remote_writes
+`
+
+type AuthorWritesSinceParams struct {
+	AuthorID int64
+	Since    time.Time
+}
+
+type AuthorWritesSinceRow struct {
+	Writes       int32
+	RemoteWrites int32
+}
+
+// AuthorWritesSince counts a person's local posts and comments since @since,
+// and the subset written in communities another installation hosts.
+func (q *Queries) AuthorWritesSince(ctx context.Context, arg AuthorWritesSinceParams) (AuthorWritesSinceRow, error) {
+	row := q.db.QueryRow(ctx, authorWritesSince, arg.AuthorID, arg.Since)
+	var i AuthorWritesSinceRow
+	err := row.Scan(&i.Writes, &i.RemoteWrites)
+	return i, err
+}
+
 const bumpCommentCount = `-- name: BumpCommentCount :exec
 UPDATE posts SET comment_count = comment_count + 1,
     last_comment_at = greatest(coalesce(last_comment_at, least($1::timestamptz, now())), least($1::timestamptz, now()))
@@ -342,42 +378,54 @@ func (q *Queries) CommentVote(ctx context.Context, arg CommentVoteParams) (Vote,
 }
 
 const communityByGroupApID = `-- name: CommunityByGroupApID :one
-SELECT c.id, c.state, a.local
+SELECT c.id, c.state, a.local, c.hold_new_posts
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE a.ap_id = $1
 `
 
 type CommunityByGroupApIDRow struct {
-	ID    int64
-	State string
-	Local bool
+	ID           int64
+	State        string
+	Local        bool
+	HoldNewPosts bool
 }
 
 func (q *Queries) CommunityByGroupApID(ctx context.Context, apID string) (CommunityByGroupApIDRow, error) {
 	row := q.db.QueryRow(ctx, communityByGroupApID, apID)
 	var i CommunityByGroupApIDRow
-	err := row.Scan(&i.ID, &i.State, &i.Local)
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.Local,
+		&i.HoldNewPosts,
+	)
 	return i, err
 }
 
 const communityByID = `-- name: CommunityByID :one
-SELECT c.id, c.state, a.local
+SELECT c.id, c.state, a.local, c.hold_new_posts
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE c.id = $1
 `
 
 type CommunityByIDRow struct {
-	ID    int64
-	State string
-	Local bool
+	ID           int64
+	State        string
+	Local        bool
+	HoldNewPosts bool
 }
 
 func (q *Queries) CommunityByID(ctx context.Context, id int64) (CommunityByIDRow, error) {
 	row := q.db.QueryRow(ctx, communityByID, id)
 	var i CommunityByIDRow
-	err := row.Scan(&i.ID, &i.State, &i.Local)
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.Local,
+		&i.HoldNewPosts,
+	)
 	return i, err
 }
 
@@ -740,6 +788,114 @@ func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 	return err
 }
 
+const heldPosts = `-- name: HeldPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.nsfw,
+    p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at,
+    p.score, p.up, p.down, p.comment_count, p.last_comment_at,
+    (p.media_id IS NOT NULL)::boolean AS has_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+WHERE p.community_id = $1 AND p.held AND p.deleted_at IS NULL
+ORDER BY p.published, p.id
+LIMIT $2
+`
+
+type HeldPostsParams struct {
+	CommunityID int64
+	Lim         int32
+}
+
+type HeldPostsRow struct {
+	ID                int64
+	ApID              string
+	Ref               string
+	Local             bool
+	CommunityID       int64
+	AuthorID          int64
+	Title             string
+	Body              string
+	Url               string
+	Nsfw              bool
+	Published         time.Time
+	ReceivedAt        time.Time
+	SortAt            time.Time
+	Updated           *time.Time
+	Locked            bool
+	Held              bool
+	DeletedAt         *time.Time
+	RemovedAt         *time.Time
+	Score             int32
+	Up                int32
+	Down              int32
+	CommentCount      int32
+	LastCommentAt     *time.Time
+	HasImage          bool
+	AuthorName        string
+	AuthorDomain      string
+	AuthorDisplayName string
+	AuthorBot         bool
+	CommunityName     string
+	CommunityDomain   string
+	CommunityTitle    string
+}
+
+// Held posts wait for a moderator of their community, oldest first.
+func (q *Queries) HeldPosts(ctx context.Context, arg HeldPostsParams) ([]HeldPostsRow, error) {
+	rows, err := q.db.Query(ctx, heldPosts, arg.CommunityID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HeldPostsRow
+	for rows.Next() {
+		var i HeldPostsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Local,
+			&i.CommunityID,
+			&i.AuthorID,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.ReceivedAt,
+			&i.SortAt,
+			&i.Updated,
+			&i.Locked,
+			&i.Held,
+			&i.DeletedAt,
+			&i.RemovedAt,
+			&i.Score,
+			&i.Up,
+			&i.Down,
+			&i.CommentCount,
+			&i.LastCommentAt,
+			&i.HasImage,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const homeFeed = `-- name: HomeFeed :many
 SELECT
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
@@ -909,10 +1065,10 @@ func (q *Queries) InsertComment(ctx context.Context, arg InsertCommentParams) (C
 const insertPost = `-- name: InsertPost :one
 INSERT INTO posts (
     ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
-    published, sort_at
+    published, sort_at, held
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    $11, least($11::timestamptz, now())
+    $11, least($11::timestamptz, now()), $12
 )
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
@@ -930,6 +1086,7 @@ type InsertPostParams struct {
 	MediaID     *int64
 	Nsfw        bool
 	Published   time.Time
+	Held        bool
 }
 
 func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, error) {
@@ -945,6 +1102,7 @@ func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, e
 		arg.MediaID,
 		arg.Nsfw,
 		arg.Published,
+		arg.Held,
 	)
 	var i Post
 	err := row.Scan(
@@ -1020,6 +1178,32 @@ func (q *Queries) PersonIDByHandle(ctx context.Context, arg PersonIDByHandlePara
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const postAuthorAndCommunity = `-- name: PostAuthorAndCommunity :one
+SELECT p.id, p.author_id, p.community_id, p.ap_id, p.ref
+FROM posts p WHERE p.ap_id = $1 AND p.held AND p.deleted_at IS NULL
+`
+
+type PostAuthorAndCommunityRow struct {
+	ID          int64
+	AuthorID    int64
+	CommunityID int64
+	ApID        string
+	Ref         string
+}
+
+func (q *Queries) PostAuthorAndCommunity(ctx context.Context, apID string) (PostAuthorAndCommunityRow, error) {
+	row := q.db.QueryRow(ctx, postAuthorAndCommunity, apID)
+	var i PostAuthorAndCommunityRow
+	err := row.Scan(
+		&i.ID,
+		&i.AuthorID,
+		&i.CommunityID,
+		&i.ApID,
+		&i.Ref,
+	)
+	return i, err
 }
 
 const postByApID = `-- name: PostByApID :one
@@ -1286,6 +1470,48 @@ func (q *Queries) PostVote(ctx context.Context, arg PostVoteParams) (Vote, error
 		&i.Counted,
 		&i.ApID,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const publishPost = `-- name: PublishPost :one
+UPDATE posts SET held = false
+WHERE ap_id = $1 AND held AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+func (q *Queries) PublishPost(ctx context.Context, apID string) (Post, error) {
+	row := q.db.QueryRow(ctx, publishPost, apID)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
 	)
 	return i, err
 }

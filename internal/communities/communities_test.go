@@ -212,15 +212,17 @@ func TestCreateAndUpdateThroughTheAPI(t *testing.T) {
 	d := send(http.MethodPost, "/api/communities", map[string]any{
 		"name": n, "title": "Woodworking", "description": "Hand **tools**", "rules": []string{"Be kind"},
 		"theme": map[string]string{"accent": "moss"}, "appealsContact": "mods@example.org", "nsfw": false,
+		"holdNewPosts": true,
 	})
 	if d.Handle != n || d.Title != "Woodworking" || d.Theme.Accent != "moss" || len(d.Rules) != 1 ||
-		d.Membership == nil || d.Membership.Role != "owner" || !strings.Contains(d.DescriptionHTML, "<strong>tools</strong>") {
+		!d.HoldNewPosts || d.Membership == nil || d.Membership.Role != "owner" || !strings.Contains(d.DescriptionHTML, "<strong>tools</strong>") {
 		t.Fatalf("created %+v", d)
 	}
 	d = send(http.MethodPut, "/api/communities/"+n, map[string]any{
-		"title": "Joinery", "description": "", "rules": []string{}, "theme": map[string]string{}, "appealsContact": "", "nsfw": true,
+		"title": "Joinery", "description": "", "rules": []string{}, "theme": map[string]string{}, "appealsContact": "",
+		"nsfw": true, "holdNewPosts": false,
 	})
-	if d.Title != "Joinery" || !d.NSFW || len(d.Rules) != 0 {
+	if d.Title != "Joinery" || !d.NSFW || d.HoldNewPosts || len(d.Rules) != 0 {
 		t.Fatalf("updated %+v", d)
 	}
 }

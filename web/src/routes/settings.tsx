@@ -2,7 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 import { errorMessage } from '~/api/errors'
-import { deleteMeMutation, meOptions, personOptions, updateProfileMutation } from '~/api/gen/@tanstack/react-query.gen'
+import {
+  createInviteMutation,
+  deleteMeMutation,
+  invitesOptions,
+  invitesQueryKey,
+  meOptions,
+  personOptions,
+  updateProfileMutation,
+} from '~/api/gen/@tanstack/react-query.gen'
+import type { Me } from '~/api/gen/types.gen'
 import { Button } from '~/ui/primitives/button'
 import { Checkbox } from '~/ui/primitives/checkbox'
 import { Input } from '~/ui/primitives/input'
@@ -37,10 +46,11 @@ function Settings() {
         <p className="font-sans text-sm text-ink-faint">Loading…</p>
       </Page>
     )
-  return <Form handle={me.handle} />
+  return <Form me={me} />
 }
 
-function Form({ handle }: { handle: string }) {
+function Form({ me }: { me: Me }) {
+  const handle = me.handle
   const queryClient = useQueryClient()
   const { data: p, isError } = useQuery({ ...personOptions({ path: { handle } }), retry: false })
   const update = useMutation(updateProfileMutation())
@@ -152,6 +162,7 @@ function Form({ handle }: { handle: string }) {
           </div>
         </form>
       )}
+      <Invites me={me} />
       <DeleteAccount />
     </Page>
   )
@@ -199,6 +210,69 @@ function DeleteAccount() {
         <Button type="button" variant="outline" onClick={() => setConfirming(true)} className="w-fit">
           Delete my account
         </Button>
+      )}
+      {message && (
+        <p role="alert" className="font-sans text-sm text-danger">
+          {message}
+        </p>
+      )}
+    </section>
+  )
+}
+
+// Invites hands out the codes that a new person needs while sign-up is invite-only.
+function Invites({ me }: { me: Me }) {
+  const queryClient = useQueryClient()
+  const allowed = me.admin || me.trust === 'trusted'
+  const { data } = useQuery({ ...invitesOptions(), retry: false, enabled: allowed })
+  const create = useMutation(createInviteMutation())
+  const [code, setCode] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  async function make() {
+    setMessage(null)
+    try {
+      const r = await create.mutateAsync({})
+      setCode(r.code)
+      await queryClient.invalidateQueries({ queryKey: invitesQueryKey() })
+    } catch (err) {
+      setMessage(errorMessage(err, 'The code was not created. Try again.'))
+    }
+  }
+
+  return (
+    <section className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-6">
+      <h2 className="font-display text-lg tracking-tight">Invites</h2>
+      <p className="font-serif text-sm text-ink-soft">
+        {allowed
+          ? 'Someone you invite can create an account. Each code works once.'
+          : 'Invite codes come with an established account. Write and reply for a few days first.'}
+      </p>
+      {allowed && (
+        <>
+          <p className="font-sans text-xs text-ink-faint">
+            {data
+              ? data.remaining < 0
+                ? 'You can make as many as you need.'
+                : `${data.remaining} ${data.remaining === 1 ? 'code' : 'codes'} left.`
+              : ' '}
+          </p>
+          {code && (
+            <p className="flex flex-col gap-1 rounded-sm bg-paper-sunk p-3">
+              <span className="font-sans text-xs text-ink-faint">Share this code now; it is not shown again.</span>
+              <code className="font-mono text-base break-all select-all">{code}</code>
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-fit"
+            disabled={create.isPending}
+            onClick={() => void make()}
+          >
+            {create.isPending ? 'Creating…' : 'Create an invite'}
+          </Button>
+        </>
       )}
       {message && (
         <p role="alert" className="font-sans text-sm text-danger">

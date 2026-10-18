@@ -47,6 +47,16 @@ type Tuning struct {
 	ReportQueueSize   int32
 	ModerationLogSize int32
 
+	TrustMinAge        time.Duration
+	TrustMinActivity   int
+	TrustCheckInterval time.Duration
+	// NewWritesPerDay caps posts and comments by a new user. A write into a
+	// remote community counts against NewRemoteWritesPerDay as well.
+	NewWritesPerDay       int
+	NewRemoteWritesPerDay int
+	InvitesPerTrustedUser int
+	UploadQuotaBytes      int64
+
 	MaxUploadBytes    int64
 	MaxImagePixels    int64
 	ImageMaxDimension int
@@ -95,6 +105,14 @@ func DefaultTuning() Tuning {
 
 		ReportQueueSize:   100,
 		ModerationLogSize: 100,
+
+		TrustMinAge:           72 * time.Hour,
+		TrustMinActivity:      5,
+		TrustCheckInterval:    time.Hour,
+		NewWritesPerDay:       10,
+		NewRemoteWritesPerDay: 3,
+		InvitesPerTrustedUser: 3,
+		UploadQuotaBytes:      100 << 20,
 
 		MaxUploadBytes:    10 << 20,
 		MaxImagePixels:    50_000_000,

@@ -72,7 +72,7 @@ WHERE community_id = @community_id AND role = 'owner' AND state = 'accepted';
 -- name: UpdateCommunity :one
 UPDATE communities SET
     title = @title, description = @description, theme = @theme,
-    appeals_contact = @appeals_contact, nsfw = @nsfw
+    appeals_contact = @appeals_contact, nsfw = @nsfw, hold_new_posts = @hold_new_posts
 WHERE id = @id
 RETURNING *;
 

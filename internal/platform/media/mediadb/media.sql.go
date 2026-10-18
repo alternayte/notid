@@ -70,3 +70,14 @@ func (q *Queries) MediaByKey(ctx context.Context, storageKey string) (Medium, er
 	)
 	return i, err
 }
+
+const ownerBytes = `-- name: OwnerBytes :one
+SELECT coalesce(sum(bytes), 0)::bigint AS bytes FROM media WHERE owner_id = $1
+`
+
+func (q *Queries) OwnerBytes(ctx context.Context, ownerID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, ownerBytes, ownerID)
+	var bytes int64
+	err := row.Scan(&bytes)
+	return bytes, err
+}

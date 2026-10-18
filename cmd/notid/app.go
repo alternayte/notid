@@ -77,6 +77,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Limiter: limiter,
 		Local:   local,
 		Mode:    cfg.Signup,
+		Tuning:  t,
 	}
 	markdown := platform.NewMarkdown()
 	accountsSvc.Markdown = markdown
@@ -120,11 +121,13 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	workers := river.NewWorkers()
 	fed.AddWorkers(workers)
 	probes.AddWorkers(workers)
+	accountsSvc.AddWorkers(workers)
 	rcfg := &river.Config{Workers: workers, Logger: log}
 	if work {
 		rcfg.Queues = fed.Queues()
 		maps.Copy(rcfg.Queues, probes.Queues())
-		rcfg.PeriodicJobs = probes.PeriodicJobs()
+		maps.Copy(rcfg.Queues, accountsSvc.Queues())
+		rcfg.PeriodicJobs = append(probes.PeriodicJobs(), accountsSvc.PeriodicJobs()...)
 	}
 	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
 	if err != nil {
@@ -138,6 +141,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.SendComment = fed.SendComment
 	discussionsSvc.SendVote = fed.SendVote
 	discussionsSvc.NewActivityID = federation.NewActivityID
+	discussionsSvc.IsAdmin = accountsSvc.IsAdmin
 	discussionsSvc.MediaURL = mediaSvc.URL
 	communitiesSvc.MediaURL = mediaSvc.URL
 	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaSvc.Handler(), doc: api, river: rc}, nil

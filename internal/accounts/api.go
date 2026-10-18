@@ -135,4 +135,89 @@ func (s *Service) Register(api huma.API) {
 		}
 	})
 	s.registerProfiles(api)
+	s.registerAdmin(api)
+	s.registerInvites(api)
+}
+
+type inviteOut struct {
+	Code string `json:"code" doc:"Share it once; the site stores only its hash"`
+}
+
+// registerInvites adds the invite operations.
+func (s *Service) registerInvites(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "invites",
+		Method:      http.MethodGet,
+		Path:        "/api/invites",
+		Summary:     "Read how many codes I can still create",
+		Tags:        []string{"accounts"},
+		Errors:      []int{http.StatusUnauthorized},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body InviteList }, error) {
+		me := ActorFrom(ctx)
+		if me == nil {
+			return nil, huma.Error401Unauthorized("sign in first")
+		}
+		l, err := s.Invites(ctx, *me)
+		return &struct{ Body InviteList }{l}, err
+	})
+	huma.Register(api, huma.Operation{
+		OperationID:   "createInvite",
+		Method:        http.MethodPost,
+		Path:          "/api/invites",
+		Summary:       "Create an invite code; trusted accounts get a few, admins more",
+		Tags:          []string{"accounts"},
+		DefaultStatus: http.StatusCreated,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict},
+	}, func(ctx context.Context, _ *struct{}) (*struct{ Body inviteOut }, error) {
+		me := ActorFrom(ctx)
+		if me == nil {
+			return nil, huma.Error401Unauthorized("sign in first")
+		}
+		code, err := s.CreateInvite(ctx, *me)
+		switch {
+		case err == nil:
+			return &struct{ Body inviteOut }{inviteOut{Code: code}}, nil
+		case errors.Is(err, ErrNotTrusted):
+			return nil, huma.Error403Forbidden(err.Error())
+		case errors.Is(err, ErrInviteLimit):
+			return nil, huma.Error409Conflict(err.Error())
+		default:
+			return nil, err
+		}
+	})
+}
+
+type trustBody struct {
+	Trusted bool `json:"trusted" doc:"true promotes the person, false demotes them"`
+}
+
+// registerAdmin adds the site admin operations on people.
+func (s *Service) registerAdmin(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "setTrust",
+		Method:      http.MethodPost,
+		Path:        "/api/admin/people/{handle}/trust",
+		Summary:     "Promote or demote a person's trust level",
+		Tags:        []string{"admin"},
+		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, in *struct {
+		Handle string `path:"handle" maxLength:"300"`
+		Body   trustBody
+	}) (*struct{ Body Profile }, error) {
+		me := ActorFrom(ctx)
+		if me == nil {
+			return nil, huma.Error401Unauthorized("sign in first")
+		}
+		p, err := s.SetTrust(ctx, *me, in.Handle, in.Body.Trusted)
+		switch {
+		case err == nil:
+			return &struct{ Body Profile }{p}, nil
+		case errors.Is(err, ErrNotAdmin):
+			return nil, huma.Error403Forbidden(err.Error())
+		case errors.Is(err, errNoPerson):
+			return nil, huma.Error404NotFound("No person at that address.")
+		default:
+			return nil, err
+		}
+	})
 }

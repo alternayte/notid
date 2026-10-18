@@ -42,3 +42,35 @@ UPDATE actors SET
     name = 'deleted_' || id, display_name = '', summary = '', bot = false,
     public_key_pem = '', private_key_enc = NULL, deleted_at = now()
 WHERE id = @id AND deleted_at IS NULL;
+
+-- name: ActorsToTrust :many
+SELECT a.id FROM actors a
+WHERE a.local AND a.kind = 'person' AND a.trust = 'new' AND a.deleted_at IS NULL
+  AND a.created_at <= now() - @min_age::interval
+  AND (SELECT count(*) FROM posts p
+       WHERE p.author_id = a.id AND p.deleted_at IS NULL AND p.removed_at IS NULL)
+    + (SELECT count(*) FROM comments m
+       WHERE m.author_id = a.id AND m.deleted_at IS NULL AND m.removed_at IS NULL) >= @min_activity
+  AND NOT EXISTS (
+      SELECT 1 FROM reports r JOIN posts p ON p.id = r.post_id
+      WHERE r.state = 'upheld' AND p.author_id = a.id)
+  AND NOT EXISTS (
+      SELECT 1 FROM reports r JOIN comments m ON m.id = r.comment_id
+      WHERE r.state = 'upheld' AND m.author_id = a.id);
+
+-- name: PromoteActor :exec
+UPDATE actors SET trust = 'trusted', promoted_at = now() WHERE id = @id AND trust = 'new';
+
+-- name: SetActorTrust :one
+UPDATE actors SET trust = @trust,
+    promoted_at = CASE WHEN @trust::text = 'trusted' THEN now() ELSE NULL END
+WHERE id = @id AND local AND kind = 'person' AND deleted_at IS NULL
+RETURNING *;
+
+-- name: InsertInvite :exec
+INSERT INTO invites (code_hash, created_by) VALUES (@code_hash, @created_by);
+
+-- name: UnusedInvites :many
+SELECT created_at FROM invites
+WHERE created_by = @created_by AND used_at IS NULL
+ORDER BY created_at DESC;

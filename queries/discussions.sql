@@ -1,10 +1,10 @@
 -- name: InsertPost :one
 INSERT INTO posts (
     ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
-    published, sort_at
+    published, sort_at, held
 ) VALUES (
     @ap_id, @ref, @local, @community_id, @author_id, @title, @body, @url, sqlc.narg(media_id), @nsfw,
-    @published, least(@published::timestamptz, now())
+    @published, least(@published::timestamptz, now()), @held
 )
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING *;
@@ -63,13 +63,13 @@ UPDATE posts SET up = up + @up_delta, down = down + @down_delta, score = score +
 UPDATE comments SET up = up + @up_delta, down = down + @down_delta, score = score + (@up_delta::int) - (@down_delta::int) WHERE id = @id;
 
 -- name: CommunityByGroupApID :one
-SELECT c.id, c.state, a.local
+SELECT c.id, c.state, a.local, c.hold_new_posts
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE a.ap_id = @ap_id;
 
 -- name: CommunityByID :one
-SELECT c.id, c.state, a.local
+SELECT c.id, c.state, a.local, c.hold_new_posts
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE c.id = @id;
@@ -311,3 +311,46 @@ WHERE m.author_id = @author_id AND m.deleted_at IS NULL AND m.removed_at IS NULL
   AND (m.published, m.id) < (@before_at::timestamptz, @before_id::bigint)
 ORDER BY m.published DESC, m.id DESC
 LIMIT @lim;
+
+-- Held posts wait for a moderator of their community, oldest first.
+-- name: HeldPosts :many
+SELECT
+    p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.nsfw,
+    p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at,
+    p.score, p.up, p.down, p.comment_count, p.last_comment_at,
+    (p.media_id IS NOT NULL)::boolean AS has_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+WHERE p.community_id = @community_id AND p.held AND p.deleted_at IS NULL
+ORDER BY p.published, p.id
+LIMIT @lim;
+
+-- name: PublishPost :one
+UPDATE posts SET held = false
+WHERE ap_id = @ap_id AND held AND deleted_at IS NULL
+RETURNING *;
+
+-- name: PostAuthorAndCommunity :one
+SELECT p.id, p.author_id, p.community_id, p.ap_id, p.ref
+FROM posts p WHERE p.ap_id = @ap_id AND p.held AND p.deleted_at IS NULL;
+
+-- AuthorWritesSince counts a person's local posts and comments since @since,
+-- and the subset written in communities another installation hosts.
+-- name: AuthorWritesSince :one
+SELECT
+  (SELECT count(*) FROM posts p
+     WHERE p.author_id = @author_id AND p.local AND p.received_at > @since)
++ (SELECT count(*) FROM comments m
+     WHERE m.author_id = @author_id AND m.local AND m.received_at > @since) AS writes,
+  (SELECT count(*) FROM posts p
+     JOIN communities c ON c.id = p.community_id
+     JOIN actors g ON g.id = c.actor_id
+     WHERE p.author_id = @author_id AND p.local AND NOT g.local AND p.received_at > @since)
++ (SELECT count(*) FROM comments m
+     JOIN posts p ON p.id = m.post_id
+     JOIN communities c ON c.id = p.community_id
+     JOIN actors g ON g.id = c.actor_id
+     WHERE m.author_id = @author_id AND m.local AND NOT g.local AND m.received_at > @since) AS remote_writes;

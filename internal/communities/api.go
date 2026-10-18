@@ -78,6 +78,7 @@ type Detail struct {
 	Rules          []string `json:"rules" nullable:"false"`
 	Moderators     []Person `json:"moderators" nullable:"false"`
 	AppealsContact string   `json:"appealsContact"`
+	HoldNewPosts   bool     `json:"holdNewPosts" doc:"A new person's posts wait for a moderator publication"`
 	State          string   `json:"state" enum:"active,frozen,departed,arriving"`
 }
 
@@ -88,12 +89,13 @@ type SettingsBody struct {
 	Theme          Theme    `json:"theme"`
 	AppealsContact string   `json:"appealsContact" maxLength:"200" doc:"Where members appeal a removal: an email address or URL"`
 	NSFW           bool     `json:"nsfw"`
+	HoldNewPosts   bool     `json:"holdNewPosts" doc:"Hold a new person's posts until a moderator publishes them"`
 }
 
 func (b SettingsBody) settings() Settings {
 	return Settings{
 		Title: b.Title, Description: b.Description, Rules: b.Rules, Theme: b.Theme,
-		AppealsContact: b.AppealsContact, NSFW: b.NSFW,
+		AppealsContact: b.AppealsContact, NSFW: b.NSFW, HoldNewPosts: b.HoldNewPosts,
 	}
 }
 
@@ -400,7 +402,7 @@ func (s *Service) Detail(ctx context.Context, domain, name string, viewer *actor
 			Nsfw: r.Nsfw, ApID: r.ApID, Local: r.Local, Members: r.Members,
 		}, mine),
 		Description: r.Description, Rules: rules, Moderators: make([]Person, 0, len(mods)),
-		AppealsContact: r.AppealsContact, State: r.State,
+		AppealsContact: r.AppealsContact, HoldNewPosts: r.HoldNewPosts, State: r.State,
 	}
 	if d.Rules == nil {
 		d.Rules = []string{}

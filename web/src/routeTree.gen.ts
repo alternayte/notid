@@ -22,6 +22,7 @@ import { Route as CHandleRouteImport } from './routes/c.$handle'
 import { Route as CommunitiesNewRouteImport } from './routes/communities.new'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 import { Route as UHandleRouteImport } from './routes/u.$handle'
+import { Route as CHandleHeldRouteImport } from './routes/c.$handle_.held'
 import { Route as CHandleManageRouteImport } from './routes/c.$handle_.manage'
 import { Route as CHandleReportsRouteImport } from './routes/c.$handle_.reports'
 import { Route as CHandlePRefRouteImport } from './routes/c.$handle_.p.$ref'
@@ -91,6 +92,11 @@ const UHandleRoute = UHandleRouteImport.update({
   path: '/u/$handle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CHandleHeldRoute = CHandleHeldRouteImport.update({
+  id: '/c/$handle_/held',
+  path: '/c/$handle/held',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CHandleManageRoute = CHandleManageRouteImport.update({
   id: '/c/$handle_/manage',
   path: '/c/$handle/manage',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
+  '/c/$handle/held': typeof CHandleHeldRoute
   '/c/$handle/manage': typeof CHandleManageRoute
   '/c/$handle/reports': typeof CHandleReportsRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/communities/new': typeof CommunitiesNewRoute
   '/login/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
+  '/c/$handle/held': typeof CHandleHeldRoute
   '/c/$handle/manage': typeof CHandleManageRoute
   '/c/$handle/reports': typeof CHandleReportsRoute
   '/c/$handle/p/$ref': typeof CHandlePRefRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/communities/new': typeof CommunitiesNewRoute
   '/login_/verify': typeof LoginVerifyRoute
   '/u/$handle': typeof UHandleRoute
+  '/c/$handle_/held': typeof CHandleHeldRoute
   '/c/$handle_/manage': typeof CHandleManageRoute
   '/c/$handle_/reports': typeof CHandleReportsRoute
   '/c/$handle_/p/$ref': typeof CHandlePRefRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/communities/new'
     | '/login/verify'
     | '/u/$handle'
+    | '/c/$handle/held'
     | '/c/$handle/manage'
     | '/c/$handle/reports'
     | '/c/$handle/p/$ref'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/communities/new'
     | '/login/verify'
     | '/u/$handle'
+    | '/c/$handle/held'
     | '/c/$handle/manage'
     | '/c/$handle/reports'
     | '/c/$handle/p/$ref'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/communities/new'
     | '/login_/verify'
     | '/u/$handle'
+    | '/c/$handle_/held'
     | '/c/$handle_/manage'
     | '/c/$handle_/reports'
     | '/c/$handle_/p/$ref'
@@ -233,6 +245,7 @@ export interface RootRouteChildren {
   CommunitiesNewRoute: typeof CommunitiesNewRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
   UHandleRoute: typeof UHandleRoute
+  CHandleHeldRoute: typeof CHandleHeldRoute
   CHandleManageRoute: typeof CHandleManageRoute
   CHandleReportsRoute: typeof CHandleReportsRoute
   CHandlePRefRoute: typeof CHandlePRefRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/c/$handle_/held': {
+      id: '/c/$handle_/held'
+      path: '/c/$handle/held'
+      fullPath: '/c/$handle/held'
+      preLoaderRoute: typeof CHandleHeldRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/$handle_/manage': {
       id: '/c/$handle_/manage'
       path: '/c/$handle/manage'
@@ -369,6 +389,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunitiesNewRoute: CommunitiesNewRoute,
   LoginVerifyRoute: LoginVerifyRoute,
   UHandleRoute: UHandleRoute,
+  CHandleHeldRoute: CHandleHeldRoute,
   CHandleManageRoute: CHandleManageRoute,
   CHandleReportsRoute: CHandleReportsRoute,
   CHandlePRefRoute: CHandlePRefRoute,

@@ -7,7 +7,51 @@ package accountsdb
 
 import (
 	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const actorsToTrust = `-- name: ActorsToTrust :many
+SELECT a.id FROM actors a
+WHERE a.local AND a.kind = 'person' AND a.trust = 'new' AND a.deleted_at IS NULL
+  AND a.created_at <= now() - $1::interval
+  AND (SELECT count(*) FROM posts p
+       WHERE p.author_id = a.id AND p.deleted_at IS NULL AND p.removed_at IS NULL)
+    + (SELECT count(*) FROM comments m
+       WHERE m.author_id = a.id AND m.deleted_at IS NULL AND m.removed_at IS NULL) >= $2
+  AND NOT EXISTS (
+      SELECT 1 FROM reports r JOIN posts p ON p.id = r.post_id
+      WHERE r.state = 'upheld' AND p.author_id = a.id)
+  AND NOT EXISTS (
+      SELECT 1 FROM reports r JOIN comments m ON m.id = r.comment_id
+      WHERE r.state = 'upheld' AND m.author_id = a.id)
+`
+
+type ActorsToTrustParams struct {
+	MinAge      pgtype.Interval
+	MinActivity int64
+}
+
+func (q *Queries) ActorsToTrust(ctx context.Context, arg ActorsToTrustParams) ([]int64, error) {
+	rows, err := q.db.Query(ctx, actorsToTrust, arg.MinAge, arg.MinActivity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const anonymizeActor = `-- name: AnonymizeActor :exec
 UPDATE actors SET
@@ -48,6 +92,20 @@ WHERE author_id = $1 AND deleted_at IS NULL
 // Deletion tombstones the content so the threads it joined stay readable.
 func (q *Queries) DeleteOwnPosts(ctx context.Context, authorID int64) error {
 	_, err := q.db.Exec(ctx, deleteOwnPosts, authorID)
+	return err
+}
+
+const insertInvite = `-- name: InsertInvite :exec
+INSERT INTO invites (code_hash, created_by) VALUES ($1, $2)
+`
+
+type InsertInviteParams struct {
+	CodeHash  []byte
+	CreatedBy int64
+}
+
+func (q *Queries) InsertInvite(ctx context.Context, arg InsertInviteParams) error {
+	_, err := q.db.Exec(ctx, insertInvite, arg.CodeHash, arg.CreatedBy)
 	return err
 }
 
@@ -101,6 +159,54 @@ func (q *Queries) PersonByHandle(ctx context.Context, arg PersonByHandleParams) 
 	return i, err
 }
 
+const promoteActor = `-- name: PromoteActor :exec
+UPDATE actors SET trust = 'trusted', promoted_at = now() WHERE id = $1 AND trust = 'new'
+`
+
+func (q *Queries) PromoteActor(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, promoteActor, id)
+	return err
+}
+
+const setActorTrust = `-- name: SetActorTrust :one
+UPDATE actors SET trust = $1,
+    promoted_at = CASE WHEN $1::text = 'trusted' THEN now() ELSE NULL END
+WHERE id = $2 AND local AND kind = 'person' AND deleted_at IS NULL
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type SetActorTrustParams struct {
+	Trust *string
+	ID    int64
+}
+
+func (q *Queries) SetActorTrust(ctx context.Context, arg SetActorTrustParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, setActorTrust, arg.Trust, arg.ID)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const soleOwnerOf = `-- name: SoleOwnerOf :one
 SELECT c.domain, c.name FROM memberships m JOIN communities c ON c.id = m.community_id
 WHERE m.actor_id = $1 AND m.role = 'owner'
@@ -121,6 +227,32 @@ func (q *Queries) SoleOwnerOf(ctx context.Context, actorID int64) (SoleOwnerOfRo
 	var i SoleOwnerOfRow
 	err := row.Scan(&i.Domain, &i.Name)
 	return i, err
+}
+
+const unusedInvites = `-- name: UnusedInvites :many
+SELECT created_at FROM invites
+WHERE created_by = $1 AND used_at IS NULL
+ORDER BY created_at DESC
+`
+
+func (q *Queries) UnusedInvites(ctx context.Context, createdBy int64) ([]time.Time, error) {
+	rows, err := q.db.Query(ctx, unusedInvites, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []time.Time
+	for rows.Next() {
+		var created_at time.Time
+		if err := rows.Scan(&created_at); err != nil {
+			return nil, err
+		}
+		items = append(items, created_at)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateProfile = `-- name: UpdateProfile :one

@@ -72,3 +72,4 @@ RETURNING *;
 -- name: UpdateLocalGroupProfile :exec
 UPDATE actors SET display_name = @display_name, summary = @summary
 WHERE id = @id AND kind = 'group' AND local;
+

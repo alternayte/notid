@@ -60,6 +60,8 @@ type NewPost struct {
 	MediaID     *int64
 	NSFW        bool
 	Published   time.Time
+	// Held keeps a post out of feeds, search and federation until a moderator publishes it.
+	Held bool
 }
 
 // InsertPost stores a post. A post with a known AP ID is returned as it is,
@@ -77,6 +79,7 @@ func InsertPost(ctx context.Context, tx pgx.Tx, p NewPost) (Post, bool, error) {
 	post, err := q.InsertPost(ctx, discussionsdb.InsertPostParams{
 		ApID: p.ApID, Ref: Ref(p.ApID), Local: local, CommunityID: p.CommunityID, AuthorID: p.Author.ID,
 		Title: p.Title, Body: p.Body, Url: p.URL, MediaID: p.MediaID, Nsfw: p.NSFW, Published: p.Published,
+		Held: p.Held,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		post, err = q.PostByApID(ctx, p.ApID)

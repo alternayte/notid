@@ -65,11 +65,21 @@ func Owned(ctx context.Context, db mediadb.DBTX, key string, ownerID int64) (Med
 	return m, err
 }
 
+// ErrQuota is returned when an upload would pass the owner's total allowance.
+var ErrQuota = errors.New("your upload allowance is full")
+
 // Save processes an upload, stores the file and records it for owner.
 func (s *Service) Save(ctx context.Context, ownerID int64, r io.Reader) (Media, error) {
 	img, err := Process(r, s.Tuning)
 	if err != nil {
 		return Media{}, err
+	}
+	used, err := mediadb.New(s.Pool).OwnerBytes(ctx, ownerID)
+	if err != nil {
+		return Media{}, fmt.Errorf("upload allowance: %w", err)
+	}
+	if s.Tuning.UploadQuotaBytes > 0 && used+int64(len(img.Data)) > s.Tuning.UploadQuotaBytes {
+		return Media{}, ErrQuota
 	}
 	key := newKey(img.Mime)
 	if err := s.Store.Put(ctx, key, img.Mime, img.Data); err != nil {
@@ -121,6 +131,8 @@ func (s *Service) Register(api huma.API) {
 				"The image is too large. Upload at most %d MB and %d megapixels.", s.Tuning.MaxUploadBytes>>20, s.Tuning.MaxImagePixels/1_000_000))
 		case errors.Is(err, ErrNotAnImage):
 			return nil, huma.Error422UnprocessableEntity("Upload a JPEG, PNG or WebP image.")
+		case errors.Is(err, ErrQuota):
+			return nil, huma.Error403Forbidden("Your upload allowance is full.")
 		case err != nil:
 			return nil, err
 		}

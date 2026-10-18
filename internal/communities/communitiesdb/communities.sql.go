@@ -618,8 +618,8 @@ func (q *Queries) SearchCommunities(ctx context.Context, arg SearchCommunitiesPa
 const updateCommunity = `-- name: UpdateCommunity :one
 UPDATE communities SET
     title = $1, description = $2, theme = $3,
-    appeals_contact = $4, nsfw = $5
-WHERE id = $6
+    appeals_contact = $4, nsfw = $5, hold_new_posts = $6
+WHERE id = $7
 RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search
 `
 
@@ -629,6 +629,7 @@ type UpdateCommunityParams struct {
 	Theme          []byte
 	AppealsContact string
 	Nsfw           bool
+	HoldNewPosts   bool
 	ID             int64
 }
 
@@ -639,6 +640,7 @@ func (q *Queries) UpdateCommunity(ctx context.Context, arg UpdateCommunityParams
 		arg.Theme,
 		arg.AppealsContact,
 		arg.Nsfw,
+		arg.HoldNewPosts,
 		arg.ID,
 	)
 	var i Community

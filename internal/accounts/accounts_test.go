@@ -70,11 +70,13 @@ func newEnv(t *testing.T, mode platform.SignupMode) env {
 		t.Fatal(err)
 	}
 	sealer, _ := platform.NewSealer(cfg.SecretKey)
+	svc := &accounts.Service{
+		Pool: pool, Auth: auth, Limiter: limiter, Mode: mode, Tuning: platform.DefaultTuning(),
+		Local:    actors.Local{AppOrigin: cfg.AppOrigin, AppDomain: cfg.AppDomain, Sealer: sealer},
+		Markdown: platform.NewMarkdown(),
+	}
 	return env{
-		svc: &accounts.Service{
-			Pool: pool, Auth: auth, Limiter: limiter, Mode: mode,
-			Local: actors.Local{AppOrigin: cfg.AppOrigin, AppDomain: cfg.AppDomain, Sealer: sealer},
-		},
+		svc:  svc,
 		auth: auth, mailer: mailer, cfg: cfg,
 	}
 }
@@ -443,5 +445,190 @@ func TestDeleteAccountRefusesTheSoleOwnerOfACommunity(t *testing.T) {
 	}
 	if _, err := e.auth.GetUser(ctx, user.ID); err != nil {
 		t.Fatal("a refused deletion removed the user")
+	}
+}
+
+// testCommunity returns a community on the app domain for rows a test inserts.
+func testCommunity(t *testing.T, e env) int64 {
+	t.Helper()
+	ctx := context.Background()
+	name := unique("com")
+	group, err := e.svc.Local.CreateGroup(ctx, e.svc.Pool, e.cfg.AppDomain, name, "Community", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id int64
+	if err := e.svc.Pool.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, $3) RETURNING id`,
+		group.ID, e.cfg.AppDomain, name).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func signedUpPerson(t *testing.T, e env, email, name string) actors.Actor {
+	t.Helper()
+	ctx := context.Background()
+	if err := signUp(e, email, name, newInvite(t, e)); err != nil {
+		t.Fatal(err)
+	}
+	u, err := e.auth.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := actors.ByUserID(ctx, e.svc.Pool, uuid.MustParse(u.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+// writes inserts n posts by author in community and counts them as activity.
+func writes(t *testing.T, e env, author actors.Actor, community int64, n int) []int64 {
+	t.Helper()
+	ctx := context.Background()
+	var ids []int64
+	for i := range n {
+		var id int64
+		apID := "https://" + e.cfg.AppDomain + "/posts/" + uuid.NewString()
+		if err := e.svc.Pool.QueryRow(ctx,
+			`INSERT INTO posts (ap_id, ref, local, community_id, author_id, title, body, published, sort_at)
+			 VALUES ($1, $2, true, $3, $4, $5, 'Body', now(), now()) RETURNING id`,
+			apID, tmpRef(), community, author.ID, "Post "+strconv.Itoa(i)).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func trustOf(t *testing.T, e env, id int64) string {
+	t.Helper()
+	var trust string
+	if err := e.svc.Pool.QueryRow(context.Background(), `SELECT trust FROM actors WHERE id = $1`, id).Scan(&trust); err != nil {
+		t.Fatal(err)
+	}
+	return trust
+}
+
+func TestTrustNeedsAgeActivityAndNoUpheldReport(t *testing.T) {
+	e := newEnv(t, platform.SignupInvite)
+	ctx := context.Background()
+	c := testCommunity(t, e)
+
+	ready := signedUpPerson(t, e, unique("red")+"@example.org", unique("red"))
+	writes(t, e, ready, c, 5)
+	if err := e.svc.PromoteEligible(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := trustOf(t, e, ready.ID); got != "new" {
+		t.Fatalf("a person younger than the minimum age is %q", got)
+	}
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE actors SET created_at = now() - interval '100 hours' WHERE id = $1`, ready.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	fewPosts := signedUpPerson(t, e, unique("few")+"@example.org", unique("few"))
+	writes(t, e, fewPosts, c, 4)
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE actors SET created_at = now() - interval '100 hours' WHERE id = $1`, fewPosts.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	reported := signedUpPerson(t, e, unique("bad")+"@example.org", unique("bad"))
+	reportedPosts := writes(t, e, reported, c, 5)
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE actors SET created_at = now() - interval '100 hours' WHERE id = $1`, reported.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Pool.Exec(ctx,
+		`INSERT INTO reports (reporter_id, post_id, community_id, reason, state) VALUES ($1, $2, $3, 'Abuse', 'upheld')`,
+		ready.ID, reportedPosts[0], c); err != nil {
+		t.Fatal(err)
+	}
+
+	removed := signedUpPerson(t, e, unique("del")+"@example.org", unique("del"))
+	removedPosts := writes(t, e, removed, c, 5)
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE actors SET created_at = now() - interval '100 hours' WHERE id = $1`, removed.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE posts SET removed_at = now() WHERE id = $1`, removedPosts[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := e.svc.PromoteEligible(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := trustOf(t, e, ready.ID); got != "trusted" {
+		t.Fatalf("an eligible person is %q", got)
+	}
+	if got := trustOf(t, e, fewPosts.ID); got != "new" {
+		t.Fatalf("a person with four posts is %q", got)
+	}
+	if got := trustOf(t, e, reported.ID); got != "new" {
+		t.Fatalf("a person with an upheld report is %q", got)
+	}
+	if got := trustOf(t, e, removed.ID); got != "new" {
+		t.Fatalf("a person with one post removed is %q", got)
+	}
+}
+
+func TestOnlyAnAdminSetsTrust(t *testing.T) {
+	e := newEnv(t, platform.SignupOpen)
+	ctx := context.Background()
+	admin, err := e.svc.CreateAdmin(ctx, unique("root")+"@example.org", unique("root"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	person := signedUpPerson(t, e, unique("kit")+"@example.org", unique("kit"))
+	if _, err := e.svc.SetTrust(ctx, person, admin.Name, false); !errors.Is(err, accounts.ErrNotAdmin) {
+		t.Fatalf("a person changed trust: %v", err)
+	}
+	if _, err := e.svc.SetTrust(ctx, admin, person.Name, true); err != nil {
+		t.Fatalf("promote: %v", err)
+	}
+	if got := trustOf(t, e, person.ID); got != "trusted" {
+		t.Fatalf("promoted person is %q", got)
+	}
+	if _, err := e.svc.SetTrust(ctx, admin, person.Name, false); err != nil {
+		t.Fatalf("demote: %v", err)
+	}
+	if got := trustOf(t, e, person.ID); got != "new" {
+		t.Fatalf("demoted person is %q", got)
+	}
+}
+
+func TestInvitesComeFromTrustedAccountsAndWorkOnce(t *testing.T) {
+	e := newEnv(t, platform.SignupInvite)
+	ctx := context.Background()
+	admin, err := e.svc.CreateAdmin(ctx, unique("root")+"@example.org", unique("root"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newcomer := signedUpPerson(t, e, unique("ivy")+"@example.org", unique("ivy"))
+	if _, err := e.svc.CreateInvite(ctx, newcomer); !errors.Is(err, accounts.ErrNotTrusted) {
+		t.Fatalf("a new account made an invite: %v", err)
+	}
+	if _, err := e.svc.SetTrust(ctx, admin, newcomer.Name, true); err != nil {
+		t.Fatal(err)
+	}
+	code, err := e.svc.CreateInvite(ctx, newcomer)
+	if err != nil {
+		t.Fatalf("a trusted account could not make an invite: %v", err)
+	}
+	if err := signUp(e, unique("jo")+"@example.org", unique("jo"), code); err != nil {
+		t.Fatalf("the code did not work: %v", err)
+	}
+	if err := signUp(e, unique("sam")+"@example.org", unique("sam"), code); !errors.Is(err, accounts.ErrInviteInvalid) {
+		t.Fatalf("a used code worked twice: %v", err)
+	}
+	// A trusted account holds a limited number of unused codes.
+	for range platform.DefaultTuning().InvitesPerTrustedUser {
+		if _, err := e.svc.CreateInvite(ctx, newcomer); err != nil {
+			t.Fatalf("creating within the cap: %v", err)
+		}
+	}
+	if _, err := e.svc.CreateInvite(ctx, newcomer); !errors.Is(err, accounts.ErrInviteLimit) {
+		t.Fatalf("the cap did not hold: %v", err)
+	}
+	if _, err := e.svc.CreateInvite(ctx, admin); err != nil {
+		t.Fatalf("an admin is capped: %v", err)
 	}
 }

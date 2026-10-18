@@ -14,6 +14,7 @@ export type SettingsValues = {
   theme: Theme
   appealsContact: string
   nsfw: boolean
+  holdNewPosts: boolean
 }
 
 type Banner = { key: string; url: string }
@@ -40,6 +41,7 @@ export function SettingsForm({ initial, initialBannerUrl, upload, submitLabel, b
     initial.theme.banner && initialBannerUrl ? { key: initial.theme.banner, url: initialBannerUrl } : null,
   )
   const [nsfw, setNsfw] = useState(initial.nsfw)
+  const [holdNewPosts, setHoldNewPosts] = useState(initial.holdNewPosts)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -59,6 +61,7 @@ export function SettingsForm({ initial, initialBannerUrl, upload, submitLabel, b
         theme: banner ? { accent, banner: banner.key } : { accent },
         appealsContact: String(form.get('appealsContact') ?? '').trim(),
         nsfw,
+        holdNewPosts,
       },
       form,
     )
@@ -152,6 +155,18 @@ export function SettingsForm({ initial, initialBannerUrl, upload, submitLabel, b
         <label htmlFor="nsfw" className="font-sans text-sm">
           Adult content (18+)
         </label>
+      </div>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Checkbox id="holdNewPosts" checked={holdNewPosts} onCheckedChange={(v) => setHoldNewPosts(v === true)} />
+          <label htmlFor="holdNewPosts" className="font-sans text-sm">
+            Hold a new person's posts for review
+          </label>
+        </div>
+        <p className={hint}>
+          Posts from accounts that are not established yet wait here until a moderator publishes them. They do not show
+          in feeds or reach other servers before that.
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <Button type="submit" disabled={busy}>

@@ -47,6 +47,8 @@ type Settings struct {
 	Theme          Theme
 	AppealsContact string
 	NSFW           bool
+	// HoldNewPosts keeps a new person's posts in a moderator queue.
+	HoldNewPosts bool
 }
 
 // CreateLocal makes a community on the app domain with person as its owner.
@@ -105,7 +107,7 @@ func update(ctx context.Context, tx pgx.Tx, c Community, editorID int64, s Setti
 	q := communitiesdb.New(tx)
 	c, err = q.UpdateCommunity(ctx, communitiesdb.UpdateCommunityParams{
 		ID: c.ID, Title: s.Title, Description: s.Description, Theme: theme,
-		AppealsContact: s.AppealsContact, Nsfw: s.NSFW,
+		AppealsContact: s.AppealsContact, Nsfw: s.NSFW, HoldNewPosts: s.HoldNewPosts,
 	})
 	if err != nil {
 		return Community{}, fmt.Errorf("update community: %w", err)

@@ -95,6 +95,13 @@ function CommunityPage() {
                 >
                   Reports
                 </Link>
+                <Link
+                  to="/c/$handle/held"
+                  params={{ handle }}
+                  className="font-sans text-sm font-semibold text-ink-soft hover:text-ink"
+                >
+                  Held posts
+                </Link>
               </>
             )}
           </div>
