@@ -1,4 +1,5 @@
-FROM oven/bun:1.4.3 AS build
+# The server bundle is plain JavaScript, so it builds once on the runner's platform for every target.
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.3 AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
