@@ -36,7 +36,7 @@ export function PostCard({
     <article className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 sm:gap-x-6 border-t border-rule py-6 first:border-t-0">
       <div className="flex flex-col gap-2">
         <Kicker>{community}</Kicker>
-        <h2 className="font-serif text-xl font-semibold tracking-tight text-balance [font-variation-settings:'opsz'_36]">
+        <h2 className="font-display text-xl tracking-tight text-balance">
           <a href={href} className="no-underline decoration-mark decoration-2 hover:underline">
             {title}
           </a>

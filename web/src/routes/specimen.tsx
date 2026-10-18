@@ -59,9 +59,7 @@ function Specimen() {
             <ThemeSwitch />
           </div>
         </div>
-        <h1 className="font-serif text-4xl font-semibold tracking-tight [font-variation-settings:'opsz'_72]">
-          Open Communities
-        </h1>
+        <h1 className="font-display text-4xl tracking-tight">Open Communities</h1>
       </header>
 
       <Swatches />
@@ -120,7 +118,7 @@ function Specimen() {
             <SectionTitle id="thread-title">Thread</SectionTitle>
             <article className="flex flex-col gap-4">
               <Kicker>woodworking</Kicker>
-              <h2 className="font-serif text-3xl font-semibold tracking-tight text-balance [font-variation-settings:'opsz'_60]">
+              <h2 className="font-display text-3xl tracking-tight text-balance">
                 I cut my first hand-cut dovetail joint after six weekends of trying
               </h2>
               <p className="font-sans text-xs text-ink-faint">
@@ -199,7 +197,7 @@ function CommunityPanel({
   return (
     <section aria-label={`About ${name}`} className="flex flex-col gap-3 border-t-2 border-mark pt-3">
       <Kicker>{remote ? `Community on ${remote}` : 'Community'}</Kicker>
-      <h3 className="font-serif text-2xl font-semibold">{name}</h3>
+      <h3 className="font-display text-2xl tracking-tight">{name}</h3>
       <p className="font-serif text-sm text-ink-soft">{about}</p>
       <p className="font-sans text-xs text-ink-faint">{members} members</p>
       <JoinButton
@@ -216,7 +214,7 @@ function CommunityPanel({
 function EmptyState() {
   return (
     <section className="flex flex-col gap-2 rounded-sm bg-paper-sunk p-4">
-      <h3 className="font-serif text-lg font-semibold">Nothing here yet</h3>
+      <h3 className="font-display text-lg tracking-tight">Nothing here yet</h3>
       <p className="font-serif text-sm text-ink-soft">
         Your home feed fills with posts from the communities you join, newest first.
       </p>
@@ -259,25 +257,67 @@ function Swatches() {
   )
 }
 
+const typeSets = [
+  { value: 'geist', label: 'Geist', note: 'Geist and Geist Mono, as on /dev/null and Vercel' },
+  { value: 'inter', label: 'Inter', note: 'Inter with optical sizes, as on Bluesky' },
+  { value: 'bricolage', label: 'Bricolage', note: 'Bricolage Grotesque headlines over Inter text' },
+  { value: 'newsprint', label: 'Newsprint', note: 'Newsreader and Source Sans 3, the first proposal' },
+] as const
+
+function TypeSwitch() {
+  const [type, setType] = useState('geist')
+  useEffect(() => {
+    const saved = localStorage.getItem('oc-type')
+    if (saved) setType(saved)
+  }, [])
+  useEffect(() => {
+    document.documentElement.dataset.type = type
+    localStorage.setItem('oc-type', type)
+  }, [type])
+  const current = typeSets.find((t) => t.value === type)
+  return (
+    <div className="flex flex-col gap-2">
+      <fieldset className="m-0 flex w-fit flex-wrap rounded-pill border border-rule p-0.5 font-sans text-sm">
+        <legend className="sr-only">Type set</legend>
+        {typeSets.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            aria-pressed={type === t.value}
+            onClick={() => setType(t.value)}
+            className={
+              type === t.value
+                ? 'rounded-pill bg-ink px-4 py-1.5 font-semibold text-paper'
+                : 'rounded-pill px-4 py-1.5 font-semibold text-ink-soft hover:text-ink'
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </fieldset>
+      <p className="font-sans text-xs text-ink-faint">{current?.note}</p>
+    </div>
+  )
+}
+
 function TypeScale() {
   return (
     <section aria-labelledby="type" className="flex flex-col gap-4">
       <SectionTitle id="type">Type · major third on 17 px</SectionTitle>
+      <TypeSwitch />
       <div className="flex flex-col gap-3">
-        <p className="font-serif text-4xl font-semibold tracking-tight [font-variation-settings:'opsz'_72]">
-          Communities that can leave
-        </p>
-        <p className="font-serif text-2xl font-semibold [font-variation-settings:'opsz'_48]">
-          Headlines in Newsreader, set tight
-        </p>
-        <p className="font-serif text-lg italic text-ink-soft">
-          A standfirst in italic, for the sentence that sells the story.
+        <p className="font-display text-4xl tracking-tight">Communities that can leave</p>
+        <p className="font-display text-2xl tracking-tight">Headlines set tight, in the display face</p>
+        <p className="font-serif text-lg text-ink-soft">
+          A standfirst in the soft ink, for the sentence that sells the story.
         </p>
         <p className="prose-news">
-          Reading text in Newsreader at its text optical size: generous, warm, and quiet enough to read a long thread
-          without fatigue.
+          Reading text in the text face: open, even, and quiet enough to read a long thread without fatigue.
         </p>
-        <p className="font-sans text-sm">Furniture in Source Sans 3 — bylines, counts, buttons and labels.</p>
+        <p className="font-sans text-sm">
+          Furniture in the interface face — bylines, buttons and labels. Figures:{' '}
+          <span className="font-mono tabular-nums">128 · 2h · 14 replies</span>
+        </p>
         <Kicker>Kicker · section label</Kicker>
       </div>
     </section>

@@ -58,7 +58,7 @@ export function Composer({ community, preview }: Props) {
           </label>
           <input
             id={ids.title}
-            className="field font-serif text-lg font-semibold sm:text-xl"
+            className="field font-display text-lg sm:text-xl tracking-tight"
             placeholder="Title"
             maxLength={200}
             // biome-ignore lint/a11y/noAutofocus: the composer opens on the reader's request
