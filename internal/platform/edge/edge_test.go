@@ -62,8 +62,9 @@ func TestInvariant3DepartedCommunityDomainGets503AndNoCertificate(t *testing.T) 
 		if path == "/c/wood/inbox" {
 			method = "POST"
 		}
-		if w := serve(testHandler(), method, path, "gone.test", "application/activity+json"); w.Code != http.StatusServiceUnavailable {
-			t.Fatalf("%s %s: %d", method, path, w.Code)
+		w := serve(testHandler(), method, path, "gone.test", "application/activity+json")
+		if w.Code != http.StatusServiceUnavailable || w.Header().Get("Connection") != "close" {
+			t.Fatalf("%s %s: %d, Connection %q", method, path, w.Code, w.Header().Get("Connection"))
 		}
 	}
 	if err := testHosts().CertDecision(context.Background(), "gone.test"); err == nil {

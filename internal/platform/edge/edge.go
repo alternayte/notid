@@ -91,8 +91,10 @@ func Handler(hosts Hosts, routes Routes, log *slog.Logger) http.Handler {
 			http.Error(w, "misdirected request", http.StatusMisdirectedRequest)
 			return
 		case HostDeparted:
-			// Senders with stale DNS retry and reach the new installation later.
+			// Senders with stale DNS or a pooled connection retry and reach the
+			// new installation later; closing the connection makes them resolve again.
 			w.Header().Set("Retry-After", "300")
+			w.Header().Set("Connection", "close")
 			http.Error(w, "this community moved to another installation", http.StatusServiceUnavailable)
 			return
 		}
