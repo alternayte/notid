@@ -110,7 +110,7 @@ func (s *Server) planChange(ctx context.Context, db federationdb.DBTX, act activ
 	if errors.Is(err, pgx.ErrNoRows) {
 		comment, cerr := q.CommentByApID(ctx, objectID)
 		if errors.Is(cerr, pgx.ErrNoRows) {
-			return p, reject(http.StatusNotFound, "no post or comment at %s", objectID)
+			return s.planPersonDelete(ctx, db, &p, sender, objectID)
 		}
 		if cerr != nil {
 			return p, fmt.Errorf("comment %s: %w", objectID, cerr)
@@ -158,6 +158,29 @@ func (s *Server) planChange(ctx context.Context, db federationdb.DBTX, act activ
 		}
 	}
 	return p, nil
+}
+
+// planPersonDelete resolves a Delete whose object is a remote person: the
+// person leaving takes their content and memberships here with them.
+func (s *Server) planPersonDelete(ctx context.Context, db federationdb.DBTX, p *contentPlan, sender actors.Actor, objectID string) (contentPlan, error) {
+	if !p.direct {
+		return *p, reject(http.StatusForbidden, "a group does not announce a person's deletion")
+	}
+	person, err := actors.ByApID(ctx, db, objectID)
+	if errors.Is(err, actors.ErrNotFound) {
+		return *p, reject(http.StatusNotFound, "no post, comment or person at %s", objectID)
+	}
+	if err != nil {
+		return *p, fmt.Errorf("person %s: %w", objectID, err)
+	}
+	if person.Local {
+		return *p, reject(http.StatusForbidden, "a local person does not act through an inbox")
+	}
+	if sender.ID != person.ID {
+		return *p, reject(http.StatusForbidden, "%s may not delete %s", sender.ApID, person.ApID)
+	}
+	p.kind, p.changeID, p.targetActorID, p.direct = "delete-person", objectID, person.ID, false
+	return *p, nil
 }
 
 // allowChange checks the sender's right to edit or delete an object it did not write.

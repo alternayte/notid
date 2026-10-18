@@ -267,6 +267,15 @@ func (q *Queries) DeleteMembershipByFollow(ctx context.Context, followApID *stri
 	return err
 }
 
+const deleteMembershipsOfActor = `-- name: DeleteMembershipsOfActor :exec
+DELETE FROM memberships WHERE actor_id = $1
+`
+
+func (q *Queries) DeleteMembershipsOfActor(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, deleteMembershipsOfActor, actorID)
+	return err
+}
+
 const followerInboxes = `-- name: FollowerInboxes :many
 SELECT DISTINCT coalesce(nullif(a.shared_inbox, ''), a.inbox)::text AS inbox
 FROM memberships m

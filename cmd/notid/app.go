@@ -138,6 +138,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	moderationSvc.SendBlock = fed.SendBlock
 	moderationSvc.SendRole = fed.SendRole
 	moderationSvc.SendFlag = fed.SendFlag
+	accountsSvc.SendPersonDelete = fed.SendPersonDelete
 	communitiesSvc.Resolve = fed.Resolve
 	communitiesSvc.SendGroupUpdate = fed.SendGroupUpdate
 	communitiesSvc.SendFollow = fed.SendFollow

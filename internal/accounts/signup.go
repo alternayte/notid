@@ -37,6 +37,9 @@ type Service struct {
 	Tuning  platform.Tuning
 	// Markdown renders profile bios.
 	Markdown *platform.Markdown
+	// SendPersonDelete tells federated peers that the person is gone. It runs
+	// inside the deletion's transaction and must not fail it.
+	SendPersonDelete func(ctx context.Context, tx pgx.Tx, person actors.Actor)
 }
 
 type SignUpInput struct {

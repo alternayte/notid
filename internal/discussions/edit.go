@@ -252,6 +252,19 @@ func ApplyRemoteDelete(ctx context.Context, db discussionsdb.DBTX, apID string) 
 	return false, nil
 }
 
+// TombstoneContentOfAuthor removes what a person who deleted their account
+// wrote here. Tombstones keep the threads readable.
+func TombstoneContentOfAuthor(ctx context.Context, db discussionsdb.DBTX, authorID int64) error {
+	q := discussionsdb.New(db)
+	if err := q.TombstonePostsOfAuthor(ctx, authorID); err != nil {
+		return fmt.Errorf("tombstone posts of %d: %w", authorID, err)
+	}
+	if err := q.TombstoneCommentsOfAuthor(ctx, authorID); err != nil {
+		return fmt.Errorf("tombstone comments of %d: %w", authorID, err)
+	}
+	return nil
+}
+
 // ApplyRemoteLock locks or unlocks a remote post, as its group asked.
 func ApplyRemoteLock(ctx context.Context, db discussionsdb.DBTX, apID string, locked bool) (bool, error) {
 	q := discussionsdb.New(db)

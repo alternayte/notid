@@ -64,6 +64,9 @@ UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = @follow_ap_id;
 -- name: DeleteMembershipByFollow :exec
 DELETE FROM memberships WHERE follow_ap_id = @follow_ap_id AND role = 'member';
 
+-- name: DeleteMembershipsOfActor :exec
+DELETE FROM memberships WHERE actor_id = @actor_id;
+
 -- name: CommunityByGroupApID :one
 SELECT c.id, c.state, a.id AS actor_id, a.ap_id, a.local, a.inbox
 FROM communities c

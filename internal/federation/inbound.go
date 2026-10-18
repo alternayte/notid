@@ -374,6 +374,17 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 		if err != nil {
 			return err
 		}
+	case "delete-person":
+		if err := actors.MarkDeleted(ctx, tx, p.targetActorID); err != nil {
+			return err
+		}
+		if err := discussions.TombstoneContentOfAuthor(ctx, tx, p.targetActorID); err != nil {
+			return err
+		}
+		if err := federationdb.New(tx).DeleteMembershipsOfActor(ctx, p.targetActorID); err != nil {
+			return fmt.Errorf("memberships of %s: %w", p.changeID, err)
+		}
+		changed = true
 	case "lock", "unlock":
 		var err error
 		changed, err = discussions.ApplyRemoteLock(ctx, tx, p.changeID, p.kind == "lock")

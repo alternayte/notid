@@ -53,6 +53,15 @@ func ByApID(ctx context.Context, db actorsdb.DBTX, apID string) (Actor, error) {
 	return a, err
 }
 
+// MarkDeleted tombstones the actor of a remote person who deleted their
+// account. The row stays so their content and reports keep a name.
+func MarkDeleted(ctx context.Context, db actorsdb.DBTX, id int64) error {
+	if err := actorsdb.New(db).MarkRemoteActorDeleted(ctx, id); err != nil {
+		return fmt.Errorf("mark actor %d deleted: %w", id, err)
+	}
+	return nil
+}
+
 func ByID(ctx context.Context, db actorsdb.DBTX, id int64) (Actor, error) {
 	a, err := actorsdb.New(db).ActorByID(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {

@@ -40,6 +40,9 @@ func (s *Service) DeleteAccount(ctx context.Context, a actors.Actor) error {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("ownership: %w", err)
 	}
+	if s.SendPersonDelete != nil {
+		s.SendPersonDelete(ctx, tx, a)
+	}
 	for _, step := range []struct {
 		name string
 		fn   func(context.Context, int64) error
