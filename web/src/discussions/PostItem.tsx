@@ -34,7 +34,12 @@ export function PostItem({ post: p, showCommunity = true }: { post: PostView; sh
       age={<Age iso={p.published} />}
       comments={p.comments}
       standfirst={p.excerpt || undefined}
-      link={p.url || undefined}
+      link={p.url && !p.image ? p.url : undefined}
+      image={
+        p.image ? (
+          <img src={p.url} alt="" loading="lazy" className="aspect-square w-full rounded-sm object-cover" />
+        ) : undefined
+      }
       votes={<Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} />}
       actions={<SaveButton apId={p.apId} initial={p.viewer.saved} label={p.title} />}
     />

@@ -84,7 +84,10 @@ function ThreadPage() {
                 <Age iso={p.published} />
                 {p.nsfw && ' · 18+'}
               </p>
-              {p.url && (
+              {p.image && (
+                <img src={p.url} alt="" className="max-h-[80vh] w-auto self-start rounded-sm border border-rule" />
+              )}
+              {p.url && !p.image && (
                 <a
                   href={p.url}
                   rel="nofollow noopener ugc"

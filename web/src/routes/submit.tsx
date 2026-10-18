@@ -7,6 +7,7 @@ import {
   meOptions,
   myCommunitiesOptions,
   previewMarkdownMutation,
+  uploadImageMutation,
 } from '~/api/gen/@tanstack/react-query.gen'
 import { Composer } from '~/ui/Composer'
 import { fromRenderer } from '~/ui/RenderedHtml'
@@ -27,6 +28,7 @@ function Submit() {
   const mine = useQuery({ ...myCommunitiesOptions(), retry: false, enabled: !!me })
   const create = useMutation(createPostMutation())
   const preview = useMutation(previewMarkdownMutation())
+  const upload = useMutation(uploadImageMutation())
   const selectId = useId()
 
   if (!me && !mePending) {
@@ -82,13 +84,26 @@ function Submit() {
             <Composer
               key={chosen.apId}
               community={chosen.title || chosen.name}
-              kinds={['text', 'link']}
+              kinds={['text', 'link', 'image']}
               startOpen
+              upload={async (file) => {
+                try {
+                  return await upload.mutateAsync({ body: { file } })
+                } catch (err) {
+                  throw new Error(errorMessage(err, 'The image did not upload. Try again.'))
+                }
+              }}
               preview={async (markdown) => fromRenderer((await preview.mutateAsync({ body: { markdown } })).html)}
               send={async (d) => {
                 try {
                   const res = await create.mutateAsync({
-                    body: { community: chosen.apId, title: d.title, body: d.body, url: d.url || undefined },
+                    body: {
+                      community: chosen.apId,
+                      title: d.title,
+                      body: d.body,
+                      url: d.url || undefined,
+                      image: d.image || undefined,
+                    },
                   })
                   await navigate({ to: '/c/$handle/p/$ref', params: { handle: chosen.handle, ref: res.ref } })
                 } catch (err) {

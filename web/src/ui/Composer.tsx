@@ -7,7 +7,9 @@ import { Rendered, type RenderedHtml } from './RenderedHtml'
 
 export type Kind = 'text' | 'link' | 'image'
 
-export type Draft = { kind: Kind; title: string; body: string; url: string }
+export type Draft = { kind: Kind; title: string; body: string; url: string; image: string }
+
+export type UploadedImage = { key: string; url: string; width: number; height: number }
 
 type Props = {
   community: string
@@ -15,12 +17,21 @@ type Props = {
   preview: (markdown: string) => Promise<RenderedHtml>
   // Sends the post; a rejected promise keeps the draft and shows the error's message.
   send?: (draft: Draft) => Promise<void>
+  // Uploads an image; a rejected promise shows the error's message.
+  upload?: (file: File) => Promise<UploadedImage>
   kinds?: Kind[]
   startOpen?: boolean
 }
 
 // The composer starts as one line and unfolds when the reader starts a post.
-export function Composer({ community, preview, send, kinds = ['text', 'link', 'image'], startOpen = false }: Props) {
+export function Composer({
+  community,
+  preview,
+  send,
+  upload,
+  kinds = ['text', 'link', 'image'],
+  startOpen = false,
+}: Props) {
   const [open, setOpen] = useState(startOpen)
   const [kind, setKind] = useState<Kind>(kinds[0] ?? 'text')
   const [title, setTitle] = useState('')
@@ -30,6 +41,7 @@ export function Composer({ community, preview, send, kinds = ['text', 'link', 'i
   const [previewFailed, setPreviewFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState<string | null>(null)
+  const [image, setImage] = useState<UploadedImage | null>(null)
   const ids = { title: useId(), body: useId(), url: useId() }
 
   return (
@@ -51,10 +63,20 @@ export function Composer({ community, preview, send, kinds = ['text', 'link', 'i
           onSubmit={async (e) => {
             e.preventDefault()
             if (!send) return
+            if (kind === 'image' && !image) {
+              setFailed('Choose an image first.')
+              return
+            }
             setBusy(true)
             setFailed(null)
             try {
-              await send({ kind, title: title.trim(), body, url: kind === 'link' ? url.trim() : '' })
+              await send({
+                kind,
+                title: title.trim(),
+                body,
+                url: kind === 'link' ? url.trim() : '',
+                image: kind === 'image' && image ? image.key : '',
+              })
             } catch (err) {
               setFailed(err instanceof Error && err.message ? err.message : 'Post not sent.')
             } finally {
@@ -98,9 +120,7 @@ export function Composer({ community, preview, send, kinds = ['text', 'link', 'i
               />
             </TabsContent>
             <TabsContent value="image">
-              <div className="grid place-items-center rounded-sm border border-dashed border-rule px-4 py-8 font-sans text-sm text-ink-soft">
-                Drop a JPEG, PNG or WebP here. Location data is removed before it is stored.
-              </div>
+              <ImagePicker image={image} onChange={setImage} upload={upload} />
             </TabsContent>
           </Tabs>
           <Tabs
@@ -162,5 +182,90 @@ export function Composer({ community, preview, send, kinds = ['text', 'link', 'i
         </form>
       )}
     </section>
+  )
+}
+
+// ImagePicker takes one image by click, keyboard or drop, uploads it at once
+// and shows it. Without upload it only shows the drop zone, as on the specimen page.
+function ImagePicker({
+  image,
+  onChange,
+  upload,
+}: {
+  image: UploadedImage | null
+  onChange: (i: UploadedImage | null) => void
+  upload?: (file: File) => Promise<UploadedImage>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
+  const [over, setOver] = useState(false)
+  const inputId = useId()
+
+  async function take(file: File | undefined) {
+    if (!file || !upload) return
+    setBusy(true)
+    setFailed(null)
+    try {
+      onChange(await upload(file))
+    } catch (err) {
+      setFailed(err instanceof Error && err.message ? err.message : 'The image did not upload.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (image) {
+    return (
+      <figure className="flex flex-col gap-2">
+        <img
+          src={image.url}
+          width={image.width}
+          height={image.height}
+          alt="Your upload"
+          className="max-h-96 w-auto self-start rounded-sm border border-rule object-contain"
+        />
+        <figcaption className="flex items-center gap-3 font-sans text-xs text-ink-faint">
+          Location and camera data were removed.
+          <Button type="button" variant="quiet" onClick={() => onChange(null)}>
+            Remove
+          </Button>
+        </figcaption>
+      </figure>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={inputId}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setOver(true)
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setOver(false)
+          void take(e.dataTransfer.files[0])
+        }}
+        className={`grid cursor-pointer place-items-center rounded-sm border border-dashed px-4 py-8 text-center font-sans text-sm text-ink-soft transition-colors duration-(--dur-press) focus-within:outline-2 focus-within:outline-mark hover:border-rule-strong ${over ? 'border-mark bg-mark-wash' : 'border-rule'}`}
+      >
+        {busy
+          ? 'Uploading…'
+          : 'Drop a JPEG, PNG or WebP here, or choose one. Location data is removed before it is stored.'}
+        <input
+          id={inputId}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          disabled={busy || !upload}
+          onChange={(e) => void take(e.target.files?.[0])}
+        />
+      </label>
+      {failed && (
+        <p role="alert" className="font-sans text-sm text-danger">
+          {failed}
+        </p>
+      )}
+    </div>
   )
 }
