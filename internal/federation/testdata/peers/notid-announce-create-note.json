@@ -1,0 +1,54 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood058d9b41/followers"
+    ],
+    "id": "http://a.notid.test:8080/a/2dv4qjlkuk6pinmj4gb4yman",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://a.notid.test:8080/c/wood058d9b41",
+    "object": {
+        "cc": [
+            "http://a.notid.test:8080/c/wood058d9b41",
+            "http://b.notid.test:8080/u/u2112f50d"
+        ],
+        "id": "http://a.notid.test:8080/a/prvq3zdssjs323l72u53jhod",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Create",
+        "actor": "http://a.notid.test:8080/u/uc3f677a2",
+        "object": {
+            "cc": [
+                "http://a.notid.test:8080/c/wood058d9b41",
+                "http://b.notid.test:8080/u/u2112f50d"
+            ],
+            "id": "http://a.notid.test:8080/o/xgei7avwfsqabddybswdqtct",
+            "to": [
+                "https://www.w3.org/ns/activitystreams#Public"
+            ],
+            "type": "Note",
+            "source": {
+                "content": "nice",
+                "mediaType": "text/markdown"
+            },
+            "content": "<p>nice</p>\n",
+            "audience": "http://a.notid.test:8080/c/wood058d9b41",
+            "inReplyTo": "http://b.notid.test:8080/o/enacfpwmqgdl453dzhuctbqh",
+            "mediaType": "text/html",
+            "published": "2026-10-18T06:15:16.92264Z",
+            "sensitive": false,
+            "attributedTo": "http://a.notid.test:8080/u/uc3f677a2"
+        },
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "audience": "http://a.notid.test:8080/c/wood058d9b41"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

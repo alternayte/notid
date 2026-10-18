@@ -1,0 +1,13 @@
+{
+    "id": "http://lemmy.test:8536/activities/follow/ea7668a3-19db-4035-8b9c-d6ccc9578bd8",
+    "to": [
+        "http://woodwork.club:8080/c/wood"
+    ],
+    "type": "Follow",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://woodwork.club:8080/c/wood",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

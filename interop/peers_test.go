@@ -330,10 +330,21 @@ func TestPeersPostCommentAndVoteInACommunityOnA(t *testing.T) {
 			// A's member posts; the peer receives it as a follower.
 			var mine struct{ ApID string }
 			member.post("/api/posts", map[string]any{"community": group, "title": "From A " + uniqueName("")}, &mine)
+			var seen postView
 			eventually(t, peerName+" receives A's post", func() bool {
-				_, ok := peer.findPost(mine.ApID)
+				var ok bool
+				seen, ok = peer.findPost(mine.ApID)
 				return ok
 			})
+
+			// The peer's user votes on A's post, then takes the vote back.
+			score := func() string {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT score FROM posts WHERE ap_id = '%s'`, mine.ApID))
+			}
+			peer.call(http.MethodPost, "/post/like", map[string]any{"post_id": seen.PostView.Post.ID, "score": -1}, nil)
+			eventually(t, "A counts "+peerName+"'s downvote", func() bool { return score() == "-1" })
+			peer.call(http.MethodPost, "/post/like", map[string]any{"post_id": seen.PostView.Post.ID, "score": 0}, nil)
+			eventually(t, "A drops "+peerName+"'s vote", func() bool { return score() == "0" })
 		})
 	}
 }

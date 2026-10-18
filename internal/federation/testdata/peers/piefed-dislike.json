@@ -1,0 +1,11 @@
+{
+    "id": "http://piefed.test:5000/activities/dislike/eaIQkF9cvIbBPbN",
+    "type": "Dislike",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": "http://a.notid.test:8080/o/as2zlfnilyh2bq5lkwvwovlf",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood041bb76f"
+}

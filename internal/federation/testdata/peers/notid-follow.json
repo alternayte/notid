@@ -1,0 +1,13 @@
+{
+    "id": "http://b.notid.test:8080/a/spbejccfqbgupgeg5l6xuclo",
+    "to": [
+        "http://a.notid.test:8080/c/wood058d9b41"
+    ],
+    "type": "Follow",
+    "actor": "http://b.notid.test:8080/u/u2112f50d",
+    "object": "http://a.notid.test:8080/c/wood058d9b41",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

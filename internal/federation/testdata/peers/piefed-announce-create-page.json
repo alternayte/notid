@@ -1,0 +1,64 @@
+{
+    "cc": [
+        "http://piefed.test:5000/c/toolse7aaafbc/followers"
+    ],
+    "id": "http://piefed.test:5000/activities/announce/U4508Ao3cIpHsc7",
+    "to": [
+        "http://piefed.test:5000/c/toolse7aaafbc",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://piefed.test:5000/c/toolse7aaafbc",
+    "object": {
+        "cc": [],
+        "id": "http://piefed.test:5000/activities/create/gOoEeU9C1IiMbC1",
+        "to": [
+            "http://piefed.test:5000/c/toolse7aaafbc",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Create",
+        "actor": "http://piefed.test:5000/u/admin",
+        "object": {
+            "cc": [],
+            "id": "http://piefed.test:5000/c/toolse7aaafbc@piefed.test:5000/p/4/peer-post-2069d21c",
+            "to": [
+                "http://piefed.test:5000/c/toolse7aaafbc",
+                "https://www.w3.org/ns/activitystreams#Public"
+            ],
+            "tag": [],
+            "name": "Peer post 2069d21c",
+            "nsfl": false,
+            "type": "Page",
+            "genAI": false,
+            "source": {
+                "content": "",
+                "mediaType": "text/markdown"
+            },
+            "content": "",
+            "audience": "http://piefed.test:5000/c/toolse7aaafbc",
+            "language": {
+                "name": "English",
+                "identifier": "en"
+            },
+            "stickied": false,
+            "mediaType": "text/html",
+            "published": "2026-10-18T06:15:15.435150+00:00",
+            "sensitive": false,
+            "attachment": [],
+            "attributedTo": "http://piefed.test:5000/u/admin",
+            "commentsEnabled": true,
+            "interactionPolicy": {
+                "canQuote": {
+                    "automaticApproval": [
+                        "https://www.w3.org/ns/activitystreams#Public"
+                    ]
+                }
+            }
+        },
+        "audience": "http://piefed.test:5000/c/toolse7aaafbc"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

@@ -1,0 +1,11 @@
+{
+    "id": "http://b.notid.test:8080/a/l3g6f5cptxbcft7zwyqqsplz",
+    "type": "Like",
+    "actor": "http://b.notid.test:8080/u/u2112f50d",
+    "object": "http://b.notid.test:8080/o/enacfpwmqgdl453dzhuctbqh",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood058d9b41"
+}

@@ -1,0 +1,19 @@
+{
+    "id": "http://piefed.test:5000/activities/accept/T6kP2Ag9kOxx3iP1AoZPYbbnu6pYKAod",
+    "to": [
+        "http://a.notid.test:8080/u/uc0d0f2d0"
+    ],
+    "type": "Accept",
+    "actor": "http://piefed.test:5000/c/toolsba15e459",
+    "object": {
+        "id": "http://a.notid.test:8080/a/7gfdroqvtmhhdeesk4enexsj",
+        "to": null,
+        "type": "Follow",
+        "actor": "http://a.notid.test:8080/u/uc0d0f2d0",
+        "object": "http://piefed.test:5000/c/toolsba15e459"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

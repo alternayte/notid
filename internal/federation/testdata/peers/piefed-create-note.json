@@ -1,0 +1,55 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood717abff5",
+        "http://piefed.test:5000/u/admin"
+    ],
+    "id": "http://piefed.test:5000/activities/create/Ed3sd7oh7488mQx",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Create",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": {
+        "cc": [
+            "http://a.notid.test:8080/c/wood717abff5",
+            "http://piefed.test:5000/u/admin"
+        ],
+        "id": "http://piefed.test:5000/comment/1",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://piefed.test:5000/u/admin",
+                "name": "@admin@piefed.test:5000",
+                "type": "Mention"
+            }
+        ],
+        "url": "http://piefed.test:5000/comment/1",
+        "type": "Note",
+        "flair": "",
+        "source": {
+            "content": "a reply",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>a reply</p>\n",
+        "audience": "http://a.notid.test:8080/c/wood717abff5",
+        "language": {
+            "name": "English",
+            "identifier": "en"
+        },
+        "inReplyTo": "http://piefed.test:5000/c/wood717abff5@a.notid.test:8080/p/1/from-piefed-9c2d8095",
+        "mediaType": "text/html",
+        "published": "2026-10-18T06:14:14.302189+00:00",
+        "contentMap": {
+            "en": "<p>a reply</p>\n"
+        },
+        "attributedTo": "http://piefed.test:5000/u/admin",
+        "distinguished": false
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood717abff5"
+}

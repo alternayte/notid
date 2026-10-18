@@ -1,0 +1,13 @@
+{
+    "id": "http://piefed.test:5000/activities/follow/b192f256-1d23-4485-99a4-2bc8f6130103",
+    "to": [
+        "http://a.notid.test:8080/c/wood875f8e4e"
+    ],
+    "type": "Follow",
+    "actor": "http://piefed.test:5000/u/admin",
+    "object": "http://a.notid.test:8080/c/wood875f8e4e",
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

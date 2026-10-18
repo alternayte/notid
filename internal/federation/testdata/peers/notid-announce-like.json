@@ -1,0 +1,26 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood058d9b41/followers"
+    ],
+    "id": "http://a.notid.test:8080/a/z5pef3z5nvhmvc6cdgbvx5hd",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://a.notid.test:8080/c/wood058d9b41",
+    "object": {
+        "id": "http://a.notid.test:8080/a/xe6zxmiliz3silofa7alry5e",
+        "type": "Like",
+        "actor": "http://a.notid.test:8080/u/uc3f677a2",
+        "object": "http://b.notid.test:8080/o/enacfpwmqgdl453dzhuctbqh",
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "audience": "http://a.notid.test:8080/c/wood058d9b41"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

@@ -1,0 +1,35 @@
+{
+    "cc": [],
+    "id": "http://a.notid.test:8080/a/knkuu2brewhyqrlp52zxtbfy",
+    "to": [
+        "http://woodwork.club:8080/c/wood",
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Create",
+    "actor": "http://a.notid.test:8080/u/u4d4bb9d6",
+    "object": {
+        "cc": [],
+        "id": "http://a.notid.test:8080/o/rnsxyqewrdg2z6swkixzfnby",
+        "to": [
+            "http://woodwork.club:8080/c/wood",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "name": "After the move",
+        "type": "Page",
+        "source": {
+            "content": "",
+            "mediaType": "text/markdown"
+        },
+        "content": "",
+        "audience": "http://woodwork.club:8080/c/wood",
+        "mediaType": "text/html",
+        "published": "2026-10-18T06:12:21.485897Z",
+        "sensitive": false,
+        "attributedTo": "http://a.notid.test:8080/u/u4d4bb9d6"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ],
+    "audience": "http://woodwork.club:8080/c/wood"
+}

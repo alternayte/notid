@@ -1,0 +1,54 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood717abff5",
+        "http://lemmy.test:8536/u/admin"
+    ],
+    "id": "http://lemmy.test:8536/activities/create/62dbf6cd-1525-4932-bffd-00b549f060d4",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "tag": [
+        {
+            "href": "http://lemmy.test:8536/u/admin",
+            "name": "@admin@lemmy.test",
+            "type": "Mention"
+        }
+    ],
+    "type": "Create",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "cc": [
+            "http://a.notid.test:8080/c/wood717abff5",
+            "http://lemmy.test:8536/u/admin"
+        ],
+        "id": "http://lemmy.test:8536/comment/1",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://lemmy.test:8536/u/admin",
+                "name": "@admin@lemmy.test",
+                "type": "Mention"
+            }
+        ],
+        "type": "Note",
+        "source": {
+            "content": "a reply",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>a reply</p>\n",
+        "audience": "http://a.notid.test:8080/c/wood717abff5",
+        "inReplyTo": "http://lemmy.test:8536/post/4",
+        "mediaType": "text/html",
+        "published": "2026-10-18T06:13:40.470394Z",
+        "attachment": [],
+        "attributedTo": "http://lemmy.test:8536/u/admin",
+        "distinguished": false
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood717abff5"
+}

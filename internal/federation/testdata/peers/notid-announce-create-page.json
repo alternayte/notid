@@ -1,0 +1,50 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood058d9b41/followers"
+    ],
+    "id": "http://a.notid.test:8080/a/3cwl3ysssh6wszja7qcfr5nw",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://a.notid.test:8080/c/wood058d9b41",
+    "object": {
+        "cc": [],
+        "id": "http://a.notid.test:8080/a/emctsshssm2vuslooslhtnh3",
+        "to": [
+            "http://a.notid.test:8080/c/wood058d9b41",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Create",
+        "actor": "http://a.notid.test:8080/u/uc3f677a2",
+        "object": {
+            "cc": [],
+            "id": "http://a.notid.test:8080/o/2middx6hdagydtk2yus23xul",
+            "to": [
+                "http://a.notid.test:8080/c/wood058d9b41",
+                "https://www.w3.org/ns/activitystreams#Public"
+            ],
+            "name": "From A",
+            "type": "Page",
+            "source": {
+                "content": "",
+                "mediaType": "text/markdown"
+            },
+            "content": "",
+            "audience": "http://a.notid.test:8080/c/wood058d9b41",
+            "mediaType": "text/html",
+            "published": "2026-10-18T06:15:19.387307Z",
+            "sensitive": false,
+            "attributedTo": "http://a.notid.test:8080/u/uc3f677a2"
+        },
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            "https://w3id.org/security/v1"
+        ],
+        "audience": "http://a.notid.test:8080/c/wood058d9b41"
+    },
+    "@context": [
+        "https://www.w3.org/ns/activitystreams",
+        "https://w3id.org/security/v1"
+    ]
+}

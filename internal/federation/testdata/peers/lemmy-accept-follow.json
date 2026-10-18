@@ -1,0 +1,21 @@
+{
+    "id": "http://lemmy.test:8536/activities/accept/483a2f7a-c3b1-4e53-9392-f62832e7e0f6",
+    "to": [
+        "http://a.notid.test:8080/u/uc0d0f2d0"
+    ],
+    "type": "Accept",
+    "actor": "http://lemmy.test:8536/c/tools9ceffa68",
+    "object": {
+        "id": "http://a.notid.test:8080/a/35k2haifaqho6f353sgvm2bj",
+        "to": [
+            "http://lemmy.test:8536/c/tools9ceffa68"
+        ],
+        "type": "Follow",
+        "actor": "http://a.notid.test:8080/u/uc0d0f2d0",
+        "object": "http://lemmy.test:8536/c/tools9ceffa68"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

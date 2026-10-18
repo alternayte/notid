@@ -1,0 +1,17 @@
+{
+    "id": "http://lemmy.test:8536/activities/undo/bd33a572-9719-4dfd-8fd3-b885fa47fcba",
+    "type": "Undo",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "id": "http://lemmy.test:8536/activities/like/ab7d4deb-5aef-4694-9585-f46a5088e3fb",
+        "type": "Like",
+        "actor": "http://lemmy.test:8536/u/admin",
+        "object": "http://a.notid.test:8080/o/2wy2ib3xjbpcawoblonldr5b",
+        "audience": "http://a.notid.test:8080/c/wood041bb76f"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood041bb76f"
+}

@@ -1,0 +1,44 @@
+{
+    "cc": [
+        "http://a.notid.test:8080/c/wood717abff5"
+    ],
+    "id": "http://lemmy.test:8536/activities/create/a46d7a33-9537-42a0-91e0-62d032bec626",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Create",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": {
+        "cc": [],
+        "id": "http://lemmy.test:8536/post/4",
+        "to": [
+            "http://a.notid.test:8080/c/wood717abff5",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [
+            {
+                "href": "http://lemmy.test:8536/post/4",
+                "name": "#wood717abff5",
+                "type": "Hashtag"
+            }
+        ],
+        "name": "From lemmy 6d6eedd4",
+        "type": "Page",
+        "source": {
+            "content": "hello **A**",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>hello <strong>A</strong></p>\n",
+        "audience": "http://a.notid.test:8080/c/wood717abff5",
+        "mediaType": "text/html",
+        "published": "2026-10-18T06:13:40.424361Z",
+        "sensitive": false,
+        "attachment": [],
+        "attributedTo": "http://lemmy.test:8536/u/admin"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood717abff5"
+}

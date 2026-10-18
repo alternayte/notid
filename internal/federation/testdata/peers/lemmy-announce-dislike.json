@@ -1,0 +1,22 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/toolsb555f023/followers"
+    ],
+    "id": "http://lemmy.test:8536/activities/announce/dislike/0c91791b-86ae-4d98-9fb1-1dc002624e39",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://lemmy.test:8536/c/toolsb555f023",
+    "object": {
+        "id": "http://a.notid.test:8080/a/3yvq24lvh7fxclowdwbiertu",
+        "type": "Dislike",
+        "actor": "http://a.notid.test:8080/u/ue814678c",
+        "object": "http://a.notid.test:8080/o/y7a3ykjqnxvbm6dytq36vtox",
+        "audience": "http://lemmy.test:8536/c/toolsb555f023"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

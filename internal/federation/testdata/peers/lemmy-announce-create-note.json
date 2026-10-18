@@ -1,0 +1,50 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/toolsb555f023/followers"
+    ],
+    "id": "http://lemmy.test:8536/activities/announce/create/559d97ec-6363-40ff-aa3f-3a6b635bb38a",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://lemmy.test:8536/c/toolsb555f023",
+    "object": {
+        "cc": [
+            "http://lemmy.test:8536/c/toolsb555f023",
+            "http://a.notid.test:8080/u/ue814678c"
+        ],
+        "id": "http://a.notid.test:8080/a/ptng2rvpbfyq62e32wop5afr",
+        "to": [
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "type": "Create",
+        "actor": "http://a.notid.test:8080/u/ue814678c",
+        "object": {
+            "cc": [
+                "http://lemmy.test:8536/c/toolsb555f023",
+                "http://a.notid.test:8080/u/ue814678c"
+            ],
+            "id": "http://a.notid.test:8080/o/miq7s5bzl2h3rdizj5ywdcpt",
+            "to": [
+                "https://www.w3.org/ns/activitystreams#Public"
+            ],
+            "type": "Note",
+            "source": {
+                "content": "Answering myself",
+                "mediaType": "text/markdown"
+            },
+            "content": "<p>Answering myself</p>\n",
+            "audience": "http://lemmy.test:8536/c/toolsb555f023",
+            "inReplyTo": "http://a.notid.test:8080/o/y7a3ykjqnxvbm6dytq36vtox",
+            "mediaType": "text/html",
+            "published": "2026-10-18T06:14:39.715056Z",
+            "sensitive": false,
+            "attributedTo": "http://a.notid.test:8080/u/ue814678c"
+        },
+        "audience": "http://lemmy.test:8536/c/toolsb555f023"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}

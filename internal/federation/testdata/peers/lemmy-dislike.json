@@ -1,0 +1,11 @@
+{
+    "id": "http://lemmy.test:8536/activities/dislike/263c4756-1655-4c16-bf59-7fc0ce0ad4e2",
+    "type": "Dislike",
+    "actor": "http://lemmy.test:8536/u/admin",
+    "object": "http://a.notid.test:8080/o/2wy2ib3xjbpcawoblonldr5b",
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ],
+    "audience": "http://a.notid.test:8080/c/wood041bb76f"
+}

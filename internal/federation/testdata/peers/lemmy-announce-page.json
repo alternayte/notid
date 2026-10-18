@@ -1,0 +1,38 @@
+{
+    "cc": [
+        "http://lemmy.test:8536/c/toolsb555f023/followers"
+    ],
+    "id": "http://lemmy.test:8536/activities/announce/page/ac369af4-ef78-4d1d-9f08-ab080ef76013",
+    "to": [
+        "https://www.w3.org/ns/activitystreams#Public"
+    ],
+    "type": "Announce",
+    "actor": "http://lemmy.test:8536/c/toolsb555f023",
+    "object": {
+        "cc": [],
+        "id": "http://a.notid.test:8080/o/y7a3ykjqnxvbm6dytq36vtox",
+        "to": [
+            "http://lemmy.test:8536/c/toolsb555f023",
+            "https://www.w3.org/ns/activitystreams#Public"
+        ],
+        "tag": [],
+        "name": "Chisels",
+        "type": "Page",
+        "actor": "http://a.notid.test:8080/u/ue814678c",
+        "source": {
+            "content": "Which **steel**?",
+            "mediaType": "text/markdown"
+        },
+        "content": "<p>Which <strong>steel</strong>?</p>\n",
+        "audience": "http://lemmy.test:8536/c/toolsb555f023",
+        "mediaType": "text/html",
+        "published": "2026-10-18T06:14:39.668594Z",
+        "sensitive": false,
+        "attachment": [],
+        "attributedTo": "http://a.notid.test:8080/u/ue814678c"
+    },
+    "@context": [
+        "https://join-lemmy.org/context.json",
+        "https://www.w3.org/ns/activitystreams"
+    ]
+}
