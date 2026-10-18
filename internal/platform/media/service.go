@@ -183,3 +183,32 @@ func (s *Service) Handler() http.Handler {
 		}
 	})
 }
+
+// GuardUpload sits in front of the API. Huma parses a multipart body without a
+// size cap and leaves its temp files behind, so this refuses an anonymous
+// upload before reading it, caps the body, parses it here and removes the
+// temp files once the handler is done. Huma reuses the parsed form.
+func (s *Service) GuardUpload(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/media" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if accounts.ActorFrom(r.Context()) == nil {
+			http.Error(w, "sign in first", http.StatusUnauthorized)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, s.Tuning.MaxUploadBytes+64<<10)
+		if err := r.ParseMultipartForm(64 << 10); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				http.Error(w, fmt.Sprintf("The image is too large. Upload at most %d MB.", s.Tuning.MaxUploadBytes>>20), http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "the body is not a multipart form", http.StatusBadRequest)
+			return
+		}
+		defer r.MultipartForm.RemoveAll() //nolint:errcheck
+		next.ServeHTTP(w, r)
+	})
+}

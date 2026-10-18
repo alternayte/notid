@@ -102,7 +102,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
-	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(mux))))
+	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(mediaSvc.GuardUpload(mux)))))
 	fed := &federation.Server{
 		Pool:         pool,
 		AppDomain:    cfg.AppDomain,
