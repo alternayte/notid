@@ -81,6 +81,11 @@ func (s *Service) EditPost(ctx context.Context, author actors.Actor, ref string,
 		if err != nil {
 			return fmt.Errorf("edit post: %w", err)
 		}
+		if post.Url != row.Url {
+			if err := s.queuePreview(ctx, tx, post); err != nil {
+				return err
+			}
+		}
 		return s.SendPostUpdate(ctx, tx, author, post)
 	})
 	return post, err
@@ -208,15 +213,16 @@ func (s *Service) communityOfComment(ctx context.Context, db discussionsdb.DBTX,
 }
 
 // ApplyRemotePostEdit stores a remote Page's new text. An older Update changes nothing.
-func ApplyRemotePostEdit(ctx context.Context, db discussionsdb.DBTX, apID, title, body, url string, nsfw bool, updated time.Time) (bool, error) {
+func ApplyRemotePostEdit(ctx context.Context, db discussionsdb.DBTX, p NewPost, updated time.Time) (bool, error) {
 	_, err := discussionsdb.New(db).UpdateRemotePost(ctx, discussionsdb.UpdateRemotePostParams{
-		ApID: apID, Title: title, Body: body, Url: url, Nsfw: nsfw, Updated: &updated,
+		ApID: p.ApID, Title: p.Title, Body: p.Body, Url: p.URL, Nsfw: p.NSFW, Updated: &updated,
+		UrlImage: p.URLImage, PreviewImage: p.PreviewImage,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("remote edit %s: %w", apID, err)
+		return false, fmt.Errorf("remote edit %s: %w", p.ApID, err)
 	}
 	return true, nil
 }

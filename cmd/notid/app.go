@@ -122,11 +122,13 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	fed.AddWorkers(workers)
 	probes.AddWorkers(workers)
 	accountsSvc.AddWorkers(workers)
+	discussionsSvc.AddWorkers(workers)
 	rcfg := &river.Config{Workers: workers, Logger: log}
 	if work {
 		rcfg.Queues = fed.Queues()
 		maps.Copy(rcfg.Queues, probes.Queues())
 		maps.Copy(rcfg.Queues, accountsSvc.Queues())
+		maps.Copy(rcfg.Queues, discussionsSvc.Queues())
 		rcfg.PeriodicJobs = append(probes.PeriodicJobs(), accountsSvc.PeriodicJobs()...)
 	}
 	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
@@ -134,6 +136,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		return nil, fmt.Errorf("river client: %w", err)
 	}
 	fed.River = rc
+	discussionsSvc.River = rc
+	discussionsSvc.HTTP = fed.HTTP
 	moderationSvc.SendLock = fed.SendLock
 	moderationSvc.SendBlock = fed.SendBlock
 	moderationSvc.SendRole = fed.SendRole
@@ -154,7 +158,14 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.IsAdmin = accountsSvc.IsAdmin
 	discussionsSvc.MediaURL = mediaSvc.URL
 	communitiesSvc.MediaURL = mediaSvc.URL
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaSvc.Handler(), doc: api, river: rc}, nil
+	proxyGuard := platform.NewGuard(cfg.FederationHTTP, t)
+	proxyGuard.MaxBytes = t.ProxyMaxBytes
+	proxy := media.NewProxy(cfg.SecretKey, proxyGuard.Client(), cfg.AppOrigin, t.ProxyMaxBytes, t.ProxyMaxAge, log)
+	discussionsSvc.ProxyURL = proxy.URL
+	mediaMux := http.NewServeMux()
+	mediaMux.Handle("/media/", mediaSvc.Handler())
+	mediaMux.Handle("/proxy", proxy)
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: fed.Handler(), media: mediaMux, doc: api, river: rc}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.

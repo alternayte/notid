@@ -541,7 +541,7 @@ func (q *Queries) PersonCommunities(ctx context.Context, actorID int64) ([]Perso
 }
 
 const postDoc = `-- name: PostDoc :one
-SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, p.active_at, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
+SELECT p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.media_id, p.nsfw, p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at, p.score, p.up, p.down, p.comment_count, p.last_comment_at, p.delivery_state, p.delivery_error, p.search, p.active_at, p.url_image, p.preview_title, p.preview_description, p.preview_image, au.ap_id AS author_ap_id, g.ap_id AS group_ap_id
 FROM posts p
 JOIN actors au ON au.id = p.author_id
 JOIN communities c ON c.id = p.community_id
@@ -550,36 +550,40 @@ WHERE p.ap_id = $1 AND p.deleted_at IS NULL
 `
 
 type PostDocRow struct {
-	ID            int64
-	ApID          string
-	Ref           string
-	Local         bool
-	CommunityID   int64
-	AuthorID      int64
-	Title         string
-	Body          string
-	Url           string
-	MediaID       *int64
-	Nsfw          bool
-	Published     time.Time
-	ReceivedAt    time.Time
-	SortAt        time.Time
-	Updated       *time.Time
-	Locked        bool
-	Held          bool
-	DeletedAt     *time.Time
-	RemovedAt     *time.Time
-	Score         int32
-	Up            int32
-	Down          int32
-	CommentCount  int32
-	LastCommentAt *time.Time
-	DeliveryState *string
-	DeliveryError string
-	Search        interface{}
-	ActiveAt      *time.Time
-	AuthorApID    string
-	GroupApID     string
+	ID                 int64
+	ApID               string
+	Ref                string
+	Local              bool
+	CommunityID        int64
+	AuthorID           int64
+	Title              string
+	Body               string
+	Url                string
+	MediaID            *int64
+	Nsfw               bool
+	Published          time.Time
+	ReceivedAt         time.Time
+	SortAt             time.Time
+	Updated            *time.Time
+	Locked             bool
+	Held               bool
+	DeletedAt          *time.Time
+	RemovedAt          *time.Time
+	Score              int32
+	Up                 int32
+	Down               int32
+	CommentCount       int32
+	LastCommentAt      *time.Time
+	DeliveryState      *string
+	DeliveryError      string
+	Search             interface{}
+	ActiveAt           *time.Time
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorApID         string
+	GroupApID          string
 }
 
 func (q *Queries) PostDoc(ctx context.Context, apID string) (PostDocRow, error) {
@@ -614,6 +618,10 @@ func (q *Queries) PostDoc(ctx context.Context, apID string) (PostDocRow, error) 
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 		&i.AuthorApID,
 		&i.GroupApID,
 	)

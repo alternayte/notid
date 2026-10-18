@@ -15,6 +15,7 @@ import { Age } from '~/discussions/Age'
 import { CommentAuthorActions, PostAuthorActions } from '~/discussions/AuthorActions'
 import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
 import { DeliveryNote } from '~/discussions/DeliveryNote'
+import { LinkPreview } from '~/discussions/LinkPreview'
 import { SaveButton } from '~/discussions/SaveButton'
 import { type Node, tree } from '~/discussions/tree'
 import { Votes } from '~/discussions/Votes'
@@ -103,17 +104,9 @@ function ThreadPage() {
                 {p.nsfw && ' · 18+'}
               </p>
               {p.image && (
-                <img src={p.url} alt="" className="max-h-[80vh] w-auto self-start rounded-sm border border-rule" />
+                <img src={p.imageSrc} alt="" className="max-h-[80vh] w-auto self-start rounded-sm border border-rule" />
               )}
-              {p.url && !p.image && (
-                <a
-                  href={p.url}
-                  rel="nofollow noopener ugc"
-                  className="w-fit break-all font-sans text-sm text-ink-soft hover:text-mark"
-                >
-                  {p.url} ↗
-                </a>
-              )}
+              {p.url && !p.image && <LinkPreview url={p.url} preview={p.preview} />}
               {p.bodyHtml && <Rendered html={fromRenderer(p.bodyHtml)} className="prose-news" />}
               <DeliveryNote delivery={p.delivery} community={p.community} />
               <div className="flex flex-wrap items-center gap-4 pt-2">

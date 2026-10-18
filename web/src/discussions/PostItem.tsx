@@ -27,11 +27,16 @@ export function PostItem({ post: p, showCommunity = true }: { post: PostView; sh
       bot={p.author.bot}
       age={<Age iso={p.published} />}
       comments={p.comments}
-      standfirst={p.excerpt || undefined}
+      standfirst={p.excerpt || p.preview?.description || undefined}
       link={p.url && !p.image ? p.url : undefined}
       image={
-        p.image ? (
-          <img src={p.url} alt="" loading="lazy" className="aspect-square w-full rounded-sm object-cover" />
+        p.image || p.preview?.imageSrc ? (
+          <img
+            src={p.image ? p.imageSrc : p.preview?.imageSrc}
+            alt=""
+            loading="lazy"
+            className="aspect-square w-full rounded-sm object-cover"
+          />
         ) : undefined
       }
       votes={<Votes apId={p.apId} score={p.score} viewer={p.viewer} label={p.title} community={p.community} />}

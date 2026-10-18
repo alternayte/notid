@@ -304,6 +304,16 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	return s.planContent(ctx, db, inner, &g)
 }
 
+// remotePost is the stored form of a Page's text and link.
+func remotePost(o objectDoc, body string) discussions.NewPost {
+	link, isImage := linkOf(o)
+	np := discussions.NewPost{ApID: o.ID, Title: o.Name, Body: body, URL: link, URLImage: isImage, NSFW: o.Sensitive}
+	if o.Image != nil && link != "" && !isImage {
+		np.PreviewImage = string(o.Image.URL)
+	}
+	return np
+}
+
 // applyContent stores what a plan describes and, for an activity sent to a
 // local group, announces it to the group's followers.
 func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw json.RawMessage) error {
@@ -314,14 +324,9 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 		if err != nil {
 			return err
 		}
-		url := ""
-		if len(p.obj.Attachment) > 0 {
-			url = p.obj.Attachment[0].Href
-		}
-		_, changed, err = discussions.InsertPost(ctx, tx, discussions.NewPost{
-			ApID: p.obj.ID, CommunityID: p.community.ID, Author: p.author, Title: p.obj.Name,
-			Body: body, URL: url, NSFW: p.obj.Sensitive, Published: publishedOf(p.obj),
-		})
+		np := remotePost(p.obj, body)
+		np.CommunityID, np.Author, np.Published = p.community.ID, p.author, publishedOf(p.obj)
+		_, changed, err = discussions.InsertPost(ctx, tx, np)
 		if err != nil {
 			return err
 		}
@@ -351,11 +356,7 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 		if err != nil {
 			return err
 		}
-		url := ""
-		if len(p.obj.Attachment) > 0 {
-			url = p.obj.Attachment[0].Href
-		}
-		changed, err = discussions.ApplyRemotePostEdit(ctx, tx, p.obj.ID, p.obj.Name, body, url, p.obj.Sensitive, updatedOf(p.obj))
+		changed, err = discussions.ApplyRemotePostEdit(ctx, tx, remotePost(p.obj, body), updatedOf(p.obj))
 		if err != nil {
 			return err
 		}

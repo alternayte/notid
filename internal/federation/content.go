@@ -1,11 +1,15 @@
 package federation
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,9 +26,63 @@ type source struct {
 	MediaType string `json:"mediaType"`
 }
 
+// attachment is Lemmy's Link with href, or the Image or Document with url
+// that PieFed and Mastodon send.
 type attachment struct {
-	Type string `json:"type"`
-	Href string `json:"href"`
+	Type      string  `json:"type"`
+	Href      string  `json:"href,omitempty"`
+	URL       linkURL `json:"url,omitempty"`
+	MediaType string  `json:"mediaType,omitempty"`
+}
+
+// linkURL is a url property, which may be a string, a Link or a list of them.
+type linkURL string
+
+func (u *linkURL) UnmarshalJSON(b []byte) error {
+	var s string
+	if json.Unmarshal(b, &s) == nil {
+		*u = linkURL(s)
+		return nil
+	}
+	var l struct {
+		Href string `json:"href"`
+	}
+	if json.Unmarshal(b, &l) == nil {
+		*u = linkURL(l.Href)
+		return nil
+	}
+	var list []linkURL
+	if err := json.Unmarshal(b, &list); err != nil {
+		return fmt.Errorf("url: %w", err)
+	}
+	if len(list) > 0 {
+		*u = list[0]
+	}
+	return nil
+}
+
+// imageRef is the image Lemmy chose for a link post.
+type imageRef struct {
+	URL linkURL `json:"url"`
+}
+
+// imageExts are the file endings Lemmy and PieFed give images they host.
+var imageExts = map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
+
+// linkOf returns a Page's link and whether the link is an image.
+func linkOf(o objectDoc) (string, bool) {
+	if len(o.Attachment) == 0 {
+		return "", false
+	}
+	a := o.Attachment[0]
+	href := cmp.Or(a.Href, string(a.URL))
+	if a.Type == "Image" || strings.HasPrefix(a.MediaType, "image/") {
+		return href, true
+	}
+	if u, err := url.Parse(href); err == nil && a.MediaType == "" {
+		return href, imageExts[strings.ToLower(path.Ext(u.Path))]
+	}
+	return href, false
 }
 
 // objectDoc is a Page (post) or a Note (comment) in Lemmy's shape.
@@ -42,6 +100,7 @@ type objectDoc struct {
 	Source       *source      `json:"source,omitempty"`
 	InReplyTo    string       `json:"inReplyTo,omitempty"`
 	Attachment   []attachment `json:"attachment,omitempty"`
+	Image        *imageRef    `json:"image,omitempty"`
 	Sensitive    bool         `json:"sensitive"`
 	Published    *time.Time   `json:"published,omitempty"`
 	Updated      *time.Time   `json:"updated,omitempty"`
@@ -57,6 +116,12 @@ func (s *Server) pageDoc(p federationdb.PostDocRow) objectDoc {
 	}
 	if p.Url != "" {
 		d.Attachment = []attachment{{Type: "Link", Href: p.Url}}
+		if p.MediaID != nil {
+			d.Attachment[0].MediaType = "image/jpeg"
+			if strings.HasSuffix(p.Url, ".png") {
+				d.Attachment[0].MediaType = "image/png"
+			}
+		}
 	}
 	return d
 }

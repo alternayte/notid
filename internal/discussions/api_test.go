@@ -714,10 +714,10 @@ func TestARemoteEditAndDeleteApplyOnlyOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	older := time.Now().Add(-time.Hour)
-	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, apID, "Theirs", "Newer", "", false, time.Now()); err != nil || !changed {
+	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, discussions.NewPost{ApID: apID, Title: "Theirs", Body: "Newer"}, time.Now()); err != nil || !changed {
 		t.Fatalf("remote edit changed %v: %v", changed, err)
 	}
-	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, apID, "Theirs", "Stale", "", false, older); err != nil || changed {
+	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, discussions.NewPost{ApID: apID, Title: "Theirs", Body: "Stale"}, older); err != nil || changed {
 		t.Fatalf("a stale edit overwrote the newer one: changed %v err %v", changed, err)
 	}
 	var body string

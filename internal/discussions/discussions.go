@@ -58,8 +58,12 @@ type NewPost struct {
 	Body        string
 	URL         string
 	MediaID     *int64
-	NSFW        bool
-	Published   time.Time
+	// URLImage marks a remote post whose link is an image; PreviewImage is
+	// the image its peer chose for a link.
+	URLImage     bool
+	PreviewImage string
+	NSFW         bool
+	Published    time.Time
 	// Held keeps a post out of feeds, search and federation until a moderator publishes it.
 	Held bool
 }
@@ -79,7 +83,7 @@ func InsertPost(ctx context.Context, tx pgx.Tx, p NewPost) (Post, bool, error) {
 	post, err := q.InsertPost(ctx, discussionsdb.InsertPostParams{
 		ApID: p.ApID, Ref: Ref(p.ApID), Local: local, CommunityID: p.CommunityID, AuthorID: p.Author.ID,
 		Title: p.Title, Body: p.Body, Url: p.URL, MediaID: p.MediaID, Nsfw: p.NSFW, Published: p.Published,
-		Held: p.Held,
+		Held: p.Held, UrlImage: p.URLImage, PreviewImage: p.PreviewImage,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		post, err = q.PostByApID(ctx, p.ApID)

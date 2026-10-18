@@ -170,34 +170,38 @@ type Peer struct {
 }
 
 type Post struct {
-	ID            int64
-	ApID          string
-	Ref           string
-	Local         bool
-	CommunityID   int64
-	AuthorID      int64
-	Title         string
-	Body          string
-	Url           string
-	MediaID       *int64
-	Nsfw          bool
-	Published     time.Time
-	ReceivedAt    time.Time
-	SortAt        time.Time
-	Updated       *time.Time
-	Locked        bool
-	Held          bool
-	DeletedAt     *time.Time
-	RemovedAt     *time.Time
-	Score         int32
-	Up            int32
-	Down          int32
-	CommentCount  int32
-	LastCommentAt *time.Time
-	DeliveryState *string
-	DeliveryError string
-	Search        interface{}
-	ActiveAt      *time.Time
+	ID                 int64
+	ApID               string
+	Ref                string
+	Local              bool
+	CommunityID        int64
+	AuthorID           int64
+	Title              string
+	Body               string
+	Url                string
+	MediaID            *int64
+	Nsfw               bool
+	Published          time.Time
+	ReceivedAt         time.Time
+	SortAt             time.Time
+	Updated            *time.Time
+	Locked             bool
+	Held               bool
+	DeletedAt          *time.Time
+	RemovedAt          *time.Time
+	Score              int32
+	Up                 int32
+	Down               int32
+	CommentCount       int32
+	LastCommentAt      *time.Time
+	DeliveryState      *string
+	DeliveryError      string
+	Search             interface{}
+	ActiveAt           *time.Time
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
 }
 
 type ReceivedActivity struct {

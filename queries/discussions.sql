@@ -1,10 +1,10 @@
 -- name: InsertPost :one
 INSERT INTO posts (
     ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
-    published, sort_at, held
+    published, sort_at, held, url_image, preview_image
 ) VALUES (
     @ap_id, @ref, @local, @community_id, @author_id, @title, @body, @url, sqlc.narg(media_id), @nsfw,
-    @published, least(@published::timestamptz, now()), @held
+    @published, least(@published::timestamptz, now()), @held, @url_image, @preview_image
 )
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING *;
@@ -83,7 +83,7 @@ SELECT c.id FROM communities c WHERE c.domain = @domain AND lower(c.name) = lowe
 -- New: newest first by feed time.
 -- name: CommunityPostsNew :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -101,7 +101,7 @@ LIMIT @lim;
 -- Active: latest reply first; a post without replies counts from its own feed time.
 -- name: CommunityPostsActive :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -119,7 +119,7 @@ LIMIT @lim;
 -- Top: highest score first, among posts whose feed time is after since.
 -- name: CommunityPostsTop :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -138,7 +138,7 @@ LIMIT @lim;
 -- Home: posts from the communities the reader joined, newest first by feed time.
 -- name: HomeFeed :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -156,7 +156,7 @@ LIMIT @lim;
 
 -- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -201,7 +201,7 @@ DELETE FROM saves WHERE actor_id = @actor_id AND comment_id = @comment_id;
 SELECT
     s.created_at AS saved_at, s.comment_id,
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count, p.locked, p.removed_at,
-    (p.media_id IS NOT NULL)::boolean AS has_image,
+    (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,
@@ -230,7 +230,7 @@ LIMIT @lim;
 -- here follows stays out of search (federation policy), as it does from Discover.
 -- name: SearchPosts :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -281,7 +281,7 @@ SELECT id FROM actors WHERE kind = 'person' AND domain = @domain AND lower(name)
 
 -- name: AuthorPosts :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -320,7 +320,7 @@ SELECT
     p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.nsfw,
     p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at,
     p.score, p.up, p.down, p.comment_count, p.last_comment_at,
-    (p.media_id IS NOT NULL)::boolean AS has_image,
+    (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title
 FROM posts p
@@ -363,8 +363,13 @@ SELECT * FROM posts WHERE ref = @ref AND deleted_at IS NULL;
 -- name: CommentByRef :one
 SELECT * FROM comments WHERE ref = @ref AND deleted_at IS NULL;
 
+-- A changed link drops the preview of the old one.
 -- name: EditPost :one
-UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = now()
+UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = now(),
+    url_image = url_image AND url = @url,
+    preview_title = CASE WHEN url = @url THEN preview_title ELSE '' END,
+    preview_description = CASE WHEN url = @url THEN preview_description ELSE '' END,
+    preview_image = CASE WHEN url = @url THEN preview_image ELSE '' END
 WHERE id = @id AND author_id = @author_id AND deleted_at IS NULL AND removed_at IS NULL
 RETURNING *;
 
@@ -374,7 +379,8 @@ WHERE id = @id AND author_id = @author_id AND deleted_at IS NULL AND removed_at 
 RETURNING *;
 
 -- name: TombstonePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE id = @id AND deleted_at IS NULL
 RETURNING *;
 
@@ -385,7 +391,8 @@ RETURNING *;
 
 -- A remote Update carries the time it was made; an older one never overwrites a newer edit.
 -- name: UpdateRemotePost :one
-UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = @updated
+UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = @updated,
+    url_image = @url_image, preview_image = @preview_image
 WHERE ap_id = @ap_id AND NOT local AND deleted_at IS NULL
   AND (updated IS NULL OR updated <= @updated)
 RETURNING *;
@@ -397,7 +404,8 @@ WHERE ap_id = @ap_id AND NOT local AND deleted_at IS NULL
 RETURNING *;
 
 -- name: TombstoneRemotePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE ap_id = @ap_id AND deleted_at IS NULL
 RETURNING *;
 
@@ -408,7 +416,8 @@ RETURNING *;
 
 -- A person who deleted their account takes their content with them.
 -- name: TombstonePostsOfAuthor :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = @author_id AND deleted_at IS NULL;
 
 -- name: TombstoneCommentsOfAuthor :exec
@@ -438,3 +447,12 @@ UNION ALL
 SELECT 'comment'::text, c.ref, c.delivery_state, c.delivery_error
 FROM comments c
 WHERE c.post_id = @post_id AND c.author_id = @author_id AND c.delivery_state IS NOT NULL;
+
+-- name: LinkToPreview :one
+SELECT url FROM posts WHERE id = @id AND media_id IS NULL AND deleted_at IS NULL;
+
+-- The preview is stored only while the post still links to the page it describes.
+-- name: SetLinkPreview :exec
+UPDATE posts SET url_image = @url_image, preview_title = @preview_title,
+    preview_description = @preview_description, preview_image = @preview_image
+WHERE id = @id AND url = @url AND media_id IS NULL;

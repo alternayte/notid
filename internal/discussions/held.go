@@ -36,6 +36,7 @@ func (s *Service) HeldPosts(ctx context.Context, viewer actors.Actor, handle str
 	for _, r := range rows {
 		out = append(out, s.postView(postRow{
 			ApID: r.ApID, Ref: r.Ref, Title: r.Title, Body: r.Body, URL: r.Url, NSFW: r.Nsfw, Image: r.HasImage,
+			URLImage: r.UrlImage, PreviewTitle: r.PreviewTitle, PreviewDescription: r.PreviewDescription, PreviewImage: r.PreviewImage,
 			Published: r.Published, Score: r.Score, CommentCount: r.CommentCount,
 			AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName, AuthorBot: r.AuthorBot,
 			CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle,

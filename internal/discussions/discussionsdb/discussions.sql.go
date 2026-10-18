@@ -133,7 +133,7 @@ func (q *Queries) AuthorComments(ctx context.Context, arg AuthorCommentsParams) 
 
 const authorPosts = `-- name: AuthorPosts :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -158,31 +158,35 @@ type AuthorPostsParams struct {
 }
 
 type AuthorPostsRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 func (q *Queries) AuthorPosts(ctx context.Context, arg AuthorPostsParams) ([]AuthorPostsRow, error) {
@@ -216,6 +220,10 @@ func (q *Queries) AuthorPosts(ctx context.Context, arg AuthorPostsParams) ([]Aut
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -479,7 +487,7 @@ func (q *Queries) CommunityIDByHandle(ctx context.Context, arg CommunityIDByHand
 
 const communityPostsActive = `-- name: CommunityPostsActive :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -504,31 +512,35 @@ type CommunityPostsActiveParams struct {
 }
 
 type CommunityPostsActiveRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 // Active: latest reply first; a post without replies counts from its own feed time.
@@ -563,6 +575,10 @@ func (q *Queries) CommunityPostsActive(ctx context.Context, arg CommunityPostsAc
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -587,7 +603,7 @@ func (q *Queries) CommunityPostsActive(ctx context.Context, arg CommunityPostsAc
 const communityPostsNew = `-- name: CommunityPostsNew :many
 
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -612,31 +628,35 @@ type CommunityPostsNewParams struct {
 }
 
 type CommunityPostsNewRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 // Every post list selects the same columns, so its rows convert to PostListRow.
@@ -673,6 +693,10 @@ func (q *Queries) CommunityPostsNew(ctx context.Context, arg CommunityPostsNewPa
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -696,7 +720,7 @@ func (q *Queries) CommunityPostsNew(ctx context.Context, arg CommunityPostsNewPa
 
 const communityPostsTop = `-- name: CommunityPostsTop :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -723,31 +747,35 @@ type CommunityPostsTopParams struct {
 }
 
 type CommunityPostsTopRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 // Top: highest score first, among posts whose feed time is after since.
@@ -783,6 +811,10 @@ func (q *Queries) CommunityPostsTop(ctx context.Context, arg CommunityPostsTopPa
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -908,9 +940,13 @@ func (q *Queries) EditComment(ctx context.Context, arg EditCommentParams) (Comme
 }
 
 const editPost = `-- name: EditPost :one
-UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = now()
+UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = now(),
+    url_image = url_image AND url = $3,
+    preview_title = CASE WHEN url = $3 THEN preview_title ELSE '' END,
+    preview_description = CASE WHEN url = $3 THEN preview_description ELSE '' END,
+    preview_image = CASE WHEN url = $3 THEN preview_image ELSE '' END
 WHERE id = $5 AND author_id = $6 AND deleted_at IS NULL AND removed_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 type EditPostParams struct {
@@ -922,6 +958,7 @@ type EditPostParams struct {
 	AuthorID int64
 }
 
+// A changed link drops the preview of the old one.
 func (q *Queries) EditPost(ctx context.Context, arg EditPostParams) (Post, error) {
 	row := q.db.QueryRow(ctx, editPost,
 		arg.Title,
@@ -961,6 +998,10 @@ func (q *Queries) EditPost(ctx context.Context, arg EditPostParams) (Post, error
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -970,7 +1011,7 @@ SELECT
     p.id, p.ap_id, p.ref, p.local, p.community_id, p.author_id, p.title, p.body, p.url, p.nsfw,
     p.published, p.received_at, p.sort_at, p.updated, p.locked, p.held, p.deleted_at, p.removed_at,
     p.score, p.up, p.down, p.comment_count, p.last_comment_at,
-    (p.media_id IS NOT NULL)::boolean AS has_image,
+    (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title
 FROM posts p
@@ -987,37 +1028,41 @@ type HeldPostsParams struct {
 }
 
 type HeldPostsRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Local             bool
-	CommunityID       int64
-	AuthorID          int64
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	ReceivedAt        time.Time
-	SortAt            time.Time
-	Updated           *time.Time
-	Locked            bool
-	Held              bool
-	DeletedAt         *time.Time
-	RemovedAt         *time.Time
-	Score             int32
-	Up                int32
-	Down              int32
-	CommentCount      int32
-	LastCommentAt     *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
+	ID                 int64
+	ApID               string
+	Ref                string
+	Local              bool
+	CommunityID        int64
+	AuthorID           int64
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	ReceivedAt         time.Time
+	SortAt             time.Time
+	Updated            *time.Time
+	Locked             bool
+	Held               bool
+	DeletedAt          *time.Time
+	RemovedAt          *time.Time
+	Score              int32
+	Up                 int32
+	Down               int32
+	CommentCount       int32
+	LastCommentAt      *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
 }
 
 // Held posts wait for a moderator of their community, oldest first.
@@ -1055,6 +1100,10 @@ func (q *Queries) HeldPosts(ctx context.Context, arg HeldPostsParams) ([]HeldPos
 			&i.CommentCount,
 			&i.LastCommentAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -1075,7 +1124,7 @@ func (q *Queries) HeldPosts(ctx context.Context, arg HeldPostsParams) ([]HeldPos
 
 const homeFeed = `-- name: HomeFeed :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -1101,31 +1150,35 @@ type HomeFeedParams struct {
 }
 
 type HomeFeedRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 // Home: posts from the communities the reader joined, newest first by feed time.
@@ -1160,6 +1213,10 @@ func (q *Queries) HomeFeed(ctx context.Context, arg HomeFeedParams) ([]HomeFeedR
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -1242,28 +1299,30 @@ func (q *Queries) InsertComment(ctx context.Context, arg InsertCommentParams) (C
 const insertPost = `-- name: InsertPost :one
 INSERT INTO posts (
     ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw,
-    published, sort_at, held
+    published, sort_at, held, url_image, preview_image
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-    $11, least($11::timestamptz, now()), $12
+    $11, least($11::timestamptz, now()), $12, $13, $14
 )
 ON CONFLICT (ap_id) DO NOTHING
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 type InsertPostParams struct {
-	ApID        string
-	Ref         string
-	Local       bool
-	CommunityID int64
-	AuthorID    int64
-	Title       string
-	Body        string
-	Url         string
-	MediaID     *int64
-	Nsfw        bool
-	Published   time.Time
-	Held        bool
+	ApID         string
+	Ref          string
+	Local        bool
+	CommunityID  int64
+	AuthorID     int64
+	Title        string
+	Body         string
+	Url          string
+	MediaID      *int64
+	Nsfw         bool
+	Published    time.Time
+	Held         bool
+	UrlImage     bool
+	PreviewImage string
 }
 
 func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, error) {
@@ -1280,6 +1339,8 @@ func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, e
 		arg.Nsfw,
 		arg.Published,
 		arg.Held,
+		arg.UrlImage,
+		arg.PreviewImage,
 	)
 	var i Post
 	err := row.Scan(
@@ -1311,6 +1372,10 @@ func (q *Queries) InsertPost(ctx context.Context, arg InsertPostParams) (Post, e
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -1339,6 +1404,17 @@ func (q *Queries) InsertVote(ctx context.Context, arg InsertVoteParams) error {
 		arg.ApID,
 	)
 	return err
+}
+
+const linkToPreview = `-- name: LinkToPreview :one
+SELECT url FROM posts WHERE id = $1 AND media_id IS NULL AND deleted_at IS NULL
+`
+
+func (q *Queries) LinkToPreview(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRow(ctx, linkToPreview, id)
+	var url string
+	err := row.Scan(&url)
+	return url, err
 }
 
 const personIDByHandle = `-- name: PersonIDByHandle :one
@@ -1384,7 +1460,7 @@ func (q *Queries) PostAuthorAndCommunity(ctx context.Context, apID string) (Post
 }
 
 const postByApID = `-- name: PostByApID :one
-SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE ap_id = $1
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image FROM posts WHERE ap_id = $1
 `
 
 func (q *Queries) PostByApID(ctx context.Context, apID string) (Post, error) {
@@ -1419,12 +1495,16 @@ func (q *Queries) PostByApID(ctx context.Context, apID string) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
 
 const postByID = `-- name: PostByID :one
-SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE id = $1
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image FROM posts WHERE id = $1
 `
 
 func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
@@ -1459,13 +1539,17 @@ func (q *Queries) PostByID(ctx context.Context, id int64) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
 
 const postByRef = `-- name: PostByRef :one
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -1484,34 +1568,38 @@ type PostByRefParams struct {
 }
 
 type PostByRefRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
-	ID_2              int64
-	CommunityID       int64
-	AuthorID          int64
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
+	ID_2               int64
+	CommunityID        int64
+	AuthorID           int64
 }
 
 func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRefRow, error) {
@@ -1533,6 +1621,10 @@ func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRef
 		&i.Locked,
 		&i.RemovedAt,
 		&i.HasImage,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 		&i.AuthorName,
 		&i.AuthorDomain,
 		&i.AuthorDisplayName,
@@ -1628,7 +1720,7 @@ func (q *Queries) PostComments(ctx context.Context, arg PostCommentsParams) ([]P
 }
 
 const postRowByRef = `-- name: PostRowByRef :one
-SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE ref = $1 AND deleted_at IS NULL
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image FROM posts WHERE ref = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) PostRowByRef(ctx context.Context, ref string) (Post, error) {
@@ -1663,6 +1755,10 @@ func (q *Queries) PostRowByRef(ctx context.Context, ref string) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -1694,7 +1790,7 @@ func (q *Queries) PostVote(ctx context.Context, arg PostVoteParams) (Vote, error
 const publishPost = `-- name: PublishPost :one
 UPDATE posts SET held = false
 WHERE ap_id = $1 AND held AND deleted_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 func (q *Queries) PublishPost(ctx context.Context, apID string) (Post, error) {
@@ -1729,6 +1825,10 @@ func (q *Queries) PublishPost(ctx context.Context, apID string) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -1765,7 +1865,7 @@ const savedItems = `-- name: SavedItems :many
 SELECT
     s.created_at AS saved_at, s.comment_id,
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.score, p.comment_count, p.locked, p.removed_at,
-    (p.media_id IS NOT NULL)::boolean AS has_image,
+    (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     pa.name AS author_name, pa.domain AS author_domain, pa.display_name AS author_display_name, pa.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(pv.value, 0)::smallint AS my_vote, coalesce(pv.counted, false) AS my_vote_counted,
@@ -1814,6 +1914,10 @@ type SavedItemsRow struct {
 	Locked                   bool
 	RemovedAt                *time.Time
 	HasImage                 bool
+	UrlImage                 bool
+	PreviewTitle             string
+	PreviewDescription       string
+	PreviewImage             string
 	AuthorName               string
 	AuthorDomain             string
 	AuthorDisplayName        string
@@ -1865,6 +1969,10 @@ func (q *Queries) SavedItems(ctx context.Context, arg SavedItemsParams) ([]Saved
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -1998,7 +2106,7 @@ func (q *Queries) SearchComments(ctx context.Context, arg SearchCommentsParams) 
 
 const searchPosts = `-- name: SearchPosts :many
 SELECT
-    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image,
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
@@ -2029,31 +2137,35 @@ type SearchPostsParams struct {
 }
 
 type SearchPostsRow struct {
-	ID                int64
-	ApID              string
-	Ref               string
-	Title             string
-	Body              string
-	Url               string
-	Nsfw              bool
-	Published         time.Time
-	SortAt            time.Time
-	ActiveAt          *time.Time
-	Score             int32
-	CommentCount      int32
-	Locked            bool
-	RemovedAt         *time.Time
-	HasImage          bool
-	AuthorName        string
-	AuthorDomain      string
-	AuthorDisplayName string
-	AuthorBot         bool
-	CommunityName     string
-	CommunityDomain   string
-	CommunityTitle    string
-	MyVote            int16
-	MyVoteCounted     bool
-	Saved             bool
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
 }
 
 // Search lists matching posts newest first. Content from communities no one
@@ -2089,6 +2201,10 @@ func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Sea
 			&i.Locked,
 			&i.RemovedAt,
 			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
 			&i.AuthorName,
 			&i.AuthorDomain,
 			&i.AuthorDisplayName,
@@ -2126,6 +2242,34 @@ func (q *Queries) SetCommentDelivery(ctx context.Context, arg SetCommentDelivery
 	return err
 }
 
+const setLinkPreview = `-- name: SetLinkPreview :exec
+UPDATE posts SET url_image = $1, preview_title = $2,
+    preview_description = $3, preview_image = $4
+WHERE id = $5 AND url = $6 AND media_id IS NULL
+`
+
+type SetLinkPreviewParams struct {
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	ID                 int64
+	Url                string
+}
+
+// The preview is stored only while the post still links to the page it describes.
+func (q *Queries) SetLinkPreview(ctx context.Context, arg SetLinkPreviewParams) error {
+	_, err := q.db.Exec(ctx, setLinkPreview,
+		arg.UrlImage,
+		arg.PreviewTitle,
+		arg.PreviewDescription,
+		arg.PreviewImage,
+		arg.ID,
+		arg.Url,
+	)
+	return err
+}
+
 const setPostDelivery = `-- name: SetPostDelivery :exec
 UPDATE posts SET delivery_state = $1, delivery_error = $2
 WHERE id = $3 AND local
@@ -2147,7 +2291,7 @@ func (q *Queries) SetPostDelivery(ctx context.Context, arg SetPostDeliveryParams
 const setRemotePostLocked = `-- name: SetRemotePostLocked :one
 UPDATE posts SET locked = $1
 WHERE ap_id = $2 AND deleted_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 type SetRemotePostLockedParams struct {
@@ -2187,6 +2331,10 @@ func (q *Queries) SetRemotePostLocked(ctx context.Context, arg SetRemotePostLock
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -2236,9 +2384,10 @@ func (q *Queries) TombstoneCommentsOfAuthor(ctx context.Context, authorID int64)
 }
 
 const tombstonePost = `-- name: TombstonePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 func (q *Queries) TombstonePost(ctx context.Context, id int64) (Post, error) {
@@ -2273,12 +2422,17 @@ func (q *Queries) TombstonePost(ctx context.Context, id int64) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
 
 const tombstonePostsOfAuthor = `-- name: TombstonePostsOfAuthor :exec
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE author_id = $1 AND deleted_at IS NULL
 `
 
@@ -2323,9 +2477,10 @@ func (q *Queries) TombstoneRemoteComment(ctx context.Context, apID string) (Comm
 }
 
 const tombstoneRemotePost = `-- name: TombstoneRemotePost :one
-UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = '', url_image = false,
+    preview_title = '', preview_description = '', preview_image = ''
 WHERE ap_id = $1 AND deleted_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 func (q *Queries) TombstoneRemotePost(ctx context.Context, apID string) (Post, error) {
@@ -2360,6 +2515,10 @@ func (q *Queries) TombstoneRemotePost(ctx context.Context, apID string) (Post, e
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -2434,19 +2593,22 @@ func (q *Queries) UpdateRemoteComment(ctx context.Context, arg UpdateRemoteComme
 }
 
 const updateRemotePost = `-- name: UpdateRemotePost :one
-UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = $5
-WHERE ap_id = $6 AND NOT local AND deleted_at IS NULL
+UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = $5,
+    url_image = $6, preview_image = $7
+WHERE ap_id = $8 AND NOT local AND deleted_at IS NULL
   AND (updated IS NULL OR updated <= $5)
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 type UpdateRemotePostParams struct {
-	Title   string
-	Body    string
-	Url     string
-	Nsfw    bool
-	Updated *time.Time
-	ApID    string
+	Title        string
+	Body         string
+	Url          string
+	Nsfw         bool
+	Updated      *time.Time
+	UrlImage     bool
+	PreviewImage string
+	ApID         string
 }
 
 // A remote Update carries the time it was made; an older one never overwrites a newer edit.
@@ -2457,6 +2619,8 @@ func (q *Queries) UpdateRemotePost(ctx context.Context, arg UpdateRemotePostPara
 		arg.Url,
 		arg.Nsfw,
 		arg.Updated,
+		arg.UrlImage,
+		arg.PreviewImage,
 		arg.ApID,
 	)
 	var i Post
@@ -2489,6 +2653,10 @@ func (q *Queries) UpdateRemotePost(ctx context.Context, arg UpdateRemotePostPara
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }

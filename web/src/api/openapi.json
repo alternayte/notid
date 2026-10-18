@@ -1517,8 +1517,12 @@
             "type": "string"
           },
           "image": {
-            "description": "true when url is an image uploaded to this site",
+            "description": "true when url is an image; load it from imageSrc",
             "type": "boolean"
+          },
+          "imageSrc": {
+            "description": "Where a reader loads the image: this site's /media, or /proxy for a remote image",
+            "type": "string"
           },
           "locked": {
             "description": "true when replies are closed",
@@ -1526,6 +1530,10 @@
           },
           "nsfw": {
             "type": "boolean"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/Preview",
+            "description": "What the linked page says about itself"
           },
           "published": {
             "format": "date-time",
@@ -1572,6 +1580,22 @@
           "comments",
           "viewer"
         ],
+        "type": "object"
+      },
+      "Preview": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "imageSrc": {
+            "description": "The page's image through /proxy",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "PreviewBody": {

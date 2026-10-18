@@ -485,7 +485,7 @@ func (q *Queries) RemoveComment(ctx context.Context, apID string) (Comment, erro
 const removePost = `-- name: RemovePost :one
 UPDATE posts SET removed_at = now()
 WHERE ap_id = $1 AND removed_at IS NULL AND deleted_at IS NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 func (q *Queries) RemovePost(ctx context.Context, apID string) (Post, error) {
@@ -520,6 +520,10 @@ func (q *Queries) RemovePost(ctx context.Context, apID string) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -736,7 +740,7 @@ func (q *Queries) RestoreComment(ctx context.Context, apID string) (Comment, err
 const restorePost = `-- name: RestorePost :one
 UPDATE posts SET removed_at = NULL
 WHERE ap_id = $1 AND removed_at IS NOT NULL
-RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 func (q *Queries) RestorePost(ctx context.Context, apID string) (Post, error) {
@@ -771,6 +775,10 @@ func (q *Queries) RestorePost(ctx context.Context, apID string) (Post, error) {
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }
@@ -825,7 +833,7 @@ func (q *Queries) SetPeerBlocked(ctx context.Context, arg SetPeerBlockedParams) 
 }
 
 const setPostLocked = `-- name: SetPostLocked :one
-UPDATE posts SET locked = $1 WHERE ap_id = $2 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+UPDATE posts SET locked = $1 WHERE ap_id = $2 RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at, url_image, preview_title, preview_description, preview_image
 `
 
 type SetPostLockedParams struct {
@@ -865,6 +873,10 @@ func (q *Queries) SetPostLocked(ctx context.Context, arg SetPostLockedParams) (P
 		&i.DeliveryError,
 		&i.Search,
 		&i.ActiveAt,
+		&i.UrlImage,
+		&i.PreviewTitle,
+		&i.PreviewDescription,
+		&i.PreviewImage,
 	)
 	return i, err
 }

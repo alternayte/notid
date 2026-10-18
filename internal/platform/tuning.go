@@ -63,6 +63,14 @@ type Tuning struct {
 	// TransparencyWindow is the recent window the public counts report.
 	TransparencyWindow time.Duration
 
+	// ProxyMaxBytes caps a remote image served through /proxy; ProxyMaxAge is
+	// how long a reader's browser may cache it.
+	ProxyMaxBytes int64
+	ProxyMaxAge   time.Duration
+	// PreviewReadBytes is how much of a linked page is read for its preview.
+	PreviewReadBytes int64
+	PreviewWorkers   int
+
 	MaxUploadBytes    int64
 	MaxImagePixels    int64
 	ImageMaxDimension int
@@ -122,6 +130,11 @@ func DefaultTuning() Tuning {
 		InvitesPerTrustedUser: 3,
 		UploadQuotaBytes:      100 << 20,
 		TransparencyWindow:    30 * 24 * time.Hour,
+
+		ProxyMaxBytes:    10 << 20,
+		ProxyMaxAge:      time.Hour,
+		PreviewReadBytes: 512 << 10,
+		PreviewWorkers:   4,
 
 		MaxUploadBytes:    10 << 20,
 		MaxImagePixels:    50_000_000,

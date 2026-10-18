@@ -641,14 +641,22 @@ export type PostView = {
      */
     excerpt: string;
     /**
-     * true when url is an image uploaded to this site
+     * true when url is an image; load it from imageSrc
      */
     image: boolean;
+    /**
+     * Where a reader loads the image: this site's /media, or /proxy for a remote image
+     */
+    imageSrc?: string;
     /**
      * true when replies are closed
      */
     locked: boolean;
     nsfw: boolean;
+    /**
+     * What the linked page says about itself
+     */
+    preview?: Preview;
     published: string;
     ref: string;
     /**
@@ -659,6 +667,15 @@ export type PostView = {
     title: string;
     url: string;
     viewer: Viewer;
+};
+
+export type Preview = {
+    description?: string;
+    /**
+     * The page's image through /proxy
+     */
+    imageSrc?: string;
+    title?: string;
 };
 
 export type PreviewBody = {

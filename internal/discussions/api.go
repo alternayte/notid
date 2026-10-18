@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
 
 	"github.com/alternayte/notid/internal/accounts"
 	"github.com/alternayte/notid/internal/actors"
@@ -38,6 +39,11 @@ type Service struct {
 	NewActivityID     func(actorApID string) (string, error)
 	// MediaURL is where an uploaded image with a storage key is served.
 	MediaURL func(key string) string
+	// ProxyURL is where a reader loads a remote image.
+	ProxyURL func(remote string) string
+	// HTTP is the SSRF-guarded client that fetches link previews.
+	HTTP  *http.Client
+	River *river.Client[pgx.Tx]
 	// IsAdmin reports whether the person is a site admin, who may publish held
 	// posts of any local community.
 	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
@@ -453,6 +459,9 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in PostBody) (P
 		}
 		post, _, err = InsertPost(ctx, tx, np)
 		if err != nil {
+			return err
+		}
+		if err := s.queuePreview(ctx, tx, post); err != nil {
 			return err
 		}
 		if post.Held {

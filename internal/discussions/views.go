@@ -49,7 +49,9 @@ type PostView struct {
 	BodyHTML       string    `json:"bodyHtml" doc:"Sanitized HTML from the Markdown body"`
 	Excerpt        string    `json:"excerpt" doc:"Plain text from the start of the body, for lists"`
 	URL            string    `json:"url"`
-	Image          bool      `json:"image" doc:"true when url is an image uploaded to this site"`
+	Image          bool      `json:"image" doc:"true when url is an image; load it from imageSrc"`
+	ImageSrc       string    `json:"imageSrc,omitempty" doc:"Where a reader loads the image: this site's /media, or /proxy for a remote image"`
+	Preview        *Preview  `json:"preview,omitempty" doc:"What the linked page says about itself"`
 	NSFW           bool      `json:"nsfw"`
 	Locked         bool      `json:"locked" doc:"true when replies are closed"`
 	Removed        bool      `json:"removed" doc:"true when a moderator removed it; only its author and the moderators see it"`
@@ -59,6 +61,13 @@ type PostView struct {
 	Comments       int32     `json:"comments"`
 	Viewer         Viewer    `json:"viewer"`
 	Delivery       *Delivery `json:"delivery,omitempty"`
+}
+
+// Preview describes the page a link post points to.
+type Preview struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	ImageSrc    string `json:"imageSrc,omitempty" doc:"The page's image through /proxy"`
 }
 
 // CommentView is a comment as a reader sees it. A deleted or removed comment
@@ -118,9 +127,12 @@ func (s *Service) author(name, domain, displayName string, bot bool) Author {
 
 // postRow holds the columns every post query shares; sqlc makes one type per query.
 type postRow struct {
-	ApID, Ref, Title, Body, URL                    string
-	NSFW, AuthorBot, MyVoteCounted, Saved, Image   bool
-	Locked                                         bool
+	ApID, Ref, Title, Body, URL                  string
+	NSFW, AuthorBot, MyVoteCounted, Saved, Image bool
+	Locked                                       bool
+	// URLImage marks a link to a remote image; Image marks an upload here.
+	URLImage                                       bool
+	PreviewTitle, PreviewDescription, PreviewImage string
 	RemovedAt                                      *time.Time
 	Published                                      time.Time
 	Score, CommentCount                            int32
@@ -140,6 +152,18 @@ func (s *Service) postView(r postRow) PostView {
 	if v.Removed {
 		// A removal notice names the post; its body is not shown again until a moderator restores it.
 		v.BodyHTML, v.Excerpt, v.Image, v.URL = "", "", false, ""
+		return v
+	}
+	switch {
+	case r.Image:
+		v.ImageSrc = r.URL
+	case r.URLImage && s.ProxyURL != nil:
+		v.Image, v.ImageSrc = true, s.ProxyURL(r.URL)
+	case r.PreviewTitle != "" || r.PreviewDescription != "" || r.PreviewImage != "":
+		v.Preview = &Preview{Title: r.PreviewTitle, Description: r.PreviewDescription}
+		if r.PreviewImage != "" && s.ProxyURL != nil {
+			v.Preview.ImageSrc = s.ProxyURL(r.PreviewImage)
+		}
 	}
 	return v
 }
@@ -153,6 +177,7 @@ func listRow(r discussionsdb.CommunityPostsNewRow) postRow {
 		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
 		Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
+		URLImage: r.UrlImage, PreviewTitle: r.PreviewTitle, PreviewDescription: r.PreviewDescription, PreviewImage: r.PreviewImage,
 	}
 }
 
@@ -164,6 +189,7 @@ func refRow(r discussionsdb.PostByRefRow) postRow {
 		AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 		CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
 		Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
+		URLImage: r.UrlImage, PreviewTitle: r.PreviewTitle, PreviewDescription: r.PreviewDescription, PreviewImage: r.PreviewImage,
 	}
 }
 
@@ -402,6 +428,7 @@ func (s *Service) Saved(ctx context.Context, viewer actors.Actor, before string)
 			AuthorName: r.AuthorName, AuthorDomain: r.AuthorDomain, AuthorDisplayName: r.AuthorDisplayName,
 			CommunityName: r.CommunityName, CommunityDomain: r.CommunityDomain, CommunityTitle: r.CommunityTitle, MyVote: r.MyVote,
 			Image: r.HasImage, Locked: r.Locked, RemovedAt: r.RemovedAt,
+			URLImage: r.UrlImage, PreviewTitle: r.PreviewTitle, PreviewDescription: r.PreviewDescription, PreviewImage: r.PreviewImage,
 		})}
 		if r.CommentID != nil {
 			item.Comment = &CommentView{
