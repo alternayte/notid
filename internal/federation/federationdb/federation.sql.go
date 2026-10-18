@@ -397,6 +397,23 @@ func (q *Queries) MembershipByFollow(ctx context.Context, followApID *string) (M
 	return i, err
 }
 
+const membershipRole = `-- name: MembershipRole :one
+SELECT role FROM memberships
+WHERE community_id = $1 AND actor_id = $2 AND state = 'accepted'
+`
+
+type MembershipRoleParams struct {
+	CommunityID int64
+	ActorID     int64
+}
+
+func (q *Queries) MembershipRole(ctx context.Context, arg MembershipRoleParams) (string, error) {
+	row := q.db.QueryRow(ctx, membershipRole, arg.CommunityID, arg.ActorID)
+	var role string
+	err := row.Scan(&role)
+	return role, err
+}
+
 const peerByDomain = `-- name: PeerByDomain :one
 SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at FROM peers WHERE domain = $1
 `

@@ -28,6 +28,8 @@ type contentPlan struct {
 	target    discussions.Target
 	value     int16
 	voteID    string
+	// changeID is the AP ID of the object an Update or Delete changes.
+	changeID string
 	// direct is true for an activity sent to a local group, which the group
 	// then announces to its followers.
 	direct bool
@@ -245,6 +247,9 @@ func (s *Server) planAnnounce(ctx context.Context, db federationdb.DBTX, act act
 	if err != nil {
 		return contentPlan{}, reject(http.StatusUnprocessableEntity, "Announce must embed the activity")
 	}
+	if inner.Type == "Update" || inner.Type == "Delete" {
+		return s.planChange(ctx, db, inner, &g)
+	}
 	if inner.Type == "Page" || inner.Type == "Note" {
 		// PieFed announces a bare object to servers it does not know as Lemmy-like.
 		obj, err := decodeObject(act.Object)
@@ -312,6 +317,34 @@ func (s *Server) applyContent(ctx context.Context, tx pgx.Tx, p contentPlan, raw
 			return err
 		}
 		changed = old.Value != p.value
+	case "edit-post":
+		body, err := s.markdownOf(p.obj)
+		if err != nil {
+			return err
+		}
+		url := ""
+		if len(p.obj.Attachment) > 0 {
+			url = p.obj.Attachment[0].Href
+		}
+		changed, err = discussions.ApplyRemotePostEdit(ctx, tx, p.obj.ID, p.obj.Name, body, url, p.obj.Sensitive, updatedOf(p.obj))
+		if err != nil {
+			return err
+		}
+	case "edit-comment":
+		body, err := s.markdownOf(p.obj)
+		if err != nil {
+			return err
+		}
+		changed, err = discussions.ApplyRemoteCommentEdit(ctx, tx, p.obj.ID, body, updatedOf(p.obj))
+		if err != nil {
+			return err
+		}
+	case "delete":
+		var err error
+		changed, err = discussions.ApplyRemoteDelete(ctx, tx, p.changeID)
+		if err != nil {
+			return err
+		}
 	}
 	if !p.direct || !changed {
 		return nil

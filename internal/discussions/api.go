@@ -22,14 +22,20 @@ import (
 // Service serves posting, commenting and voting. Federation supplies the
 // functions that send each write to peers inside the write's transaction.
 type Service struct {
-	Pool          *pgxpool.Pool
-	Local         actors.Local
-	Markdown      *platform.Markdown
-	Tuning        platform.Tuning
-	SendPost      func(ctx context.Context, tx pgx.Tx, author actors.Actor, p Post) error
-	SendComment   func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
-	SendVote      func(ctx context.Context, tx pgx.Tx, voter actors.Actor, communityID int64, objectApID string, value int16, voteID, previousID string) error
-	NewActivityID func(actorApID string) (string, error)
+	Pool        *pgxpool.Pool
+	Local       actors.Local
+	Markdown    *platform.Markdown
+	Tuning      platform.Tuning
+	SendPost    func(ctx context.Context, tx pgx.Tx, author actors.Actor, p Post) error
+	SendComment func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
+	// SendPostUpdate, SendPostDelete, SendCommentUpdate and SendCommentDelete
+	// federate an author's edits and deletions.
+	SendPostUpdate    func(ctx context.Context, tx pgx.Tx, author actors.Actor, p Post) error
+	SendPostDelete    func(ctx context.Context, tx pgx.Tx, author actors.Actor, p Post) error
+	SendCommentUpdate func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
+	SendCommentDelete func(ctx context.Context, tx pgx.Tx, author actors.Actor, c Comment) error
+	SendVote          func(ctx context.Context, tx pgx.Tx, voter actors.Actor, communityID int64, objectApID string, value int16, voteID, previousID string) error
+	NewActivityID     func(actorApID string) (string, error)
 	// MediaURL is where an uploaded image with a storage key is served.
 	MediaURL func(key string) string
 	// IsAdmin reports whether the person is a site admin, who may publish held
@@ -55,7 +61,7 @@ type PostBody struct {
 	Image     string `json:"image,omitempty" maxLength:"40" doc:"Key of an image you uploaded; the post links to it. Do not set url too"`
 }
 
-type commentBody struct {
+type CommentBody struct {
 	InReplyTo string `json:"inReplyTo" doc:"AP ID of the post or comment" maxLength:"500"`
 	Body      string `json:"body" minLength:"1" maxLength:"20000" doc:"Markdown"`
 }
@@ -101,7 +107,7 @@ func (s *Service) Register(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "createComment", Method: http.MethodPost, Path: "/api/comments",
 		Summary: "Reply to a post or a comment", Tags: []string{"discussions"}, Errors: errs, DefaultStatus: http.StatusCreated,
-	}, func(ctx context.Context, in *struct{ Body commentBody }) (*struct{ Body Created }, error) {
+	}, func(ctx context.Context, in *struct{ Body CommentBody }) (*struct{ Body Created }, error) {
 		person, err := signedIn(ctx)
 		if err != nil {
 			return nil, err
@@ -211,6 +217,70 @@ func (s *Service) registerReads(api huma.API) {
 		return &struct{ Body PostPage }{p}, apiError(err)
 	})
 	huma.Register(api, huma.Operation{
+		OperationID: "editPost", Method: http.MethodPut, Path: "/api/posts/{ref}",
+		Summary: "Change my post's title, text, link and NSFW flag", Tags: []string{"discussions"},
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct {
+		Ref  string `path:"ref" maxLength:"12"`
+		Body EditPostBody
+	}) (*struct{ Body Created }, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		p, err := s.EditPost(ctx, me, in.Ref, in.Body)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return &struct{ Body Created }{Created{ApID: p.ApID, Ref: p.Ref}}, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "deletePost", Method: http.MethodDelete, Path: "/api/posts/{ref}",
+		Summary: "Delete my post and tell the community's server", Tags: []string{"discussions"},
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
+	}, func(ctx context.Context, in *struct {
+		Ref string `path:"ref" maxLength:"12"`
+	}) (*struct{}, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.DeletePost(ctx, me, in.Ref))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "editComment", Method: http.MethodPut, Path: "/api/comments/{ref}",
+		Summary: "Change my comment's text", Tags: []string{"discussions"},
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct {
+		Ref  string `path:"ref" maxLength:"12"`
+		Body EditCommentBody
+	}) (*struct{ Body Created }, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		c, err := s.EditComment(ctx, me, in.Ref, in.Body)
+		if err != nil {
+			return nil, apiError(err)
+		}
+		return &struct{ Body Created }{Created{ApID: c.ApID, Ref: c.Ref}}, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "deleteComment", Method: http.MethodDelete, Path: "/api/comments/{ref}",
+		Summary: "Delete my comment and tell the community's server", Tags: []string{"discussions"},
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
+	}, func(ctx context.Context, in *struct {
+		Ref string `path:"ref" maxLength:"12"`
+	}) (*struct{}, error) {
+		me, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.DeleteComment(ctx, me, in.Ref))
+	})
+	huma.Register(api, huma.Operation{
 		OperationID: "heldPosts", Method: http.MethodGet, Path: "/api/communities/{handle}/held",
 		Summary: "List the posts waiting for a moderator's publication", Tags: []string{"discussions"},
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
@@ -284,7 +354,7 @@ func apiError(err error) error {
 		return nil
 	case errors.Is(err, ErrNoCommunity), errors.Is(err, ErrNoObject), errors.Is(err, ErrNoPerson):
 		return huma.Error404NotFound(err.Error())
-	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator):
+	case errors.Is(err, ErrBanned), errors.Is(err, ErrNotModerator), errors.Is(err, ErrNotAuthor):
 		return huma.Error403Forbidden(err.Error())
 	case errors.Is(err, ErrNotTrusted):
 		return huma.Error429TooManyRequests(err.Error())
@@ -394,7 +464,7 @@ func (s *Service) Post(ctx context.Context, author actors.Actor, in PostBody) (P
 }
 
 // Comment stores a local reply and queues its delivery in one transaction.
-func (s *Service) Comment(ctx context.Context, author actors.Actor, in commentBody) (Comment, error) {
+func (s *Service) Comment(ctx context.Context, author actors.Actor, in CommentBody) (Comment, error) {
 	var comment Comment
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		q := discussionsdb.New(tx)

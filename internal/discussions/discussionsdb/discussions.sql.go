@@ -353,6 +353,38 @@ func (q *Queries) CommentByID(ctx context.Context, id int64) (Comment, error) {
 	return i, err
 }
 
+const commentByRef = `-- name: CommentByRef :one
+SELECT id, ap_id, ref, local, post_id, parent_id, author_id, body, published, received_at, updated, held, deleted_at, removed_at, score, up, down, delivery_state, delivery_error, search FROM comments WHERE ref = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) CommentByRef(ctx context.Context, ref string) (Comment, error) {
+	row := q.db.QueryRow(ctx, commentByRef, ref)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+	)
+	return i, err
+}
+
 const commentVote = `-- name: CommentVote :one
 SELECT actor_id, post_id, comment_id, value, counted, ap_id, created_at FROM votes WHERE actor_id = $1 AND comment_id = $2
 `
@@ -786,6 +818,104 @@ type DeleteVoteParams struct {
 func (q *Queries) DeleteVote(ctx context.Context, arg DeleteVoteParams) error {
 	_, err := q.db.Exec(ctx, deleteVote, arg.ActorID, arg.PostID, arg.CommentID)
 	return err
+}
+
+const editComment = `-- name: EditComment :one
+UPDATE comments SET body = $1, updated = now()
+WHERE id = $2 AND author_id = $3 AND deleted_at IS NULL AND removed_at IS NULL
+RETURNING id, ap_id, ref, local, post_id, parent_id, author_id, body, published, received_at, updated, held, deleted_at, removed_at, score, up, down, delivery_state, delivery_error, search
+`
+
+type EditCommentParams struct {
+	Body     string
+	ID       int64
+	AuthorID int64
+}
+
+func (q *Queries) EditComment(ctx context.Context, arg EditCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, editComment, arg.Body, arg.ID, arg.AuthorID)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+	)
+	return i, err
+}
+
+const editPost = `-- name: EditPost :one
+UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = now()
+WHERE id = $5 AND author_id = $6 AND deleted_at IS NULL AND removed_at IS NULL
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+type EditPostParams struct {
+	Title    string
+	Body     string
+	Url      string
+	Nsfw     bool
+	ID       int64
+	AuthorID int64
+}
+
+func (q *Queries) EditPost(ctx context.Context, arg EditPostParams) (Post, error) {
+	row := q.db.QueryRow(ctx, editPost,
+		arg.Title,
+		arg.Body,
+		arg.Url,
+		arg.Nsfw,
+		arg.ID,
+		arg.AuthorID,
+	)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
 }
 
 const heldPosts = `-- name: HeldPosts :many
@@ -1450,6 +1580,46 @@ func (q *Queries) PostComments(ctx context.Context, arg PostCommentsParams) ([]P
 	return items, nil
 }
 
+const postRowByRef = `-- name: PostRowByRef :one
+SELECT id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at FROM posts WHERE ref = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) PostRowByRef(ctx context.Context, ref string) (Post, error) {
+	row := q.db.QueryRow(ctx, postRowByRef, ref)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
+}
+
 const postVote = `-- name: PostVote :one
 SELECT actor_id, post_id, comment_id, value, counted, ap_id, created_at FROM votes WHERE actor_id = $1 AND post_id = $2
 `
@@ -1891,6 +2061,158 @@ func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]Sea
 	return items, nil
 }
 
+const tombstoneComment = `-- name: TombstoneComment :one
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, post_id, parent_id, author_id, body, published, received_at, updated, held, deleted_at, removed_at, score, up, down, delivery_state, delivery_error, search
+`
+
+func (q *Queries) TombstoneComment(ctx context.Context, id int64) (Comment, error) {
+	row := q.db.QueryRow(ctx, tombstoneComment, id)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+	)
+	return i, err
+}
+
+const tombstonePost = `-- name: TombstonePost :one
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+func (q *Queries) TombstonePost(ctx context.Context, id int64) (Post, error) {
+	row := q.db.QueryRow(ctx, tombstonePost, id)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
+}
+
+const tombstoneRemoteComment = `-- name: TombstoneRemoteComment :one
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE ap_id = $1 AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, post_id, parent_id, author_id, body, published, received_at, updated, held, deleted_at, removed_at, score, up, down, delivery_state, delivery_error, search
+`
+
+func (q *Queries) TombstoneRemoteComment(ctx context.Context, apID string) (Comment, error) {
+	row := q.db.QueryRow(ctx, tombstoneRemoteComment, apID)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+	)
+	return i, err
+}
+
+const tombstoneRemotePost = `-- name: TombstoneRemotePost :one
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE ap_id = $1 AND deleted_at IS NULL
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+func (q *Queries) TombstoneRemotePost(ctx context.Context, apID string) (Post, error) {
+	row := q.db.QueryRow(ctx, tombstoneRemotePost, apID)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
+}
+
 const unsaveComment = `-- name: UnsaveComment :exec
 DELETE FROM saves WHERE actor_id = $1 AND comment_id = $2
 `
@@ -1917,6 +2239,107 @@ type UnsavePostParams struct {
 func (q *Queries) UnsavePost(ctx context.Context, arg UnsavePostParams) error {
 	_, err := q.db.Exec(ctx, unsavePost, arg.ActorID, arg.PostID)
 	return err
+}
+
+const updateRemoteComment = `-- name: UpdateRemoteComment :one
+UPDATE comments SET body = $1, updated = $2
+WHERE ap_id = $3 AND NOT local AND deleted_at IS NULL
+  AND (updated IS NULL OR updated <= $2)
+RETURNING id, ap_id, ref, local, post_id, parent_id, author_id, body, published, received_at, updated, held, deleted_at, removed_at, score, up, down, delivery_state, delivery_error, search
+`
+
+type UpdateRemoteCommentParams struct {
+	Body    string
+	Updated *time.Time
+	ApID    string
+}
+
+func (q *Queries) UpdateRemoteComment(ctx context.Context, arg UpdateRemoteCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, updateRemoteComment, arg.Body, arg.Updated, arg.ApID)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.PostID,
+		&i.ParentID,
+		&i.AuthorID,
+		&i.Body,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.Updated,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+	)
+	return i, err
+}
+
+const updateRemotePost = `-- name: UpdateRemotePost :one
+UPDATE posts SET title = $1, body = $2, url = $3, nsfw = $4, updated = $5
+WHERE ap_id = $6 AND NOT local AND deleted_at IS NULL
+  AND (updated IS NULL OR updated <= $5)
+RETURNING id, ap_id, ref, local, community_id, author_id, title, body, url, media_id, nsfw, published, received_at, sort_at, updated, locked, held, deleted_at, removed_at, score, up, down, comment_count, last_comment_at, delivery_state, delivery_error, search, active_at
+`
+
+type UpdateRemotePostParams struct {
+	Title   string
+	Body    string
+	Url     string
+	Nsfw    bool
+	Updated *time.Time
+	ApID    string
+}
+
+// A remote Update carries the time it was made; an older one never overwrites a newer edit.
+func (q *Queries) UpdateRemotePost(ctx context.Context, arg UpdateRemotePostParams) (Post, error) {
+	row := q.db.QueryRow(ctx, updateRemotePost,
+		arg.Title,
+		arg.Body,
+		arg.Url,
+		arg.Nsfw,
+		arg.Updated,
+		arg.ApID,
+	)
+	var i Post
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Ref,
+		&i.Local,
+		&i.CommunityID,
+		&i.AuthorID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.MediaID,
+		&i.Nsfw,
+		&i.Published,
+		&i.ReceivedAt,
+		&i.SortAt,
+		&i.Updated,
+		&i.Locked,
+		&i.Held,
+		&i.DeletedAt,
+		&i.RemovedAt,
+		&i.Score,
+		&i.Up,
+		&i.Down,
+		&i.CommentCount,
+		&i.LastCommentAt,
+		&i.DeliveryState,
+		&i.DeliveryError,
+		&i.Search,
+		&i.ActiveAt,
+	)
+	return i, err
 }
 
 const updateVote = `-- name: UpdateVote :exec

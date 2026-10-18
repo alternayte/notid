@@ -105,3 +105,7 @@ JOIN actors g ON g.id = c.actor_id
 LEFT JOIN comments pc ON pc.id = cm.parent_id
 LEFT JOIN actors pca ON pca.id = pc.author_id
 WHERE cm.ap_id = @ap_id AND cm.deleted_at IS NULL;
+
+-- name: MembershipRole :one
+SELECT role FROM memberships
+WHERE community_id = @community_id AND actor_id = @actor_id AND state = 'accepted';

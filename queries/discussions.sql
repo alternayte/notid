@@ -354,3 +354,52 @@ SELECT
      JOIN communities c ON c.id = p.community_id
      JOIN actors g ON g.id = c.actor_id
      WHERE m.author_id = @author_id AND m.local AND NOT g.local AND m.received_at > @since) AS remote_writes;
+
+-- name: PostRowByRef :one
+SELECT * FROM posts WHERE ref = @ref AND deleted_at IS NULL;
+
+-- name: CommentByRef :one
+SELECT * FROM comments WHERE ref = @ref AND deleted_at IS NULL;
+
+-- name: EditPost :one
+UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = now()
+WHERE id = @id AND author_id = @author_id AND deleted_at IS NULL AND removed_at IS NULL
+RETURNING *;
+
+-- name: EditComment :one
+UPDATE comments SET body = @body, updated = now()
+WHERE id = @id AND author_id = @author_id AND deleted_at IS NULL AND removed_at IS NULL
+RETURNING *;
+
+-- name: TombstonePost :one
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE id = @id AND deleted_at IS NULL
+RETURNING *;
+
+-- name: TombstoneComment :one
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE id = @id AND deleted_at IS NULL
+RETURNING *;
+
+-- A remote Update carries the time it was made; an older one never overwrites a newer edit.
+-- name: UpdateRemotePost :one
+UPDATE posts SET title = @title, body = @body, url = @url, nsfw = @nsfw, updated = @updated
+WHERE ap_id = @ap_id AND NOT local AND deleted_at IS NULL
+  AND (updated IS NULL OR updated <= @updated)
+RETURNING *;
+
+-- name: UpdateRemoteComment :one
+UPDATE comments SET body = @body, updated = @updated
+WHERE ap_id = @ap_id AND NOT local AND deleted_at IS NULL
+  AND (updated IS NULL OR updated <= @updated)
+RETURNING *;
+
+-- name: TombstoneRemotePost :one
+UPDATE posts SET deleted_at = now(), title = '', body = '', url = ''
+WHERE ap_id = @ap_id AND deleted_at IS NULL
+RETURNING *;
+
+-- name: TombstoneRemoteComment :one
+UPDATE comments SET deleted_at = now(), body = ''
+WHERE ap_id = @ap_id AND deleted_at IS NULL
+RETURNING *;

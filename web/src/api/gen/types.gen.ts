@@ -255,6 +255,31 @@ export type Detail = {
     title: string;
 };
 
+export type EditCommentBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    body: string;
+};
+
+export type EditPostBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Markdown
+     */
+    body?: string;
+    nsfw: boolean;
+    title: string;
+    url?: string;
+};
+
 export type Entry = {
     action: string;
     createdAt: string;
@@ -1054,6 +1079,23 @@ export type DetailWritable = {
     state: 'active' | 'frozen' | 'departed' | 'arriving';
     theme: Theme;
     title: string;
+};
+
+export type EditCommentBodyWritable = {
+    /**
+     * Markdown
+     */
+    body: string;
+};
+
+export type EditPostBodyWritable = {
+    /**
+     * Markdown
+     */
+    body?: string;
+    nsfw: boolean;
+    title: string;
+    url?: string;
 };
 
 export type ErrorModelWritable = {
@@ -2210,6 +2252,100 @@ export type CreateCommentResponses = {
 };
 
 export type CreateCommentResponse = CreateCommentResponses[keyof CreateCommentResponses];
+
+export type DeleteCommentData = {
+    body?: never;
+    path: {
+        ref: string;
+    };
+    query?: never;
+    url: '/api/comments/{ref}';
+};
+
+export type DeleteCommentErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type DeleteCommentError = DeleteCommentErrors[keyof DeleteCommentErrors];
+
+export type DeleteCommentResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteCommentResponse = DeleteCommentResponses[keyof DeleteCommentResponses];
+
+export type EditCommentData = {
+    body: EditCommentBodyWritable;
+    path: {
+        ref: string;
+    };
+    query?: never;
+    url: '/api/comments/{ref}';
+};
+
+export type EditCommentErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type EditCommentError = EditCommentErrors[keyof EditCommentErrors];
+
+export type EditCommentResponses = {
+    /**
+     * OK
+     */
+    200: Created;
+};
+
+export type EditCommentResponse = EditCommentResponses[keyof EditCommentResponses];
 
 export type DiscoverCommunitiesData = {
     body?: never;
@@ -3443,6 +3579,53 @@ export type PublishPostResponses = {
 
 export type PublishPostResponse = PublishPostResponses[keyof PublishPostResponses];
 
+export type DeletePostData = {
+    body?: never;
+    path: {
+        ref: string;
+    };
+    query?: never;
+    url: '/api/posts/{ref}';
+};
+
+export type DeletePostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type DeletePostError = DeletePostErrors[keyof DeletePostErrors];
+
+export type DeletePostResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeletePostResponse = DeletePostResponses[keyof DeletePostResponses];
+
 export type ThreadData = {
     body?: never;
     path: {
@@ -3477,6 +3660,53 @@ export type ThreadResponses = {
 };
 
 export type ThreadResponse = ThreadResponses[keyof ThreadResponses];
+
+export type EditPostData = {
+    body: EditPostBodyWritable;
+    path: {
+        ref: string;
+    };
+    query?: never;
+    url: '/api/posts/{ref}';
+};
+
+export type EditPostErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type EditPostError = EditPostErrors[keyof EditPostErrors];
+
+export type EditPostResponses = {
+    /**
+     * OK
+     */
+    200: Created;
+};
+
+export type EditPostResponse = EditPostResponses[keyof EditPostResponses];
 
 export type ReportObjectData = {
     body: ReportBodyWritable;

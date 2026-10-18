@@ -24,6 +24,9 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 	case "Create", "Like", "Dislike":
 		_, err := s.planContent(ctx, s.Pool, act, nil)
 		return err
+	case "Update", "Delete":
+		_, err := s.planChange(ctx, s.Pool, act, nil)
+		return err
 	case "Announce":
 		_, err := s.planAnnounce(ctx, s.Pool, act)
 		return err
@@ -71,6 +74,8 @@ func (s *Server) apply(ctx context.Context, tx pgx.Tx, act activity, raw json.Ra
 	switch act.Type {
 	case "Create", "Like", "Dislike":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planContent(ctx, tx, act, nil) })
+	case "Update", "Delete":
+		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planChange(ctx, tx, act, nil) })
 	case "Announce":
 		return s.applyPlanned(ctx, tx, raw, func() (contentPlan, error) { return s.planAnnounce(ctx, tx, act) })
 	case "Undo":

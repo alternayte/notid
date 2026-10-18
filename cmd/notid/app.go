@@ -140,6 +140,10 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.SendPost = fed.SendPost
 	discussionsSvc.SendComment = fed.SendComment
 	discussionsSvc.SendVote = fed.SendVote
+	discussionsSvc.SendPostUpdate = fed.SendPostUpdate
+	discussionsSvc.SendPostDelete = fed.SendPostDelete
+	discussionsSvc.SendCommentUpdate = fed.SendCommentUpdate
+	discussionsSvc.SendCommentDelete = fed.SendCommentDelete
 	discussionsSvc.NewActivityID = federation.NewActivityID
 	discussionsSvc.IsAdmin = accountsSvc.IsAdmin
 	discussionsSvc.MediaURL = mediaSvc.URL

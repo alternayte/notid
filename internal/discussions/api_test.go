@@ -603,3 +603,131 @@ func TestANewPersonsDailyWritesAreLimited(t *testing.T) {
 		t.Fatalf("a trusted person is limited: %v", err)
 	}
 }
+
+func TestTheAuthorEditsAndDeletesAndEachChangeIsFederated(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := trustedPerson(t, tx)
+	author := trustedPerson(t, tx)
+	name := "e" + uuid.NewString()[:8]
+	c, err := communities.CreateLocal(ctx, tx, local(t), owner, name, communities.Settings{Title: "Edits"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO memberships (community_id, actor_id, state) VALUES ($1, $2, 'accepted')`, c.ID, author.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var groupApID string
+	if err := pool.QueryRow(ctx, `SELECT ap_id FROM actors WHERE id = $1`, c.ActorID).Scan(&groupApID); err != nil {
+		t.Fatal(err)
+	}
+	updates, deletes := 0, 0
+	svc := &discussions.Service{
+		Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning(),
+		SendPost:    func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error { return nil },
+		SendComment: func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error { return nil },
+		SendVote:    func(context.Context, pgx.Tx, actors.Actor, int64, string, int16, string, string) error { return nil },
+		SendPostUpdate: func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error {
+			updates++
+			return nil
+		},
+		SendCommentUpdate: func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error {
+			updates++
+			return nil
+		},
+		SendPostDelete: func(context.Context, pgx.Tx, actors.Actor, discussions.Post) error {
+			deletes++
+			return nil
+		},
+		SendCommentDelete: func(context.Context, pgx.Tx, actors.Actor, discussions.Comment) error {
+			deletes++
+			return nil
+		},
+		NewActivityID: func(string) (string, error) { return "https://notid.test/a/" + uuid.NewString(), nil },
+	}
+	post, err := svc.Post(ctx, author, discussions.PostBody{Community: groupApID, Title: "Before", Body: "Old body"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.EditPost(ctx, owner, post.Ref, discussions.EditPostBody{Title: "Hijacked"}); !errors.Is(err, discussions.ErrNotAuthor) {
+		t.Fatalf("a stranger edited the post: %v", err)
+	}
+	edited, err := svc.EditPost(ctx, author, post.Ref, discussions.EditPostBody{Title: "After", Body: "New body"})
+	if err != nil || edited.Title != "After" || edited.Updated == nil || updates != 1 {
+		t.Fatalf("edit %+v updates %d: %v", edited, updates, err)
+	}
+	thread, err := svc.Thread(ctx, post.Ref, nil)
+	if err != nil || !strings.Contains(thread.Post.BodyHTML, "New body") {
+		t.Fatalf("the thread does not show the new text: %v", err)
+	}
+
+	comment, err := svc.Comment(ctx, author, discussions.CommentBody{InReplyTo: post.ApID, Body: "First"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := svc.EditComment(ctx, author, comment.Ref, discussions.EditCommentBody{Body: "Second"})
+	if err != nil || after.Body != "Second" || updates != 2 {
+		t.Fatalf("comment edit %+v updates %d: %v", after, updates, err)
+	}
+	if err := svc.DeleteComment(ctx, author, comment.Ref); err != nil || deletes != 1 {
+		t.Fatalf("comment delete sends %d: %v", deletes, err)
+	}
+	var gone bool
+	var body string
+	if err := pool.QueryRow(ctx, `SELECT deleted_at IS NOT NULL, body FROM comments WHERE id = $1`, comment.ID).Scan(&gone, &body); err != nil || !gone || body != "" {
+		t.Fatalf("deleted comment tombstone %v %q: %v", gone, body, err)
+	}
+
+	if err := svc.DeletePost(ctx, owner, post.Ref); !errors.Is(err, discussions.ErrNotAuthor) {
+		t.Fatalf("a stranger deleted the post: %v", err)
+	}
+	if err := svc.DeletePost(ctx, author, post.Ref); err != nil || deletes != 2 {
+		t.Fatalf("post delete sends %d: %v", deletes, err)
+	}
+	if _, err := svc.Thread(ctx, post.Ref, nil); !errors.Is(err, discussions.ErrNoObject) {
+		t.Fatalf("a deleted post is still readable: %v", err)
+	}
+}
+
+func TestARemoteEditAndDeleteApplyOnlyOnce(t *testing.T) {
+	ctx := context.Background()
+	tx := pgtest.Tx(t)
+	author := trustedPerson(t, tx)
+	owner := trustedPerson(t, tx)
+	name := "r" + uuid.NewString()[:8]
+	c, err := communities.CreateLocal(ctx, tx, local(t), owner, name, communities.Settings{Title: "Remote"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	apID := "https://lemmy.test/post/" + uuid.NewString()
+	post, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{
+		ApID: apID, CommunityID: c.ID, Author: author, Title: "Theirs", Body: "Original", Published: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	older := time.Now().Add(-time.Hour)
+	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, apID, "Theirs", "Newer", "", false, time.Now()); err != nil || !changed {
+		t.Fatalf("remote edit changed %v: %v", changed, err)
+	}
+	if changed, err := discussions.ApplyRemotePostEdit(ctx, tx, apID, "Theirs", "Stale", "", false, older); err != nil || changed {
+		t.Fatalf("a stale edit overwrote the newer one: changed %v err %v", changed, err)
+	}
+	var body string
+	if err := tx.QueryRow(ctx, `SELECT body FROM posts WHERE id = $1`, post.ID).Scan(&body); err != nil || body != "Newer" {
+		t.Fatalf("stored body %q: %v", body, err)
+	}
+	if changed, err := discussions.ApplyRemoteDelete(ctx, tx, apID); err != nil || !changed {
+		t.Fatalf("remote delete changed %v: %v", changed, err)
+	}
+	if changed, err := discussions.ApplyRemoteDelete(ctx, tx, apID); err != nil || changed {
+		t.Fatalf("a repeated delete changed %v: %v", changed, err)
+	}
+}
