@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SpecimenRouteImport } from './routes/specimen'
 import { Route as LoginVerifyRouteImport } from './routes/login_.verify'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpecimenRoute = SpecimenRouteImport.update({
+  id: '/specimen',
+  path: '/specimen',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginVerifyRoute = LoginVerifyRouteImport.update({
   id: '/login_/verify',
   path: '/login/verify',
@@ -32,30 +38,34 @@ const LoginVerifyRoute = LoginVerifyRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/specimen': typeof SpecimenRoute
   '/login/verify': typeof LoginVerifyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/specimen': typeof SpecimenRoute
   '/login/verify': typeof LoginVerifyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/specimen': typeof SpecimenRoute
   '/login_/verify': typeof LoginVerifyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/login/verify'
+  fullPaths: '/' | '/login' | '/specimen' | '/login/verify'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/login/verify'
-  id: '__root__' | '/' | '/login' | '/login_/verify'
+  to: '/' | '/login' | '/specimen' | '/login/verify'
+  id: '__root__' | '/' | '/login' | '/specimen' | '/login_/verify'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  SpecimenRoute: typeof SpecimenRoute
   LoginVerifyRoute: typeof LoginVerifyRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/specimen': {
+      id: '/specimen'
+      path: '/specimen'
+      fullPath: '/specimen'
+      preLoaderRoute: typeof SpecimenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login_/verify': {
       id: '/login_/verify'
       path: '/login/verify'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  SpecimenRoute: SpecimenRoute,
   LoginVerifyRoute: LoginVerifyRoute,
 }
 export const routeTree = rootRouteImport

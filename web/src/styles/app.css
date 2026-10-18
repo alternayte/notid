@@ -1,0 +1,296 @@
+/* Direction: a broadsheet's opinion pages on warm newsprint — Newsreader headlines over hairline column rules, ink-black type, and one proofreader's vermilion reserved for marks and actions. */
+
+@import "tailwindcss";
+@import "@fontsource-variable/newsreader/opsz.css";
+@import "@fontsource-variable/newsreader/opsz-italic.css";
+@import "@fontsource-variable/source-sans-3/wght.css";
+
+/* Colour. Light is the paper by day; dark is the same paper under a reading lamp. */
+:root {
+  --paper: oklch(0.972 0.012 85);
+  --paper-sunk: oklch(0.945 0.016 82);
+  --paper-raised: oklch(0.988 0.008 85);
+  --ink: oklch(0.22 0.012 60);
+  --ink-soft: oklch(0.42 0.012 60);
+  --ink-faint: oklch(0.58 0.01 60);
+  --rule: oklch(0.86 0.016 75);
+  --rule-strong: oklch(0.3 0.012 60);
+  --mark: oklch(0.58 0.2 32);
+  --mark-ink: oklch(0.985 0.01 85);
+  --mark-wash: oklch(0.93 0.045 40);
+  --cool: oklch(0.5 0.08 245);
+  --cool-wash: oklch(0.93 0.025 245);
+  --ok: oklch(0.48 0.1 155);
+  --danger: oklch(0.45 0.15 18);
+  --danger-wash: oklch(0.94 0.035 18);
+  --warn: oklch(0.6 0.13 75);
+  --focus: oklch(0.58 0.2 32);
+  color-scheme: light;
+}
+
+.dark {
+  --paper: oklch(0.2 0.008 60);
+  --paper-sunk: oklch(0.17 0.008 60);
+  --paper-raised: oklch(0.24 0.009 60);
+  --ink: oklch(0.91 0.018 85);
+  --ink-soft: oklch(0.74 0.016 80);
+  --ink-faint: oklch(0.58 0.012 75);
+  --rule: oklch(0.32 0.01 60);
+  --rule-strong: oklch(0.85 0.016 85);
+  --mark: oklch(0.7 0.17 35);
+  --mark-ink: oklch(0.18 0.01 60);
+  --mark-wash: oklch(0.3 0.06 35);
+  --cool: oklch(0.72 0.08 245);
+  --cool-wash: oklch(0.29 0.04 245);
+  --ok: oklch(0.72 0.11 155);
+  --danger: oklch(0.7 0.14 18);
+  --danger-wash: oklch(0.3 0.06 18);
+  --warn: oklch(0.78 0.12 75);
+  --focus: oklch(0.7 0.17 35);
+  color-scheme: dark;
+}
+
+/* A community's accent replaces the mark inside its pages. */
+[data-community-accent] {
+  --mark: var(--community-accent);
+}
+
+/* Motion: short, purposeful, never in the way of reading. */
+:root {
+  --dur-press: 120ms;
+  --dur-move: 180ms;
+  --dur-open: 220ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 0ms;
+    --dur-move: 0ms;
+    --dur-open: 0ms;
+  }
+}
+
+:root[data-motion="reduce"] {
+  --dur-press: 0ms;
+  --dur-move: 0ms;
+  --dur-open: 0ms;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-sunk: var(--paper-sunk);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-mark: var(--mark);
+  --color-mark-ink: var(--mark-ink);
+  --color-mark-wash: var(--mark-wash);
+  --color-cool: var(--cool);
+  --color-cool-wash: var(--cool-wash);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-warn: var(--warn);
+  --color-focus: var(--focus);
+}
+
+/* Type: a major-third scale (1.25) on a 17px reading size. Newsreader sets
+   headlines and reading text; Source Sans 3 sets the furniture: kickers,
+   bylines, buttons, counts. */
+@theme {
+  --font-serif: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Source Sans 3 Variable", "Helvetica Neue", Arial, sans-serif;
+
+  --text-2xs: 0.694rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.8rem;
+  --text-xs--line-height: 1.1rem;
+  --text-sm: 0.9rem;
+  --text-sm--line-height: 1.3rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6rem;
+  --text-lg: 1.328rem;
+  --text-lg--line-height: 1.7rem;
+  --text-xl: 1.66rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 2.075rem;
+  --text-2xl--line-height: 2.35rem;
+  --text-3xl: 2.594rem;
+  --text-3xl--line-height: 2.8rem;
+  --text-4xl: 3.242rem;
+  --text-4xl--line-height: 3.3rem;
+
+  --tracking-kicker: 0.08em;
+  --tracking-tight: -0.012em;
+
+  /* Space: a 4px unit; layout moves in 8px steps; the column is a reading measure. */
+  --spacing: 0.25rem;
+  --container-measure: 40rem;
+  --container-page: 72rem;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-pill: 999px;
+}
+
+@layer base {
+  html {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+
+  ::selection {
+    background-color: var(--mark-wash);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+}
+
+/* Long-form text rendered from Markdown by the Go renderer. */
+@layer components {
+  .prose-news {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    line-height: 1.65;
+    font-variation-settings: "opsz" 16;
+    max-width: var(--container-measure);
+  }
+  .prose-news > * + * {
+    margin-top: calc(var(--spacing) * 4);
+  }
+  .prose-news a {
+    color: var(--mark);
+  }
+  .prose-news blockquote {
+    border-left: 2px solid var(--rule-strong);
+    padding-left: calc(var(--spacing) * 4);
+    font-style: italic;
+    color: var(--ink-soft);
+  }
+  .prose-news code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--paper-sunk);
+    padding: 0 0.25em;
+    border-radius: var(--radius-xs);
+  }
+}
+
+@keyframes tick {
+  0% {
+    transform: translateY(-30%);
+    opacity: 0.2;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Form furniture shared by the composer and reply boxes. */
+@layer components {
+  .field {
+    width: 100%;
+    background: var(--paper-raised);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm);
+    padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    transition:
+      border-color var(--dur-press) var(--ease-out),
+      box-shadow var(--dur-press) var(--ease-out);
+  }
+  .field::placeholder {
+    color: var(--ink-faint);
+  }
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--mark);
+    box-shadow: 0 0 0 3px var(--mark-wash);
+  }
+  .btn-primary,
+  .btn-quiet {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+    height: calc(var(--spacing) * 9);
+    padding: 0 calc(var(--spacing) * 4);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition:
+      background-color var(--dur-press) var(--ease-out),
+      transform var(--dur-press) var(--ease-out);
+  }
+  .btn-primary {
+    background: var(--mark);
+    color: var(--mark-ink);
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn-quiet {
+    color: var(--ink-soft);
+  }
+  .btn-quiet:hover {
+    background: var(--paper-sunk);
+    color: var(--ink);
+  }
+  .btn-primary:active,
+  .btn-quiet:active {
+    transform: scale(0.96);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
