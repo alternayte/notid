@@ -45,8 +45,12 @@ func (s *Server) deliver(ctx context.Context, tx pgx.Tx, signerID int64, inbox s
 	return nil
 }
 
-// errPermanent is a refusal by the peer that a retry cannot change.
-var errPermanent = errors.New("the peer refused the activity")
+var (
+	// errPermanent is a refusal by the peer that a retry cannot change.
+	errPermanent = errors.New("the peer refused the activity")
+	// errMaybeTransient marks a 400, which some peers also answer for their own transient failures.
+	errMaybeTransient = errors.New("bad request")
+)
 
 type deliverWorker struct {
 	river.WorkerDefaults[DeliverArgs]
@@ -86,6 +90,10 @@ func (w *deliverWorker) Work(ctx context.Context, job *river.Job[DeliverArgs]) e
 		return err
 	case err == nil:
 		return q.PeerOK(ctx, peer)
+	case errors.Is(err, errPermanent) && errors.Is(err, errMaybeTransient) && job.Attempt < w.s.Tuning.DeliveryBadRequestRetries:
+		// Lemmy answers 400 when its own fetch of an actor fails, for example
+		// over stale DNS during a move; a few retries let that pass.
+		return err
 	case errors.Is(err, errPermanent):
 		// The peer answered, so it is reachable.
 		if okErr := q.PeerOK(ctx, peer); okErr != nil {
@@ -134,7 +142,11 @@ func (s *Server) post(ctx context.Context, args DeliverArgs) error {
 		return nil
 	case resp.StatusCode >= 400 && resp.StatusCode < 500 &&
 		resp.StatusCode != http.StatusRequestTimeout && resp.StatusCode != http.StatusTooManyRequests:
-		return fmt.Errorf("%w: %s answered %d: %s", errPermanent, args.Inbox, resp.StatusCode, bytes.TrimSpace(msg))
+		err := fmt.Errorf("%w: %s answered %d: %s", errPermanent, args.Inbox, resp.StatusCode, bytes.TrimSpace(msg))
+		if resp.StatusCode == http.StatusBadRequest {
+			err = fmt.Errorf("%w (%w)", err, errMaybeTransient)
+		}
+		return err
 	default:
 		return fmt.Errorf("%s answered %d: %s", args.Inbox, resp.StatusCode, bytes.TrimSpace(msg))
 	}

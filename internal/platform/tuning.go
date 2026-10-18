@@ -30,11 +30,13 @@ type Tuning struct {
 	// may fail before deliveries to it are skipped until it answers again.
 	DeliveryRetryWindow time.Duration
 	DeliveryMaxBackoff  time.Duration
-	PeerInboxPerMinute  int
-	PeerInboxBurst      int
-	DeliveryWorkers     int
-	InboxWorkers        int
-	ProbeInterval       time.Duration
+	// DeliveryBadRequestRetries is how many attempts a delivery answered with 400 gets.
+	DeliveryBadRequestRetries int
+	PeerInboxPerMinute        int
+	PeerInboxBurst            int
+	DeliveryWorkers           int
+	InboxWorkers              int
+	ProbeInterval             time.Duration
 }
 
 func DefaultTuning() Tuning {
@@ -62,12 +64,13 @@ func DefaultTuning() Tuning {
 		SignatureMaxSkew:  12 * time.Hour,
 		ActorRefresh:      24 * time.Hour,
 
-		DeliveryRetryWindow: 72 * time.Hour,
-		DeliveryMaxBackoff:  6 * time.Hour,
-		PeerInboxPerMinute:  300,
-		PeerInboxBurst:      100,
-		DeliveryWorkers:     20,
-		InboxWorkers:        10,
-		ProbeInterval:       time.Minute,
+		DeliveryRetryWindow:       72 * time.Hour,
+		DeliveryMaxBackoff:        6 * time.Hour,
+		DeliveryBadRequestRetries: 5,
+		PeerInboxPerMinute:        300,
+		PeerInboxBurst:            100,
+		DeliveryWorkers:           20,
+		InboxWorkers:              10,
+		ProbeInterval:             time.Minute,
 	}
 }

@@ -1,4 +1,8 @@
 .:53 {
-    hosts /etc/coredns/hosts
+    # A short TTL so peers follow the move test's DNS switch within seconds.
+    hosts /etc/coredns/hosts {
+        ttl 2
+        reload 2s
+    }
     errors
 }

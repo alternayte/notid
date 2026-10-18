@@ -395,6 +395,17 @@ func TestDeliveryRetriesOnServerErrorsAndStopsOnRefusal(t *testing.T) {
 		t.Fatalf("403: %v, want a cancelled job", err)
 	}
 
+	peer.status = http.StatusBadRequest
+	if err := work(); err == nil || errors.As(err, &cancel) {
+		t.Fatalf("first 400: %v, want a retry", err)
+	}
+	last := (&deliverWorker{s: s}).Work(ctx, &river.Job[DeliverArgs]{
+		JobRow: &rivertype.JobRow{Attempt: s.Tuning.DeliveryBadRequestRetries, CreatedAt: time.Now()}, Args: args,
+	})
+	if !errors.As(last, &cancel) {
+		t.Fatalf("400 on the last allowed attempt: %v, want a cancelled job", last)
+	}
+
 	if _, err := s.Pool.Exec(ctx, `UPDATE peers SET failing_since = now() - interval '73 hours' WHERE domain = $1`, peer.host); err != nil {
 		t.Fatal(err)
 	}
