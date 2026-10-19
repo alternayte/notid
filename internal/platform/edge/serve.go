@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/caddyserver/certmagic"
 	"golang.org/x/sync/errgroup"
@@ -20,6 +21,10 @@ func Serve(ctx context.Context, cfg platform.Config, t platform.Tuning, hosts Ho
 
 	switch cfg.TLS {
 	case platform.TLSOff:
+		// A proxy in front terminates TLS; the browser still reaches the app over https.
+		if strings.HasPrefix(cfg.AppOrigin, "https://") {
+			public = withHSTS(public)
+		}
 		servers = append(servers, newServer(cfg.HTTPAddr, public, t))
 	case platform.TLSACME:
 		magic, issuer := newCertMagic(cfg, hosts, log)

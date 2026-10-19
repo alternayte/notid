@@ -47,8 +47,13 @@ func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer 
 		return nil, nil, fmt.Errorf("auth rate limiter: %w", err)
 	}
 	secure := cfg.AppOrigin[:len("https:")] == "https:"
+	proxies := make([]string, len(cfg.TrustedProxies))
+	for i, p := range cfg.TrustedProxies {
+		proxies[i] = p.String()
+	}
 	auth, err := authall.New(
 		authall.WithStore(st),
+		authall.WithTrustedProxies(proxies...),
 		authall.WithSchema(schema.Options{Prefix: "auth_", IDType: schema.IDUUID}),
 		authall.WithBaseURL(cfg.AppOrigin),
 		authall.WithBasePath("/api/auth"),

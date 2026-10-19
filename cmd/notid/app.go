@@ -103,7 +103,8 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	discussionsSvc.Register(api)
 	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
 
-	handler := platform.WithClientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(accounts.LimitWrites(platform.NewBuckets(t.ActorWritesPerMinute, t.ActorWritesBurst))(mediaSvc.GuardUpload(mux))))))
+	clientIP := platform.WithClientIP(cfg.TrustedProxies)
+	handler := clientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(accounts.LimitWrites(platform.NewBuckets(t.ActorWritesPerMinute, t.ActorWritesBurst))(mediaSvc.GuardUpload(mux))))))
 	fed := &federation.Server{
 		Pool:         pool,
 		AppDomain:    cfg.AppDomain,
@@ -172,7 +173,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	mediaMux := http.NewServeMux()
 	mediaMux.Handle("/media/", mediaSvc.Handler())
 	mediaMux.Handle("/proxy", proxy)
-	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: platform.WithClientIP(fed.Handler()), media: mediaMux, doc: api, river: rc}, nil
+	return &app{cfg: cfg, tuning: t, log: log, pool: pool, api: handler, federation: clientIP(fed.Handler()), media: mediaMux, doc: api, river: rc}, nil
 }
 
 // writeOpenAPI prints the API document. It needs no config and opens no database connection.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"net/netip"
 	"net/url"
 	"strings"
 )
@@ -53,6 +54,8 @@ type Config struct {
 
 	FederationHTTP bool
 	Signup         SignupMode
+	// TrustedProxies are the networks of a TLS-terminating proxy in front of the listener.
+	TrustedProxies []netip.Prefix
 }
 
 // LoadConfig reads config from getenv and reports every missing or unsafe value at once.
@@ -144,6 +147,18 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		default:
 			c.AppOrigin = raw
 		}
+	}
+
+	for raw := range strings.SplitSeq(get("TRUSTED_PROXIES", ""), ",") {
+		if raw = strings.TrimSpace(raw); raw == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(raw)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES must be a comma-separated list of CIDR prefixes, got %q", raw))
+			continue
+		}
+		c.TrustedProxies = append(c.TrustedProxies, p.Masked())
 	}
 
 	switch v := get("FEDERATION_HTTP", ""); v {

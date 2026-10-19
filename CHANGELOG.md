@@ -4,6 +4,11 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-10-19
+
+- Runs behind a proxy that terminates TLS: `TRUSTED_PROXIES` lists the proxy's networks, and client addresses for rate limits come from `X-Forwarded-For` only through them. HSTS is sent when the app origin is https.
+- Sign-in and sign-up pages follow the design and fit a phone. On a phone, account links sit in a Menu panel.
+
 ## [0.1.0-beta.1] - 2026-10-19
 
 First beta. For invited testers; not yet for public self-hosting.
