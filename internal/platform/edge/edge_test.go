@@ -157,6 +157,20 @@ func TestWebProxyForwardsOriginalHost(t *testing.T) {
 	}
 }
 
+func TestWebProxyNeverLetsAnErrorBeCached(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer up.Close()
+	u, _ := url.Parse(up.URL)
+	w := httptest.NewRecorder()
+	NewWebProxy(u, slog.New(slog.DiscardHandler)).ServeHTTP(w, httptest.NewRequest("GET", "/assets/gone.css", nil))
+	if got := w.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control %q on a 404", got)
+	}
+}
+
 func TestWebProxyUpstreamDown(t *testing.T) {
 	u, _ := url.Parse("http://127.0.0.1:1")
 	w := httptest.NewRecorder()

@@ -1,6 +1,7 @@
 /* Direction: a broadsheet's opinion pages reset for a phone — Bricolage Grotesque headlines over hairline column rules on warm newsprint, Inter for reading and furniture, and one proofreader's vermilion reserved for marks and actions. */
 
-@import "tailwindcss";
+/* Only src: an image build has no .git, so Tailwind would also scan the first build's output and the server would name a stylesheet the client never emitted. */
+@import "tailwindcss" source("../");
 @import "@fontsource-variable/bricolage-grotesque/index.css";
 @import "@fontsource-variable/inter/opsz.css";
 

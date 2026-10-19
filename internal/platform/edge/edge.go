@@ -159,6 +159,14 @@ func NewWebProxy(upstream *url.URL, log *slog.Logger) *httputil.ReverseProxy {
 			pr.Out.Host = pr.In.Host
 			pr.SetXForwarded()
 		},
+		// The SSR runtime marks everything under /assets immutable, a 404 too;
+		// a browser must not keep a missing file for a year.
+		ModifyResponse: func(resp *http.Response) error {
+			if resp.StatusCode >= 400 {
+				resp.Header.Set("Cache-Control", "no-store")
+			}
+			return nil
+		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			if !errors.Is(err, context.Canceled) {
 				log.ErrorContext(r.Context(), "web upstream failed", "err", err)
