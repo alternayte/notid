@@ -12,6 +12,8 @@ import (
 	"time"
 
 	authall "github.com/alternayte/auth-all"
+	"github.com/alternayte/auth-all/apierr"
+	"github.com/alternayte/auth-all/hook"
 	"github.com/google/uuid"
 
 	"github.com/alternayte/notid/internal/actors"
@@ -91,26 +93,21 @@ func generatedName() string {
 	return "user_" + string(b)
 }
 
-// BotOnlyAPIKeys refuses key creation for users who have not set the bot flag. It wraps auth-all's handler,
-// after LoadSession and LoadActor.
-// workaround: alternayte/auth-all#13
-func BotOnlyAPIKeys(basePath string, next http.Handler) http.Handler {
-	createPath := basePath + "/api-keys"
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == createPath {
-			if a := ActorFrom(r.Context()); a == nil || !a.Bot {
-				writeJSONError(w, http.StatusForbidden, "BOT_REQUIRED", "Only bot accounts can create API keys. Turn on the bot flag in settings first.")
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
+var errBotRequired = apierr.New("BOT_REQUIRED", http.StatusForbidden, "Only bot accounts can create API keys. Turn on the bot flag in settings first.")
 
-func writeJSONError(w http.ResponseWriter, status int, code, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_, _ = fmt.Fprintf(w, `{"code":%q,"message":%q}`, code, message)
+// HookAPIKeys refuses an API key to a user whose person actor is not a bot.
+func (s *Service) HookAPIKeys() {
+	s.Auth.Hooks().OnBeforeAPIKeyCreate(func(ctx context.Context, ev *hook.APIKeyEvent) error {
+		id, err := uuid.Parse(ev.User.ID)
+		if err != nil {
+			return fmt.Errorf("auth-all user id %q: %w", ev.User.ID, err)
+		}
+		a, err := actors.ByUserID(ctx, s.Pool, id)
+		if errors.Is(err, actors.ErrNotFound) || err == nil && !a.Bot {
+			return errBotRequired
+		}
+		return err
+	})
 }
 
 // LimitWrites caps how fast one person changes things through the API: posts,

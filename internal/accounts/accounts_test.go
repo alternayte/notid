@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	authall "github.com/alternayte/auth-all"
+	"github.com/alternayte/auth-all/hook"
+	"github.com/alternayte/auth-all/store"
 	"github.com/google/uuid"
 
 	"github.com/alternayte/notid/internal/accounts"
@@ -281,28 +283,27 @@ func extractURL(t *testing.T, body string) *url.URL {
 }
 
 func TestAPIKeysOnlyForBots(t *testing.T) {
-	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(201) })
-	h := accounts.BotOnlyAPIKeys("/api/auth", ok)
-	serve := func(a *actors.Actor, method, path string) int {
-		r := httptest.NewRequest(method, path, nil)
-		if a != nil {
-			r = r.WithContext(accounts.WithActor(r.Context(), a))
-		}
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		return w.Code
+	e := newEnv(t, platform.SignupOpen)
+	e.svc.HookAPIKeys()
+	ctx := context.Background()
+	create := func(user uuid.UUID) error {
+		return e.auth.Hooks().RunBeforeAPIKeyCreate(ctx, &hook.APIKeyEvent{User: &store.User{ID: user.String()}})
 	}
-	if c := serve(nil, "POST", "/api/auth/api-keys"); c != 403 {
-		t.Fatalf("anonymous: %d", c)
+	if err := create(mustUser(t, e)); err == nil {
+		t.Fatal("a user without a person got a key")
 	}
-	if c := serve(&actors.Actor{Bot: false}, "POST", "/api/auth/api-keys"); c != 403 {
-		t.Fatalf("person: %d", c)
+	person, err := e.svc.Local.CreatePerson(ctx, e.svc.Pool, mustUser(t, e), unique("person"), "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if c := serve(&actors.Actor{Bot: true}, "POST", "/api/auth/api-keys"); c != 201 {
-		t.Fatalf("bot: %d", c)
+	if err := create(*person.UserID); err == nil {
+		t.Fatal("a person who is not a bot got a key")
 	}
-	if c := serve(&actors.Actor{Bot: false}, "GET", "/api/auth/api-keys"); c != 201 {
-		t.Fatalf("list: %d", c)
+	if _, err := e.svc.Pool.Exec(ctx, `UPDATE actors SET bot = true WHERE id = $1`, person.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := create(*person.UserID); err != nil {
+		t.Fatalf("bot: %v", err)
 	}
 }
 
