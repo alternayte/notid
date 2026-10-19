@@ -36,10 +36,10 @@ type Tuning struct {
 	// is sent again with a new id, up to FollowResends times, each wait twice
 	// the last. Lemmy drops the Accept of the first Follow from a peer it has
 	// not seen before.
-	FollowResendAfter time.Duration
-	FollowResends     int
-	PeerInboxPerMinute        int
-	PeerInboxBurst            int
+	FollowResendAfter  time.Duration
+	FollowResends      int
+	PeerInboxPerMinute int
+	PeerInboxBurst     int
 	// KeyFetchesPerMinute caps, per client address, inbox requests signed by
 	// keys notid must fetch first.
 	KeyFetchesPerMinute int

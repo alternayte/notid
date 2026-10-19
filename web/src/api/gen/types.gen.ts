@@ -403,6 +403,36 @@ export type ErrorResponse = {
     };
 };
 
+export type GitHubStart = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Send the browser here
+     */
+    url: string;
+};
+
+export type GitHubStartBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * Required for sign-up when sign-up is invite-only
+     */
+    invite?: string;
+    /**
+     * A name to use instead of the GitHub username
+     */
+    name?: string;
+    /**
+     * Create a user when this GitHub login has none
+     */
+    signUp: boolean;
+};
+
 export type HeldOut = {
     /**
      * A URL to the JSON Schema for this object.
@@ -939,6 +969,10 @@ export type SignupMode = {
      * A URL to the JSON Schema for this object.
      */
     readonly $schema?: string;
+    /**
+     * GitHub sign-in is set up
+     */
+    github: boolean;
     mode: 'open' | 'invite' | 'closed';
 };
 
@@ -1290,6 +1324,28 @@ export type ErrorModelWritable = {
     type?: string;
 };
 
+export type GitHubStartWritable = {
+    /**
+     * Send the browser here
+     */
+    url: string;
+};
+
+export type GitHubStartBodyWritable = {
+    /**
+     * Required for sign-up when sign-up is invite-only
+     */
+    invite?: string;
+    /**
+     * A name to use instead of the GitHub username
+     */
+    name?: string;
+    /**
+     * Create a user when this GitHub login has none
+     */
+    signUp: boolean;
+};
+
 export type HeldOutWritable = {
     posts: Array<PostView>;
 };
@@ -1548,6 +1604,10 @@ export type SignUpBodyWritable = {
 };
 
 export type SignupModeWritable = {
+    /**
+     * GitHub sign-in is set up
+     */
+    github: boolean;
     mode: 'open' | 'invite' | 'closed';
 };
 
@@ -3292,6 +3352,51 @@ export type HomeFeedResponses = {
 };
 
 export type HomeFeedResponse = HomeFeedResponses[keyof HomeFeedResponses];
+
+export type GitHubStartData = {
+    body: GitHubStartBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/github';
+};
+
+export type GitHubStartErrors = {
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Not Found
+     */
+    404: ErrorModel;
+    /**
+     * Conflict
+     */
+    409: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Too Many Requests
+     */
+    429: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type GitHubStartError = GitHubStartErrors[keyof GitHubStartErrors];
+
+export type GitHubStartResponses = {
+    /**
+     * OK
+     */
+    200: GitHubStart;
+};
+
+export type GitHubStartResponse = GitHubStartResponses[keyof GitHubStartResponses];
 
 export type InvitesData = {
     body?: never;

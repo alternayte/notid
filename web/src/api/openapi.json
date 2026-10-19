@@ -954,6 +954,60 @@
         ],
         "type": "object"
       },
+      "GitHubStart": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/GitHubStart.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "url": {
+            "description": "Send the browser here",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "GitHubStartBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/GitHubStartBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "invite": {
+            "description": "Required for sign-up when sign-up is invite-only",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "name": {
+            "description": "A name to use instead of the GitHub username",
+            "pattern": "^[a-z][a-z0-9_]{2,19}$",
+            "type": "string"
+          },
+          "signUp": {
+            "description": "Create a user when this GitHub login has none",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "signUp"
+        ],
+        "type": "object"
+      },
       "HeldOut": {
         "additionalProperties": false,
         "properties": {
@@ -2195,6 +2249,10 @@
             "readOnly": true,
             "type": "string"
           },
+          "github": {
+            "description": "GitHub sign-in is set up",
+            "type": "boolean"
+          },
           "mode": {
             "enum": [
               "open",
@@ -2205,7 +2263,8 @@
           }
         },
         "required": [
-          "mode"
+          "mode",
+          "github"
         ],
         "type": "object"
       },
@@ -5713,6 +5772,104 @@
         "summary": "List posts from my communities, newest first by feed time",
         "tags": [
           "discussions"
+        ]
+      }
+    },
+    "/api/github": {
+      "post": {
+        "operationId": "gitHubStart",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubStartBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubStart"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Start a GitHub sign-in, or a sign-up with signUp",
+        "tags": [
+          "accounts"
         ]
       }
     },

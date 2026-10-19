@@ -28,11 +28,13 @@ type Me struct {
 }
 
 type SignupMode struct {
-	Mode string `json:"mode" enum:"open,invite,closed"`
+	Mode   string `json:"mode" enum:"open,invite,closed"`
+	GitHub bool   `json:"github" doc:"GitHub sign-in is set up"`
 }
 
 // Register adds the account operations to the API.
 func (s *Service) Register(api huma.API) {
+	s.registerGitHub(api)
 	huma.Register(api, huma.Operation{
 		OperationID:   "signUp",
 		Method:        http.MethodPost,
@@ -76,7 +78,7 @@ func (s *Service) Register(api huma.API) {
 		Summary:     "Read the sign-up mode of this site",
 		Tags:        []string{"accounts"},
 	}, func(ctx context.Context, _ *struct{}) (*struct{ Body SignupMode }, error) {
-		return &struct{ Body SignupMode }{SignupMode{Mode: string(s.Mode)}}, nil
+		return &struct{ Body SignupMode }{SignupMode{Mode: string(s.Mode), GitHub: s.GitHub}}, nil
 	})
 
 	huma.Register(api, huma.Operation{

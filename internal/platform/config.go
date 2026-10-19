@@ -56,6 +56,9 @@ type Config struct {
 	Signup         SignupMode
 	// TrustedProxies are the networks of a TLS-terminating proxy in front of the listener.
 	TrustedProxies []netip.Prefix
+	// GitHubClientID and GitHubClientSecret enable GitHub sign-in. Both are set or neither.
+	GitHubClientID     string
+	GitHubClientSecret string
 }
 
 // LoadConfig reads config from getenv and reports every missing or unsafe value at once.
@@ -159,6 +162,11 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 			continue
 		}
 		c.TrustedProxies = append(c.TrustedProxies, p.Masked())
+	}
+
+	c.GitHubClientID, c.GitHubClientSecret = get("GITHUB_CLIENT_ID", ""), get("GITHUB_CLIENT_SECRET", "")
+	if (c.GitHubClientID == "") != (c.GitHubClientSecret == "") {
+		errs = append(errs, errors.New("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are set together or not at all"))
 	}
 
 	switch v := get("FEDERATION_HTTP", ""); v {

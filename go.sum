@@ -10,8 +10,8 @@ github.com/JohannesKaufmann/dom v0.3.1 h1:J16l9JAHWgkFPR3VIPbQ1gvS0cWab6laK1q7PF
 github.com/JohannesKaufmann/dom v0.3.1/go.mod h1:BZPkf8ZeYrBgABjwJn9iiKt8aiCtkxpHkevms+Yp2DE=
 github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2 h1:XFJZFWESIWlUEHHjzBuv8RvrtCWnSGlimEX17ysSDb8=
 github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2/go.mod h1:BHWO8lJzttJLqwuV8Rb1B3OG2OSzLbssZDI1FRg2eAA=
-github.com/alternayte/auth-all v0.5.1 h1:zlyzrJMOe8koBKaqWF0kvYbydTOh2TBBOExaXvEaXI8=
-github.com/alternayte/auth-all v0.5.1/go.mod h1:R0cqJZoxuzllxbONfiPNNNXvHJoHS7efm8pA0/JEplE=
+github.com/alternayte/auth-all v0.6.0 h1:MOxGJfVurzirXp6SMT8lWU2FUKKVimacwSjuu1kDwUA=
+github.com/alternayte/auth-all v0.6.0/go.mod h1:R0cqJZoxuzllxbONfiPNNNXvHJoHS7efm8pA0/JEplE=
 github.com/alternayte/auth-all/humaauth v0.3.0 h1:V+sVpyWvS88S/4x1yPS8I3nvfv3XRCCrsXXLOqB4h2Y=
 github.com/alternayte/auth-all/humaauth v0.3.0/go.mod h1:Ne04axGVMrX9b6TzrNf53wcvAgG2s3lRFlXm1sOzBlQ=
 github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuPk=

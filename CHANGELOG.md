@@ -4,6 +4,9 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+- GitHub sign-in and sign-up. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from a GitHub OAuth app whose callback URL is `<APP_ORIGIN>/api/auth/oauth/github/callback`. A new account takes the GitHub username as its name, and asks for another name only when that one is taken or does not fit. Invite-only sites ask for the invite code first. A GitHub login with the same verified email address as an existing account signs in to that account.
+- A join to a Lemmy or PieFed community that stays pending is sent again after 5, 10 and 20 minutes. Lemmy drops the answer to the first join from a site it has not seen before.
+
 ## [0.1.0-beta.2] - 2026-10-19
 
 - Runs behind a proxy that terminates TLS: `TRUSTED_PROXIES` lists the proxy's networks, and client addresses for rate limits come from `X-Forwarded-For` only through them. HSTS is sent when the app origin is https.

@@ -79,6 +79,10 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		Local:   local,
 		Mode:    cfg.Signup,
 		Tuning:  t,
+		GitHub:  cfg.GitHubClientID != "",
+	}
+	if accountsSvc.GitHub {
+		accountsSvc.HookGitHub()
 	}
 	markdown := platform.NewMarkdown()
 	accountsSvc.Markdown = markdown
@@ -101,7 +105,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	moderationSvc.Register(api)
 	discussionsSvc := &discussions.Service{Pool: pool, Local: local, Markdown: markdown, Tuning: t}
 	discussionsSvc.Register(api)
-	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), auth.Handler()))
+	mux.Handle(auth.BasePath()+"/", accounts.BotOnlyAPIKeys(auth.BasePath(), accountsSvc.GitHubCallback(auth.Handler())))
 
 	clientIP := platform.WithClientIP(cfg.TrustedProxies)
 	handler := clientIP(auth.LoadSession(accountsSvc.LoadActor(log)(moderationSvc.BlockSiteBans(accounts.LimitWrites(platform.NewBuckets(t.ActorWritesPerMinute, t.ActorWritesBurst))(mediaSvc.GuardUpload(mux))))))

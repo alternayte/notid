@@ -35,6 +35,8 @@ type Service struct {
 	Local   actors.Local
 	Mode    platform.SignupMode
 	Tuning  platform.Tuning
+	// GitHub is set when GitHub sign-in is configured.
+	GitHub bool
 	// Markdown renders profile bios.
 	Markdown *platform.Markdown
 	// SendPersonDelete tells federated peers that the person is gone. It runs

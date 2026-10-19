@@ -13,6 +13,8 @@ import (
 	authall "github.com/alternayte/auth-all"
 	"github.com/alternayte/auth-all/email"
 	"github.com/alternayte/auth-all/migrations"
+	"github.com/alternayte/auth-all/oauth"
+	"github.com/alternayte/auth-all/oauth/github"
 	"github.com/alternayte/auth-all/plugins/admin"
 	"github.com/alternayte/auth-all/plugins/apikeys"
 	"github.com/alternayte/auth-all/plugins/magiclink"
@@ -37,7 +39,8 @@ type Mailer interface {
 }
 
 // NewAuth builds auth-all with the plugins notid uses. The same construction serves requests and migrations.
-func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer Mailer, log *slog.Logger) (*authall.Auth, *storelimit.Limiter, error) {
+// GitHub sign-in comes from cfg; tests pass a provider that points at a fake GitHub.
+func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer Mailer, log *slog.Logger, providers ...oauth.Provider) (*authall.Auth, *storelimit.Limiter, error) {
 	st, err := postgres.NewPool(pool, postgres.AllowStatementCache())
 	if err != nil {
 		return nil, nil, fmt.Errorf("auth store: %w", err)
@@ -51,7 +54,7 @@ func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer 
 	for i, p := range cfg.TrustedProxies {
 		proxies[i] = p.String()
 	}
-	auth, err := authall.New(
+	opts := []authall.Option{
 		authall.WithStore(st),
 		authall.WithTrustedProxies(proxies...),
 		authall.WithSchema(schema.Options{Prefix: "auth_", IDType: schema.IDUUID}),
@@ -77,7 +80,20 @@ func NewAuth(cfg platform.Config, t platform.Tuning, pool *pgxpool.Pool, mailer 
 				magiclink.WithVerifyURL(cfg.AppOrigin+"/login/verify"),
 			),
 		),
-	)
+		// The OAuth routes are browser navigations; their errors land on the sign-in page as ?error=CODE.
+		authall.WithBrowserErrorRedirect("/login"),
+	}
+	if cfg.GitHubClientID != "" {
+		providers = append(providers, github.New(github.WithClientID(cfg.GitHubClientID), github.WithClientSecret(cfg.GitHubClientSecret)))
+	}
+	if len(providers) > 0 {
+		opts = append(opts,
+			authall.WithProvider(providers...),
+			// GitHub proves the address, and a magic link proves it here.
+			authall.WithAccountLinking(authall.AccountLinkingOptions{AllowVerifiedEmailAutoLink: true}),
+		)
+	}
+	auth, err := authall.New(opts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("auth: %w", err)
 	}

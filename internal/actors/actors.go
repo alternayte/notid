@@ -41,6 +41,15 @@ func ValidName(name string) error {
 	return nil
 }
 
+// NameTaken reports whether a local actor on the app domain has name.
+func (l Local) NameTaken(ctx context.Context, db actorsdb.DBTX, name string) (bool, error) {
+	taken, err := actorsdb.New(db).LocalNameTaken(ctx, actorsdb.LocalNameTakenParams{Domain: l.AppDomain, Name: name})
+	if err != nil {
+		return false, fmt.Errorf("check name: %w", err)
+	}
+	return taken, nil
+}
+
 // Local creates and reads actors that live on this installation.
 type Local struct {
 	AppOrigin string
@@ -81,9 +90,9 @@ func (l Local) CreatePerson(ctx context.Context, db actorsdb.DBTX, userID uuid.U
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return Actor{}, fmt.Errorf("look up actor: %w", err)
 	}
-	taken, err := q.LocalNameTaken(ctx, actorsdb.LocalNameTakenParams{Domain: l.AppDomain, Name: name})
+	taken, err := l.NameTaken(ctx, db, name)
 	if err != nil {
-		return Actor{}, fmt.Errorf("check name: %w", err)
+		return Actor{}, err
 	}
 	if taken {
 		return Actor{}, ErrNameTaken
