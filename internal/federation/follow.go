@@ -83,7 +83,18 @@ func (s *Server) validate(ctx context.Context, act activity) error {
 // followed group may answer it.
 func (s *Server) followAnswered(ctx context.Context, db federationdb.DBTX, act activity) (string, error) {
 	followID := act.objectRef()
-	m, err := federationdb.New(db).MembershipByFollow(ctx, &followID)
+	q := federationdb.New(db)
+	m, err := q.MembershipByFollow(ctx, &followID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The answer can name a Follow that a resend has since replaced.
+		if inner, embErr := act.embedded(); embErr == nil && inner.Type == "Follow" && inner.objectRef() == act.Actor.ID {
+			current, curErr := q.PendingFollowOf(ctx, federationdb.PendingFollowOfParams{GroupApID: act.Actor.ID, PersonApID: inner.Actor.ID})
+			if curErr == nil && current != nil {
+				followID = *current
+				m, err = q.MembershipByFollow(ctx, &followID)
+			}
+		}
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", reject(http.StatusNotFound, "no pending follow %s", followID)
 	}

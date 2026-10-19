@@ -465,13 +465,34 @@ func TestRemoteGroupAcceptsAFollowFromALocalPerson(t *testing.T) {
 		t.Fatalf("queued %d follows", n)
 	}
 
+	// Lemmy drops the first Accept from a peer it has not seen; the pending
+	// Follow goes again with a new id, and an Accept of either id counts.
+	checks := jobs(t, s, "follow-check", "follow_ap_id", followID)
+	if len(checks) != 1 {
+		t.Fatalf("queued %d follow checks", len(checks))
+	}
+	if err := (&followCheckWorker{s: s}).Work(ctx, job[FollowCheckArgs](t, checks[0])); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(jobs(t, s, "deliver", "inbox", g.Inbox)); n != 2 {
+		t.Fatalf("after the check, %d follows", n)
+	}
+	var resent string
+	if err := s.Pool.QueryRow(ctx, `SELECT follow_ap_id FROM memberships WHERE community_id = $1 AND actor_id = $2`,
+		communityID, personID).Scan(&resent); err != nil || resent == followID {
+		t.Fatalf("membership follow %q %v", resent, err)
+	}
+	if n := len(jobs(t, s, "follow-check", "follow_ap_id", resent)); n != 1 {
+		t.Fatalf("queued %d checks of the resent follow", n)
+	}
+
 	accept := map[string]any{
 		"id": "http://" + peer.host + "/activities/accept/" + uuid.NewString(), "type": "Accept", "actor": g.ApID,
 		"object": map[string]any{"id": followID, "type": "Follow", "actor": person.ApID, "object": g.ApID},
 	}
 	forged := map[string]any{
 		"id": "http://" + peer.host + "/activities/accept/" + uuid.NewString(), "type": "Accept", "actor": peer.bob(),
-		"object": followID,
+		"object": resent,
 	}
 	if w := post(s, peer.signedBy(peer.key, "/inbox", forged)); w.Code != http.StatusForbidden {
 		t.Fatalf("accept by another actor: %d %s", w.Code, w.Body)
@@ -484,7 +505,7 @@ func TestRemoteGroupAcceptsAFollowFromALocalPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	var state string
-	if err := s.Pool.QueryRow(ctx, `SELECT state FROM memberships WHERE follow_ap_id = $1`, followID).Scan(&state); err != nil || state != "accepted" {
+	if err := s.Pool.QueryRow(ctx, `SELECT state FROM memberships WHERE follow_ap_id = $1`, resent).Scan(&state); err != nil || state != "accepted" {
 		t.Fatalf("membership %q %v", state, err)
 	}
 }

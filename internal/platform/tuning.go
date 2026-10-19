@@ -32,6 +32,12 @@ type Tuning struct {
 	DeliveryMaxBackoff  time.Duration
 	// DeliveryBadRequestRetries is how many attempts a delivery answered with 400 gets.
 	DeliveryBadRequestRetries int
+	// A Follow of a remote group that is still pending after FollowResendAfter
+	// is sent again with a new id, up to FollowResends times, each wait twice
+	// the last. Lemmy drops the Accept of the first Follow from a peer it has
+	// not seen before.
+	FollowResendAfter time.Duration
+	FollowResends     int
 	PeerInboxPerMinute        int
 	PeerInboxBurst            int
 	// KeyFetchesPerMinute caps, per client address, inbox requests signed by
@@ -124,6 +130,8 @@ func DefaultTuning() Tuning {
 		DeliveryRetryWindow:       72 * time.Hour,
 		DeliveryMaxBackoff:        6 * time.Hour,
 		DeliveryBadRequestRetries: 5,
+		FollowResendAfter:         5 * time.Minute,
+		FollowResends:             3,
 		PeerInboxPerMinute:        300,
 		PeerInboxBurst:            100,
 		KeyFetchesPerMinute:       120,

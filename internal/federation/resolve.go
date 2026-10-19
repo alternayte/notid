@@ -88,8 +88,20 @@ func (s *Server) webFingerLookup(ctx context.Context, name, host string) (string
 }
 
 // SendFollow queues a Follow from a local person to a remote group in tx and
-// returns the Follow's AP ID.
+// returns the Follow's AP ID. It also queues a check that sends the Follow
+// again while the membership stays pending.
 func (s *Server) SendFollow(ctx context.Context, tx pgx.Tx, person, group actors.Actor) (string, error) {
+	id, err := s.queueFollow(ctx, tx, person, group)
+	if err != nil {
+		return "", err
+	}
+	if err := s.queueFollowCheck(ctx, tx, id, 0); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (s *Server) queueFollow(ctx context.Context, tx pgx.Tx, person, group actors.Actor) (string, error) {
 	id, err := newActivityID(person.ApID)
 	if err != nil {
 		return "", err

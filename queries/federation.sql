@@ -58,6 +58,20 @@ JOIN communities c ON c.id = m.community_id
 JOIN actors g ON g.id = c.actor_id
 WHERE m.follow_ap_id = @follow_ap_id;
 
+-- name: PendingFollowOf :one
+-- The pending Follow of a person to a group, whichever id it now has.
+SELECT m.follow_ap_id
+FROM memberships m
+JOIN communities c ON c.id = m.community_id
+JOIN actors g ON g.id = c.actor_id
+JOIN actors p ON p.id = m.actor_id
+WHERE g.ap_id = @group_ap_id AND p.ap_id = @person_ap_id AND m.state = 'pending'
+    AND m.follow_ap_id IS NOT NULL;
+
+-- name: ReplaceFollow :execrows
+UPDATE memberships SET follow_ap_id = @new_ap_id
+WHERE follow_ap_id = @old_ap_id AND state = 'pending';
+
 -- name: SetMembershipAccepted :exec
 UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = @follow_ap_id;
 

@@ -492,6 +492,29 @@ func (q *Queries) PeerOK(ctx context.Context, domain string) error {
 	return err
 }
 
+const pendingFollowOf = `-- name: PendingFollowOf :one
+SELECT m.follow_ap_id
+FROM memberships m
+JOIN communities c ON c.id = m.community_id
+JOIN actors g ON g.id = c.actor_id
+JOIN actors p ON p.id = m.actor_id
+WHERE g.ap_id = $1 AND p.ap_id = $2 AND m.state = 'pending'
+    AND m.follow_ap_id IS NOT NULL
+`
+
+type PendingFollowOfParams struct {
+	GroupApID  string
+	PersonApID string
+}
+
+// The pending Follow of a person to a group, whichever id it now has.
+func (q *Queries) PendingFollowOf(ctx context.Context, arg PendingFollowOfParams) (*string, error) {
+	row := q.db.QueryRow(ctx, pendingFollowOf, arg.GroupApID, arg.PersonApID)
+	var follow_ap_id *string
+	err := row.Scan(&follow_ap_id)
+	return follow_ap_id, err
+}
+
 const personCommunities = `-- name: PersonCommunities :many
 SELECT
     c.id, a.local, a.ap_id, a.inbox, coalesce(m.follow_ap_id, '')::text AS follow_ap_id
@@ -639,6 +662,24 @@ func (q *Queries) RecordActivity(ctx context.Context, apID string) (string, erro
 	var ap_id string
 	err := row.Scan(&ap_id)
 	return ap_id, err
+}
+
+const replaceFollow = `-- name: ReplaceFollow :execrows
+UPDATE memberships SET follow_ap_id = $1
+WHERE follow_ap_id = $2 AND state = 'pending'
+`
+
+type ReplaceFollowParams struct {
+	NewApID *string
+	OldApID *string
+}
+
+func (q *Queries) ReplaceFollow(ctx context.Context, arg ReplaceFollowParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceFollow, arg.NewApID, arg.OldApID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setMembershipAccepted = `-- name: SetMembershipAccepted :exec
