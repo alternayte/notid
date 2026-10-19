@@ -4,6 +4,12 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-10-19
+
+- A fresh page load is styled from the first paint. The server named a stylesheet that the build never published.
+- One account menu at every width, with your email address, your profile, Saved, Start a community, Admin, Settings and Sign out. The masthead keeps one row on a phone, a folding phone and a desktop.
+- Your own profile shows the email address you sign in with. Nobody else sees it.
+
 ## [0.1.0-beta.3] - 2026-10-19
 
 - GitHub sign-in and sign-up. Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` from a GitHub OAuth app whose callback URL is `<APP_ORIGIN>/api/auth/oauth/github/callback`. A new account takes the GitHub username as its name, and asks for another name only when that one is taken or does not fit. Invite-only sites ask for the invite code first. A GitHub login with the same verified email address as an existing account signs in to that account.

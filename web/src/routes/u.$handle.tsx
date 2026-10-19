@@ -68,9 +68,14 @@ function Profile() {
         )}
         {p.bioHtml && <Rendered html={fromRenderer(p.bioHtml)} className="prose-news" />}
         {me?.handle === p.handle && (
-          <Link to="/settings" className="w-fit font-sans text-sm font-semibold text-mark">
-            Edit your profile
-          </Link>
+          <>
+            <p className="font-sans text-xs text-ink-faint">
+              Signed in as <span className="font-semibold text-ink-soft">{me.email}</span>. Only you see this address.
+            </p>
+            <Link to="/settings" className="w-fit font-sans text-sm font-semibold text-mark">
+              Edit your profile
+            </Link>
+          </>
         )}
       </header>
       <section aria-labelledby="activity" className="flex max-w-(--container-measure) flex-col gap-4">

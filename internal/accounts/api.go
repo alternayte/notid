@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	authall "github.com/alternayte/auth-all"
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/alternayte/notid/internal/actors"
@@ -20,6 +21,7 @@ type signUpBody struct {
 
 type Me struct {
 	Name        string `json:"name"`
+	Email       string `json:"email" doc:"The sign-in address; only its owner reads it"`
 	Handle      string `json:"handle"`
 	DisplayName string `json:"displayName"`
 	Bot         bool   `json:"bot"`
@@ -101,8 +103,13 @@ func (s *Service) Register(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
+		var email string
+		if p := authall.PrincipalFrom(ctx); p != nil && p.User != nil {
+			email = p.User.Email
+		}
 		return &struct{ Body Me }{Me{
 			Name:        a.Name,
+			Email:       email,
 			Handle:      s.Local.Handle(a.Name, a.Domain),
 			DisplayName: a.DisplayName,
 			Bot:         a.Bot,

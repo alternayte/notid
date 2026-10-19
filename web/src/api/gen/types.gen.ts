@@ -529,6 +529,10 @@ export type Me = {
     admin: boolean;
     bot: boolean;
     displayName: string;
+    /**
+     * The sign-in address; only its owner reads it
+     */
+    email: string;
     handle: string;
     name: string;
     trust: 'new' | 'trusted';
@@ -1391,6 +1395,10 @@ export type MeWritable = {
     admin: boolean;
     bot: boolean;
     displayName: string;
+    /**
+     * The sign-in address; only its owner reads it
+     */
+    email: string;
     handle: string;
     name: string;
     trust: 'new' | 'trusted';
