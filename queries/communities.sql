@@ -6,11 +6,17 @@ RETURNING *;
 -- name: CommunityByActorID :one
 SELECT * FROM communities WHERE actor_id = @actor_id;
 
+-- A remote community takes its NSFW flag from its group's sensitive flag.
 -- name: InsertRemoteCommunity :one
-INSERT INTO communities (actor_id, domain, name, title, description)
-VALUES (@actor_id, @domain, @name, @title, @description)
-ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description
+INSERT INTO communities (actor_id, domain, name, title, description, nsfw)
+VALUES (@actor_id, @domain, @name, @title, @description, (SELECT a.sensitive FROM actors a WHERE a.id = @actor_id))
+ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description, nsfw = excluded.nsfw
 RETURNING *;
+
+-- name: SyncRemoteCommunityNSFW :exec
+UPDATE communities c SET nsfw = a.sensitive
+FROM actors a
+WHERE a.id = c.actor_id AND a.id = @actor_id AND NOT a.local;
 
 -- name: UpsertMembership :one
 INSERT INTO memberships (community_id, actor_id, state, follow_ap_id)
@@ -91,6 +97,7 @@ LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = sqlc.narg(v
 WHERE c.state = 'active'
   AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND (a.local OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id))
+  AND (NOT c.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = sqlc.narg(viewer_id)::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY members DESC, c.id
 LIMIT @lim OFFSET @off;
 
@@ -130,11 +137,12 @@ WHERE c.state = 'active'
     OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (NOT c.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = sqlc.narg(viewer_id)::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY members DESC, c.id
 LIMIT @lim;
 
 -- name: UpdateRemoteCommunity :one
-UPDATE communities c SET title = @title, description = @description
+UPDATE communities c SET title = @title, description = @description, nsfw = @nsfw
 FROM actors a
 WHERE a.id = c.actor_id AND a.ap_id = @ap_id AND NOT a.local
 RETURNING c.*;
@@ -156,3 +164,34 @@ ON CONFLICT (community_id) DO UPDATE SET note = excluded.note;
 
 -- name: RemoveFromDirectory :exec
 DELETE FROM directory WHERE community_id = @community_id;
+
+-- The community index is what notid read from the community lists of Lemmy and
+-- PieFed servers. Search shows the entries that the search above leaves out:
+-- communities nobody here follows. known marks the ones this site has fetched.
+-- name: SearchIndex :many
+SELECT i.ap_id, i.domain, i.name, i.title, i.description, i.active_month, i.software, i.nsfw,
+    EXISTS (SELECT 1 FROM actors ka JOIN communities kc ON kc.actor_id = ka.id WHERE ka.ap_id = i.ap_id)::boolean AS known
+FROM community_index i
+WHERE i.search @@ websearch_to_tsquery('simple', @query)
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = i.domain AND pe.blocked)
+  AND (NOT i.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = sqlc.narg(viewer_id)::bigint AND va.nsfw_confirmed_at IS NOT NULL))
+  AND NOT EXISTS (
+    SELECT 1 FROM actors ga JOIN communities c ON c.actor_id = ga.id
+    WHERE ga.ap_id = i.ap_id
+      AND (EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+        OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+                   WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted')))
+ORDER BY i.active_month DESC, i.ap_id
+LIMIT @lim;
+
+-- The admin's view of the index: most active first, optionally matching words.
+-- name: AdminIndex :many
+SELECT i.ap_id, i.domain, i.name, i.title, i.description, i.active_month, i.software, i.nsfw,
+    EXISTS (SELECT 1 FROM actors ga JOIN communities c ON c.actor_id = ga.id
+            JOIN directory d ON d.community_id = c.id WHERE ga.ap_id = i.ap_id)::boolean AS in_directory
+FROM community_index i
+WHERE (@query::text = '' OR i.search @@ websearch_to_tsquery('simple', @query::text))
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = i.domain AND pe.blocked)
+  AND (NOT i.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = @viewer_id AND va.nsfw_confirmed_at IS NOT NULL))
+ORDER BY i.active_month DESC, i.ap_id
+LIMIT @lim OFFSET @off;

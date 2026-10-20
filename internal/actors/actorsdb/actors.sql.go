@@ -12,7 +12,7 @@ import (
 )
 
 const actorByApID = `-- name: ActorByApID :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE ap_id = $1
 `
 
@@ -39,12 +39,14 @@ func (q *Queries) ActorByApID(ctx context.Context, apID string) (Actor, error) {
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
 
 const actorByID = `-- name: ActorByID :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE id = $1
 `
 
@@ -71,12 +73,14 @@ func (q *Queries) ActorByID(ctx context.Context, id int64) (Actor, error) {
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
 
 const actorByUserID = `-- name: ActorByUserID :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE user_id = $1
 `
 
@@ -103,12 +107,14 @@ func (q *Queries) ActorByUserID(ctx context.Context, userID *uuid.UUID) (Actor, 
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
 
 const groupByHandle = `-- name: GroupByHandle :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE kind = 'group' AND domain = $1 AND lower(name) = lower($2::text)
 `
 
@@ -142,6 +148,8 @@ func (q *Queries) GroupByHandle(ctx context.Context, arg GroupByHandleParams) (A
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -153,7 +161,7 @@ INSERT INTO actors (
     $1, 'application', true, $2, $3, $4, $5, $6, $7
 )
 ON CONFLICT (ap_id) DO NOTHING
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type InsertApplicationParams struct {
@@ -197,6 +205,8 @@ func (q *Queries) InsertApplication(ctx context.Context, arg InsertApplicationPa
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -209,7 +219,7 @@ INSERT INTO actors (
     $1, 'group', true, $2, $3, $4, $5,
     $6, $7, $8, $9
 )
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type InsertLocalGroupParams struct {
@@ -257,6 +267,8 @@ func (q *Queries) InsertLocalGroup(ctx context.Context, arg InsertLocalGroupPara
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -270,7 +282,7 @@ INSERT INTO actors (
     $6, $7, $8, $9, 'new'
 )
 ON CONFLICT (user_id) DO NOTHING
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type InsertLocalPersonParams struct {
@@ -318,6 +330,8 @@ func (q *Queries) InsertLocalPerson(ctx context.Context, arg InsertLocalPersonPa
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -329,7 +343,7 @@ INSERT INTO actors (
     $1, 'service', true, $2, $3, $4, $5, $6, $7, $8, true
 )
 ON CONFLICT (ap_id) DO NOTHING
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type InsertSiteFollowerParams struct {
@@ -375,6 +389,8 @@ func (q *Queries) InsertSiteFollower(ctx context.Context, arg InsertSiteFollower
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -430,10 +446,10 @@ func (q *Queries) UpdateLocalGroupProfile(ctx context.Context, arg UpdateLocalGr
 const upsertRemoteActor = `-- name: UpsertRemoteActor :one
 INSERT INTO actors (
     ap_id, kind, local, domain, name, display_name, summary,
-    inbox, shared_inbox, public_key_pem, bot, fetched_at
+    inbox, shared_inbox, public_key_pem, bot, sensitive, fetched_at
 ) VALUES (
     $1, $2, false, $3, $4, $5, $6,
-    $7, $8, $9, $10, now()
+    $7, $8, $9, $10, $11, now()
 )
 ON CONFLICT (ap_id) DO UPDATE SET
     name = excluded.name,
@@ -443,9 +459,10 @@ ON CONFLICT (ap_id) DO UPDATE SET
     shared_inbox = excluded.shared_inbox,
     public_key_pem = excluded.public_key_pem,
     bot = excluded.bot,
+    sensitive = excluded.sensitive,
     fetched_at = excluded.fetched_at
 WHERE NOT actors.local AND actors.kind = excluded.kind
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type UpsertRemoteActorParams struct {
@@ -459,6 +476,7 @@ type UpsertRemoteActorParams struct {
 	SharedInbox  string
 	PublicKeyPem string
 	Bot          bool
+	Sensitive    bool
 }
 
 func (q *Queries) UpsertRemoteActor(ctx context.Context, arg UpsertRemoteActorParams) (Actor, error) {
@@ -473,6 +491,7 @@ func (q *Queries) UpsertRemoteActor(ctx context.Context, arg UpsertRemoteActorPa
 		arg.SharedInbox,
 		arg.PublicKeyPem,
 		arg.Bot,
+		arg.Sensitive,
 	)
 	var i Actor
 	err := row.Scan(
@@ -495,6 +514,8 @@ func (q *Queries) UpsertRemoteActor(ctx context.Context, arg UpsertRemoteActorPa
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }

@@ -5,12 +5,14 @@ import { errorMessage } from '~/api/errors'
 import {
   addToDirectoryMutation,
   blockPeerMutation,
+  communityIndexOptions,
   directoryOptions,
   directoryQueryKey,
   meOptions,
   removeFromDirectoryMutation,
   removeObjectMutation,
   resolveReportMutation,
+  setIndexSourceMutation,
   setTrustMutation,
   siteBanMutation,
   siteBansOptions,
@@ -21,7 +23,8 @@ import {
   siteReportsQueryKey,
   siteUnbanMutation,
 } from '~/api/gen/@tanstack/react-query.gen'
-import type { DirectoryView, PeerView, Report, SiteBanView } from '~/api/gen/types.gen'
+import type { DirectoryView, IndexEntry, PeerView, Report, SiteBanView } from '~/api/gen/types.gen'
+import { activeLabel } from '~/communities/OpenCommunity'
 import { Age, relative } from '~/discussions/Age'
 import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
@@ -84,6 +87,7 @@ function AdminBody() {
   const block = useMutation(blockPeerMutation())
   const addDirectory = useMutation(addToDirectoryMutation())
   const removeDirectory = useMutation(removeFromDirectoryMutation())
+  const indexSource = useMutation(setIndexSourceMutation())
   const trust = useMutation(setTrustMutation())
   const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -97,6 +101,7 @@ function AdminBody() {
     for (const key of [siteReportsQueryKey(), siteBansQueryKey(), sitePeersQueryKey(), directoryQueryKey()]) {
       void queryClient.invalidateQueries({ queryKey: key })
     }
+    void queryClient.invalidateQueries({ queryKey: [{ _id: 'communityIndex' }] })
   }
 
   return (
@@ -140,8 +145,9 @@ function AdminBody() {
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-tight">Peers</h2>
         <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
-          A blocked peer's activities are refused, nothing more is sent to it, and its communities leave Discover and
-          search. Its content stays where it already is.
+          A blocked peer's activities are refused, nothing more is sent to it, and its communities leave Discover,
+          search and the community index. Its content stays where it already is. Every day, this site reads the
+          community list of each Lemmy and PieFed peer, and of each server you index, into the community index.
         </p>
         {peers.isPending ? (
           <p className="font-sans text-sm text-ink-faint">Loading…</p>
@@ -164,6 +170,12 @@ function AdminBody() {
                 onUnblock={() =>
                   act(() => block.mutateAsync({ body: { domain: p.domain, blocked: false } }), `Unblocked ${p.domain}.`)
                 }
+                onStopIndex={() =>
+                  act(
+                    () => indexSource.mutateAsync({ body: { server: p.domain, on: false } }),
+                    `Stopped indexing ${p.domain}.`,
+                  )
+                }
               />
             ))}
             {peers.data.peers.length === 0 && (
@@ -171,12 +183,28 @@ function AdminBody() {
             )}
           </ul>
         )}
+        <IndexSourceForm
+          onAdd={(server) =>
+            act(
+              () => indexSource.mutateAsync({ body: { server, on: true } }),
+              `Reading the communities of ${server}. They appear in the community index once the read finishes.`,
+            )
+          }
+        />
         <BlockPeerForm
           onBlock={(domain, reason) =>
             act(() => block.mutateAsync({ body: { domain, blocked: true, reason } }), `Blocked ${domain}.`)
           }
         />
       </section>
+      <CommunityIndex
+        onAdd={(e) =>
+          act(
+            () => addDirectory.mutateAsync({ body: { community: e.apId, note: '' } }),
+            `Listed ${e.handle}. This site now follows it.`,
+          )
+        }
+      />
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-tight">Directory</h2>
         <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
@@ -380,10 +408,12 @@ function PeerRow({
   peer,
   onBlock,
   onUnblock,
+  onStopIndex,
 }: {
   peer: PeerView
   onBlock: (reason: string) => Promise<void>
   onUnblock: () => Promise<void>
+  onStopIndex: () => Promise<void>
 }) {
   const ids = { reason: useId() }
   const [open, setOpen] = useState(false)
@@ -403,7 +433,19 @@ function PeerRow({
             {peer.software && ` · ${peer.software} ${peer.version}`}
             {peer.blocked && ` · blocked${peer.reason ? `: ${peer.reason}` : ''}`}
           </span>
+          {(peer.indexSource || peer.indexed > 0) && (
+            <span className="font-sans text-xs text-ink-faint">
+              {peer.indexed} {peer.indexed === 1 ? 'community' : 'communities'} in the index
+              {peer.indexedAt ? ` · read ${relative(peer.indexedAt)}` : ' · not read yet'}
+              {peer.indexSource && ' · indexed by an admin'}
+            </span>
+          )}
         </div>
+        {peer.indexSource && !peer.blocked && (
+          <Button variant="quiet" onClick={() => void onStopIndex()}>
+            Stop indexing
+          </Button>
+        )}
         {peer.blocked ? (
           <Button variant="quiet" onClick={() => void onUnblock()}>
             Unblock
@@ -441,6 +483,124 @@ function PeerRow({
         </form>
       )}
     </li>
+  )
+}
+
+function IndexSourceForm({ onAdd }: { onAdd: (server: string) => Promise<void> }) {
+  const id = useId()
+  const [server, setServer] = useState('')
+  return (
+    <form
+      className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void onAdd(server.trim()).then(() => setServer(''))
+      }}
+    >
+      <h3 className="font-display text-lg tracking-tight">Index communities from</h3>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={id} className={label}>
+          Server
+        </label>
+        <Input
+          id={id}
+          value={server}
+          required
+          maxLength={300}
+          onChange={(e) => setServer(e.target.value)}
+          placeholder="lemmy.world"
+        />
+        <p className={hint}>
+          A Lemmy or PieFed server. Its 500 most active communities appear in Search and in the community index below.
+        </p>
+      </div>
+      <Button type="submit" className="w-fit">
+        Index it
+      </Button>
+    </form>
+  )
+}
+
+// CommunityIndex lists the community index, most active first, so an admin can choose communities for the directory.
+function CommunityIndex({ onAdd }: { onAdd: (e: IndexEntry) => Promise<void> }) {
+  const id = useId()
+  const [q, setQ] = useState('')
+  const [offset, setOffset] = useState(0)
+  const list = useQuery({ ...communityIndexOptions({ query: { q, offset } }), retry: false })
+  const page = 50
+
+  function search(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setQ(String(new FormData(e.currentTarget).get('q') ?? '').trim())
+    setOffset(0)
+  }
+
+  return (
+    <section className="flex flex-col gap-4">
+      <h2 className="font-display text-2xl tracking-tight">Community index</h2>
+      <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+        Communities on the servers above, most active first. Add one to the directory to list it in Discover and follow
+        it. Lemmyverse.net lists communities on servers this site does not index yet.
+      </p>
+      <form onSubmit={search} className="flex max-w-(--container-measure) gap-2">
+        <label htmlFor={id} className="sr-only">
+          Words to find in the community index
+        </label>
+        <Input id={id} name="q" type="search" defaultValue={q} maxLength={200} placeholder="Words to find" />
+        <Button type="submit" variant="outline">
+          Find
+        </Button>
+      </form>
+      {list.isPending ? (
+        <p className="font-sans text-sm text-ink-faint">Loading…</p>
+      ) : list.isError ? (
+        <p role="alert" className="font-sans text-sm text-danger">
+          The community index did not load. Reload the page to try again.
+        </p>
+      ) : list.data.communities.length === 0 ? (
+        <p className="font-serif text-sm text-ink-soft">
+          {q ? 'No indexed community matches.' : 'The index is empty. Index a server above.'}
+        </p>
+      ) : (
+        <ul className="flex max-w-(--container-measure) flex-col gap-3">
+          {list.data.communities.map((e) => (
+            <li key={e.apId} className="flex flex-wrap items-baseline justify-between gap-3 border-t border-rule pt-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="font-sans text-sm font-semibold">{e.handle}</span>
+                <span className="font-serif text-sm text-ink-soft">
+                  {e.title || e.name} · {activeLabel(e.activeMonth)}
+                  {e.nsfw && ' · 18+'}
+                </span>
+                {e.description && (
+                  <span className="line-clamp-2 font-serif text-xs text-ink-faint">{e.description}</span>
+                )}
+              </div>
+              {e.inDirectory ? (
+                <span className="font-sans text-xs text-ink-faint">In the directory</span>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => void onAdd(e)}>
+                  Add to directory
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {list.data && (offset > 0 || list.data.communities.length === page) && (
+        <div className="flex gap-3">
+          {offset > 0 && (
+            <Button variant="quiet" onClick={() => setOffset(Math.max(0, offset - page))}>
+              More active
+            </Button>
+          )}
+          {list.data.communities.length === page && (
+            <Button variant="quiet" onClick={() => setOffset(offset + page)}>
+              Less active
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -25,10 +25,10 @@ SELECT EXISTS (
 -- name: UpsertRemoteActor :one
 INSERT INTO actors (
     ap_id, kind, local, domain, name, display_name, summary,
-    inbox, shared_inbox, public_key_pem, bot, fetched_at
+    inbox, shared_inbox, public_key_pem, bot, sensitive, fetched_at
 ) VALUES (
     @ap_id, @kind, false, @domain, @name, @display_name, @summary,
-    @inbox, @shared_inbox, @public_key_pem, @bot, now()
+    @inbox, @shared_inbox, @public_key_pem, @bot, @sensitive, now()
 )
 ON CONFLICT (ap_id) DO UPDATE SET
     name = excluded.name,
@@ -38,6 +38,7 @@ ON CONFLICT (ap_id) DO UPDATE SET
     shared_inbox = excluded.shared_inbox,
     public_key_pem = excluded.public_key_pem,
     bot = excluded.bot,
+    sensitive = excluded.sensitive,
     fetched_at = excluded.fetched_at
 WHERE NOT actors.local AND actors.kind = excluded.kind
 RETURNING *;

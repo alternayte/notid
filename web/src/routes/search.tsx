@@ -4,12 +4,15 @@ import {
   meOptions,
   searchCommentsOptions,
   searchCommunitiesOptions,
+  searchIndexOptions,
   searchPostsOptions,
 } from '~/api/gen/@tanstack/react-query.gen'
 import type { Summary } from '~/api/gen/types.gen'
 import { CommunityCard } from '~/communities/CommunityCard'
+import { AddressHint, communityAddress, IndexCard, useOpenCommunity } from '~/communities/OpenCommunity'
 import { CommentItem } from '~/discussions/CommentItem'
 import { PostItem } from '~/discussions/PostItem'
+import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
 import { Page } from './__root'
 
@@ -21,6 +24,7 @@ export const Route = createFileRoute('/search')({
     if (!deps.q) return ''
     await Promise.all([
       context.queryClient.ensureQueryData(searchCommunitiesOptions({ query: { q: deps.q } })).catch(() => undefined),
+      context.queryClient.ensureQueryData(searchIndexOptions({ query: { q: deps.q } })).catch(() => undefined),
       context.queryClient.ensureQueryData(searchPostsOptions({ query: { q: deps.q } })).catch(() => undefined),
       context.queryClient.ensureQueryData(searchCommentsOptions({ query: { q: deps.q } })).catch(() => undefined),
     ])
@@ -42,7 +46,14 @@ function Search() {
           <label htmlFor="q" className="sr-only">
             Search communities, posts and comments
           </label>
-          <Input id="q" name="q" type="search" defaultValue={q ?? ''} placeholder="Words to find" maxLength={200} />
+          <Input
+            id="q"
+            name="q"
+            type="search"
+            defaultValue={q ?? ''}
+            placeholder="Words, or an address like technology@lemmy.world"
+            maxLength={200}
+          />
           <button
             type="submit"
             className="inline-flex h-9 shrink-0 items-center rounded-pill bg-mark px-4 font-sans text-sm font-semibold text-mark-ink"
@@ -54,10 +65,13 @@ function Search() {
       {q ? (
         <Results q={q} />
       ) : (
-        <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
-          Find communities on this site, in the directory, or followed by someone here, and posts and comments in them.
-          Put words in quotes to match a phrase, and a minus sign before a word to leave it out.
-        </p>
+        <>
+          <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+            Find communities here and on Lemmy and PieFed servers, and posts and comments in the communities this site
+            follows. Put words in quotes to match a phrase, and a minus sign before a word to leave it out.
+          </p>
+          <AddressHint />
+        </>
       )}
     </Page>
   )
@@ -67,15 +81,19 @@ function Results({ q }: { q: string }) {
   // A search is cheap to repeat; the loader and these hooks share one cache entry.
   const { data: me } = useQuery({ ...meOptions(), retry: false })
   const communities = useSuspenseQuery(searchCommunitiesOptions({ query: { q } }))
+  const elsewhere = useQuery({ ...searchIndexOptions({ query: { q } }), retry: false })
+  const address = communityAddress(q)
   const posts = useQuery({ ...searchPostsOptions({ query: { q } }), retry: false })
   const comments = useQuery({ ...searchCommentsOptions({ query: { q } }), retry: false })
   const none =
     communities.data.communities.length === 0 &&
+    (elsewhere.data?.communities.length ?? 0) === 0 &&
     (posts.data?.posts.length ?? 0) === 0 &&
     (comments.data?.comments.length ?? 0) === 0
 
   return (
     <div className="flex flex-col gap-10">
+      {address && <OpenAddress address={address} signedIn={!!me} />}
       <section aria-labelledby="found-communities" className="flex flex-col gap-4">
         <h2
           id="found-communities"
@@ -92,6 +110,26 @@ function Results({ q }: { q: string }) {
             ))}
           </div>
         )}
+      </section>
+      <section aria-labelledby="found-elsewhere" className="flex flex-col gap-4">
+        <h2
+          id="found-elsewhere"
+          className="border-b border-rule-strong pb-1 font-sans text-xs font-bold uppercase tracking-kicker"
+        >
+          On other servers
+        </h2>
+        <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
+          Communities on Lemmy and PieFed servers that nobody here follows yet. Opening one brings in its newest posts.
+        </p>
+        <Result query={elsewhere} empty="No communities on other servers match.">
+          {(d) => (
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+              {d.communities.map((e: (typeof d.communities)[number]) => (
+                <IndexCard key={e.apId} entry={e} signedIn={!!me} />
+              ))}
+            </div>
+          )}
+        </Result>
       </section>
       <section aria-labelledby="found-posts" className="flex max-w-(--container-measure) flex-col gap-4">
         <h2
@@ -133,6 +171,33 @@ function Results({ q }: { q: string }) {
         </p>
       )}
     </div>
+  )
+}
+
+// OpenAddress offers to open the community a search names by its address.
+function OpenAddress({ address, signedIn }: { address: string; signedIn: boolean }) {
+  const { open, error, busy } = useOpenCommunity()
+  return (
+    <section
+      aria-label="Community address"
+      className="flex max-w-(--container-measure) flex-col gap-2 rounded-sm bg-paper-sunk p-4"
+    >
+      <p className="font-serif text-sm text-ink-soft">This is a community address.</p>
+      {signedIn ? (
+        <Button className="w-fit" disabled={busy} onClick={() => void open(address)}>
+          {busy ? 'Opening…' : `Open ${address}`}
+        </Button>
+      ) : (
+        <Link to="/login" className="w-fit font-sans text-sm font-semibold text-mark">
+          Sign in to open {address}
+        </Link>
+      )}
+      {error && (
+        <p role="alert" className="font-sans text-xs text-danger">
+          {error}
+        </p>
+      )}
+    </section>
   )
 }
 

@@ -4,6 +4,14 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.9] - 2026-10-20
+
+- Search finds communities on Lemmy and PieFed servers that nobody here follows yet. Every day, this site reads the community list of each Lemmy and PieFed peer, and of each server an admin adds under "Index communities from", into a community index of up to 500 communities per server. Search shows them to everyone; a signed-in person opens one, and its newest posts come with it.
+- Typing a community address such as `technology@lemmy.world`, or its URL, into Search offers to open it. Search and Discover say that every community has such an address.
+- The admin page lists the community index, most active first, with "Add to directory" on each community. The Peers list shows how many communities each server adds to the index and when it was last read. Blocking a server removes its communities from the index at once.
+- NSFW content is hidden until a person turns it on in Settings and confirms they are 18 or older. While it is off, and always for signed-out visitors, NSFW posts and posts in NSFW communities stay out of every feed, search and profile, and a link to one shows "Marked 18+." instead.
+- A community on Lemmy or PieFed that its server marks NSFW is now NSFW here too.
+
 ## [0.1.0-beta.8] - 2026-10-20
 
 - The front page has three feeds: Home, Popular and All. Popular ranks the last week's posts by score and age; All shows them newest first. Both draw from communities here, communities in the directory and communities someone here joined, and both leave out NSFW posts. A signed-out visitor, or a person who has not joined a community yet, lands on Popular. The formulas are on How the feeds work.

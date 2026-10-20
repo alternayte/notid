@@ -28,13 +28,15 @@ type Remote struct {
 	SharedInbox  string
 	PublicKeyPem string
 	Bot          bool
+	// Sensitive is a group's own NSFW flag.
+	Sensitive bool
 }
 
 // UpsertRemote stores a freshly fetched remote actor. It never touches a local actor.
 func UpsertRemote(ctx context.Context, db actorsdb.DBTX, r Remote) (Actor, error) {
 	a, err := actorsdb.New(db).UpsertRemoteActor(ctx, actorsdb.UpsertRemoteActorParams{
 		ApID: r.ApID, Kind: r.Kind, Domain: r.Domain, Name: r.Name, DisplayName: r.DisplayName,
-		Summary: r.Summary, Inbox: r.Inbox, SharedInbox: r.SharedInbox, PublicKeyPem: r.PublicKeyPem, Bot: r.Bot,
+		Summary: r.Summary, Inbox: r.Inbox, SharedInbox: r.SharedInbox, PublicKeyPem: r.PublicKeyPem, Bot: r.Bot, Sensitive: r.Sensitive,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Actor{}, fmt.Errorf("%s: %w", r.ApID, ErrNotRemote)

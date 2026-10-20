@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/alternayte/notid/internal/actors"
+	"github.com/alternayte/notid/internal/communities"
 )
 
 const acceptActivityPub = `application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"`
@@ -27,6 +28,7 @@ type remoteActorDoc struct {
 	Outbox            string     `json:"outbox"`
 	Endpoints         *endpoints `json:"endpoints"`
 	PublicKey         publicKey  `json:"publicKey"`
+	Sensitive         bool       `json:"sensitive"`
 }
 
 // fetch makes a GET signed by the Application actor and decodes the JSON answer.
@@ -100,7 +102,11 @@ func (s *Server) fetchActor(ctx context.Context, apID string) (actors.Actor, err
 	if err != nil {
 		return actors.Actor{}, err
 	}
-	return actors.UpsertRemote(ctx, s.Pool, r)
+	a, err := actors.UpsertRemote(ctx, s.Pool, r)
+	if err != nil || a.Kind != "group" {
+		return a, err
+	}
+	return a, communities.SyncRemoteNSFW(ctx, s.Pool, a.ID)
 }
 
 func remoteFromDoc(requested string, doc remoteActorDoc) (actors.Remote, error) {
@@ -137,7 +143,7 @@ func remoteFromDoc(requested string, doc remoteActorDoc) (actors.Remote, error) 
 	return actors.Remote{
 		ApID: doc.ID, Kind: kind, Domain: host, Name: doc.PreferredUsername,
 		DisplayName: doc.Name, Summary: doc.Summary, Inbox: doc.Inbox, SharedInbox: shared,
-		PublicKeyPem: doc.PublicKey.PublicKeyPem, Bot: bot,
+		PublicKeyPem: doc.PublicKey.PublicKeyPem, Bot: bot, Sensitive: kind == "group" && doc.Sensitive,
 	}, nil
 }
 

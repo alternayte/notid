@@ -136,7 +136,7 @@ func (q *Queries) LockUnusedInvite(ctx context.Context, codeHash []byte) ([]byte
 }
 
 const personByHandle = `-- name: PersonByHandle :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE kind = 'person' AND domain = $1 AND lower(name) = lower($2) AND deleted_at IS NULL
 `
 
@@ -168,6 +168,8 @@ func (q *Queries) PersonByHandle(ctx context.Context, arg PersonByHandleParams) 
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -185,7 +187,7 @@ const setActorTrust = `-- name: SetActorTrust :one
 UPDATE actors SET trust = $1,
     promoted_at = CASE WHEN $1::text = 'trusted' THEN now() ELSE NULL END
 WHERE id = $2 AND local AND kind = 'person' AND deleted_at IS NULL
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type SetActorTrustParams struct {
@@ -216,8 +218,30 @@ func (q *Queries) SetActorTrust(ctx context.Context, arg SetActorTrustParams) (A
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
+}
+
+const setNSFWSetting = `-- name: SetNSFWSetting :one
+UPDATE actors SET nsfw_confirmed_at = CASE WHEN $1::boolean THEN now() END
+WHERE id = $2 AND local AND kind = 'person'
+RETURNING nsfw_confirmed_at
+`
+
+type SetNSFWSettingParams struct {
+	Show bool
+	ID   int64
+}
+
+// The NSFW setting is on while nsfw_confirmed_at is set: the time the person
+// last confirmed they are 18 or older.
+func (q *Queries) SetNSFWSetting(ctx context.Context, arg SetNSFWSettingParams) (*time.Time, error) {
+	row := q.db.QueryRow(ctx, setNSFWSetting, arg.Show, arg.ID)
+	var nsfw_confirmed_at *time.Time
+	err := row.Scan(&nsfw_confirmed_at)
+	return nsfw_confirmed_at, err
 }
 
 const soleOwnerOf = `-- name: SoleOwnerOf :one
@@ -271,7 +295,7 @@ func (q *Queries) UnusedInvites(ctx context.Context, createdBy int64) ([]time.Ti
 const updateProfile = `-- name: UpdateProfile :one
 UPDATE actors SET display_name = $1, summary = $2, bot = $3
 WHERE id = $4 AND local AND kind = 'person'
-RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at
 `
 
 type UpdateProfileParams struct {
@@ -309,6 +333,8 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (A
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { type FormEvent, useEffect, useId, useState } from 'react'
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react'
 import { errorMessage } from '~/api/errors'
 import {
   createInviteMutation,
@@ -9,6 +9,7 @@ import {
   invitesQueryKey,
   meOptions,
   personOptions,
+  setNsfwMutation,
   updateProfileMutation,
 } from '~/api/gen/@tanstack/react-query.gen'
 import type { Me } from '~/api/gen/types.gen'
@@ -162,9 +163,110 @@ function Form({ me }: { me: Me }) {
           </div>
         </form>
       )}
+      <NSFWSetting me={me} />
       <Invites me={me} />
       <DeleteAccount />
     </Page>
+  )
+}
+
+// NSFWSetting shows or hides NSFW posts and communities everywhere. Turning it on needs an 18+ confirmation.
+function NSFWSetting({ me }: { me: Me }) {
+  const queryClient = useQueryClient()
+  const set = useMutation(setNsfwMutation())
+  const dialog = useRef<HTMLDialogElement>(null)
+  const ids = { adult: useId(), title: useId() }
+  const [adult, setAdult] = useState(false)
+  // An error shows where the person acted: in the dialog when turning on, under the button when turning off.
+  const [error, setError] = useState<{ show: boolean; text: string } | null>(null)
+
+  async function save(show: boolean) {
+    setError(null)
+    try {
+      await set.mutateAsync({ body: { show, adult: show && adult } })
+      dialog.current?.close()
+      setAdult(false)
+      // Every list and page changes with the setting.
+      void queryClient.invalidateQueries()
+    } catch (err) {
+      setError({ show, text: errorMessage(err, 'The setting was not saved. Try again.') })
+    }
+  }
+
+  return (
+    <section className="flex max-w-(--container-measure) flex-col gap-3 border-t border-rule pt-6">
+      <h2 className="font-display text-lg tracking-tight">NSFW content</h2>
+      <p className="font-serif text-sm text-ink-soft">
+        {me.showNsfw
+          ? 'Posts and communities marked NSFW show in every list and on their own pages, with an 18+ label.'
+          : 'Posts and communities marked NSFW are hidden from every list, and their pages show a notice instead.'}
+      </p>
+      {me.showNsfw ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-fit"
+          disabled={set.isPending}
+          onClick={() => void save(false)}
+        >
+          {set.isPending ? 'Saving…' : 'Hide NSFW content'}
+        </Button>
+      ) : (
+        <Button type="button" variant="outline" className="w-fit" onClick={() => dialog.current?.showModal()}>
+          Show NSFW content
+        </Button>
+      )}
+      {error && !error.show && (
+        <p role="alert" className="font-sans text-sm text-danger">
+          {error.text}
+        </p>
+      )}
+      <dialog
+        ref={dialog}
+        aria-labelledby={ids.title}
+        onClose={() => {
+          setAdult(false)
+          setError(null)
+        }}
+        className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-sm border border-rule bg-paper p-6 text-ink backdrop:bg-black/60"
+      >
+        <form
+          method="dialog"
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save(true)
+          }}
+        >
+          <h3 id={ids.title} className="font-display text-xl tracking-tight">
+            Show NSFW content
+          </h3>
+          <p className="font-serif text-sm text-ink-soft">
+            NSFW posts and communities can show nudity, sex and violence. They appear in Home, Popular, All, Search and
+            Discover until you turn this off.
+          </p>
+          <div className="flex items-center gap-2">
+            <Checkbox id={ids.adult} checked={adult} onCheckedChange={(v) => setAdult(v === true)} />
+            <label htmlFor={ids.adult} className="font-sans text-sm font-semibold">
+              I am 18 or older
+            </label>
+          </div>
+          {error?.show && (
+            <p role="alert" className="font-sans text-sm text-danger">
+              {error.text}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={!adult || set.isPending}>
+              {set.isPending ? 'Saving…' : 'Show NSFW content'}
+            </Button>
+            <Button type="button" variant="quiet" onClick={() => dialog.current?.close()}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </dialog>
+    </section>
   )
 }
 

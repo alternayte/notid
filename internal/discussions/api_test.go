@@ -236,13 +236,18 @@ func TestInvariant11HomeFeedSortsByFeedTimeSoAFutureDatedRemotePostDoesNotLead(t
 	}
 }
 
-func TestPopularAndAllShowReceivedCommunitiesWithoutNSFW(t *testing.T) {
+func TestNSFWPostsShowOnlyToAPersonWithTheNSFWSettingOn(t *testing.T) {
 	ctx := context.Background()
 	pool := pgtest.Pool(t)
 	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
 	var plain, liked, nsfw, unfollowed discussions.Post
+	var adult actors.Actor
 	committed(t, pool, func(tx pgx.Tx) {
 		owner := trustedPerson(t, tx)
+		adult = trustedPerson(t, tx)
+		if err := tx.QueryRow(ctx, `UPDATE actors SET nsfw_confirmed_at = now() WHERE id = $1 RETURNING nsfw_confirmed_at`, adult.ID).Scan(&adult.NsfwConfirmedAt); err != nil {
+			t.Fatal(err)
+		}
 		c, err := communities.CreateLocal(ctx, tx, local(t), owner, "c"+uuid.NewString()[:8], communities.Settings{Title: "Front"})
 		if err != nil {
 			t.Fatal(err)
@@ -302,6 +307,15 @@ func TestPopularAndAllShowReceivedCommunitiesWithoutNSFW(t *testing.T) {
 		if name == "popular" && lp > pp || name == "all" && pp > lp {
 			t.Fatalf("%s order: liked %d plain %d", name, lp, pp)
 		}
+	}
+	if got := all(func(b string) (discussions.PostPage, error) { return svc.AllFeed(ctx, b, &adult) }); !slices.Contains(got, nsfw.Ref) {
+		t.Fatal("All hides an NSFW post from a person with the NSFW setting on")
+	}
+	if _, err := svc.Thread(ctx, nsfw.Ref, nil); !errors.Is(err, discussions.ErrMarkedNSFW) {
+		t.Fatalf("a signed-out visitor opens an NSFW post: %v", err)
+	}
+	if _, err := svc.Thread(ctx, nsfw.Ref, &adult); err != nil {
+		t.Fatalf("a person with the NSFW setting on cannot open an NSFW post: %v", err)
 	}
 }
 

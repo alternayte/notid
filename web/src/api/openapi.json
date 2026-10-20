@@ -1042,6 +1042,119 @@
         ],
         "type": "object"
       },
+      "IndexEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "activeMonth": {
+            "description": "People active in it in the last month, as its server counts them",
+            "format": "int32",
+            "type": "integer"
+          },
+          "apId": {
+            "type": "string"
+          },
+          "description": {
+            "description": "Plain text, cut short",
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "handle": {
+            "description": "name@domain",
+            "type": "string"
+          },
+          "inDirectory": {
+            "description": "In the directory; admin listing only",
+            "type": "boolean"
+          },
+          "known": {
+            "description": "This site has fetched it, so its page opens without a lookup",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "software": {
+            "enum": [
+              "lemmy",
+              "piefed"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "apId",
+          "handle",
+          "name",
+          "domain",
+          "title",
+          "description",
+          "activeMonth",
+          "software",
+          "nsfw"
+        ],
+        "type": "object"
+      },
+      "IndexOut": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/IndexOut.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "communities": {
+            "items": {
+              "$ref": "#/components/schemas/IndexEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "communities"
+        ],
+        "type": "object"
+      },
+      "IndexSourceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/IndexSourceBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "on": {
+            "description": "true reads its communities into the community index, false stops",
+            "type": "boolean"
+          },
+          "server": {
+            "description": "The server's domain, with a port only when it needs one",
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "on"
+        ],
+        "type": "object"
+      },
       "InviteList": {
         "additionalProperties": false,
         "properties": {
@@ -1246,6 +1359,10 @@
           "name": {
             "type": "string"
           },
+          "showNsfw": {
+            "description": "The NSFW setting: NSFW posts and communities show only while it is on",
+            "type": "boolean"
+          },
           "trust": {
             "enum": [
               "new",
@@ -1261,7 +1378,8 @@
           "displayName",
           "bot",
           "trust",
-          "admin"
+          "admin",
+          "showNsfw"
         ],
         "type": "object"
       },
@@ -1364,6 +1482,53 @@
         ],
         "type": "object"
       },
+      "NsfwBody": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/NsfwBody.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "adult": {
+            "description": "The person confirms they are 18 or older; required to turn the setting on",
+            "type": "boolean"
+          },
+          "show": {
+            "description": "true shows NSFW posts and communities",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "show"
+        ],
+        "type": "object"
+      },
+      "NsfwOut": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/api/schemas/NsfwOut.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "show": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "show"
+        ],
+        "type": "object"
+      },
       "ObjectBody": {
         "additionalProperties": false,
         "properties": {
@@ -1440,6 +1605,20 @@
             "format": "date-time",
             "type": "string"
           },
+          "indexSource": {
+            "description": "An admin chose to index this server's communities",
+            "type": "boolean"
+          },
+          "indexed": {
+            "description": "Communities in the community index from this server",
+            "format": "int64",
+            "type": "integer"
+          },
+          "indexedAt": {
+            "description": "The last successful read of its community list",
+            "format": "date-time",
+            "type": "string"
+          },
           "lastOkAt": {
             "format": "date-time",
             "type": "string"
@@ -1457,7 +1636,9 @@
         },
         "required": [
           "domain",
-          "blocked"
+          "blocked",
+          "indexSource",
+          "indexed"
         ],
         "type": "object"
       },
@@ -3136,6 +3317,155 @@
         "summary": "Take a community out of Discover",
         "tags": [
           "communities"
+        ]
+      }
+    },
+    "/api/admin/index": {
+      "get": {
+        "operationId": "communityIndex",
+        "parameters": [
+          {
+            "description": "Words to find; empty lists every community",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words to find; empty lists every community",
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List the community index, most active first, to choose communities for the directory",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/admin/index-sources": {
+      "post": {
+        "operationId": "setIndexSource",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSourceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Read a server's communities into the community index every day, or stop",
+        "tags": [
+          "admin"
         ]
       }
     },
@@ -6261,6 +6591,67 @@
         ]
       }
     },
+    "/api/me/nsfw": {
+      "put": {
+        "operationId": "setNsfw",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NsfwBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NsfwOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Turn the NSFW setting on, with a confirmation of age 18 or older, or off",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
     "/api/me/profile": {
       "put": {
         "operationId": "updateProfile",
@@ -7361,6 +7752,16 @@
             },
             "description": "OK"
           },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
           "404": {
             "content": {
               "application/problem+json": {
@@ -7392,7 +7793,7 @@
             "description": "Internal Server Error"
           }
         },
-        "summary": "Read a post and its comments",
+        "summary": "Read a post and its comments; an NSFW post needs the NSFW setting on",
         "tags": [
           "discussions"
         ]
@@ -7732,6 +8133,51 @@
           }
         },
         "summary": "Search communities on this site, in the directory, or followed by someone here, largest first",
+        "tags": [
+          "communities"
+        ]
+      }
+    },
+    "/api/search/index": {
+      "get": {
+        "operationId": "searchIndex",
+        "parameters": [
+          {
+            "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Words to find; quotes match a phrase, a leading - excludes a word",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Search communities on other servers that nobody here follows, most active first",
         "tags": [
           "communities"
         ]

@@ -205,6 +205,8 @@ func (s *Server) AddWorkers(workers *river.Workers) {
 	river.AddWorker(workers, &deliverWorker{s: s})
 	river.AddWorker(workers, &followCheckWorker{s: s})
 	river.AddWorker(workers, &backfillWorker{s: s})
+	river.AddWorker(workers, &indexWorker{s: s})
+	river.AddWorker(workers, &indexAllWorker{s: s})
 }
 
 // Queues is the River queue config for the federation workers.

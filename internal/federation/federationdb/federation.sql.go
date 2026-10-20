@@ -30,7 +30,7 @@ func (q *Queries) AcceptFollow(ctx context.Context, arg AcceptFollowParams) erro
 }
 
 const actorByApID = `-- name: ActorByApID :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE ap_id = $1
 `
 
@@ -57,6 +57,8 @@ func (q *Queries) ActorByApID(ctx context.Context, apID string) (Actor, error) {
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -258,6 +260,25 @@ func (q *Queries) CommunityByID(ctx context.Context, id int64) (CommunityByIDRow
 	return i, err
 }
 
+const deleteIndexOfServer = `-- name: DeleteIndexOfServer :exec
+DELETE FROM community_index WHERE server = $1
+`
+
+func (q *Queries) DeleteIndexOfServer(ctx context.Context, server string) error {
+	_, err := q.db.Exec(ctx, deleteIndexOfServer, server)
+	return err
+}
+
+const deleteIndexOutside = `-- name: DeleteIndexOutside :exec
+DELETE FROM community_index WHERE NOT (server = ANY($1::text[]))
+`
+
+// Rows of servers the index no longer reads.
+func (q *Queries) DeleteIndexOutside(ctx context.Context, servers []string) error {
+	_, err := q.db.Exec(ctx, deleteIndexOutside, servers)
+	return err
+}
+
 const deleteMembershipByFollow = `-- name: DeleteMembershipByFollow :exec
 DELETE FROM memberships WHERE follow_ap_id = $1 AND role = 'member'
 `
@@ -333,8 +354,71 @@ func (q *Queries) GroupDoc(ctx context.Context, id int64) (GroupDocRow, error) {
 	return i, err
 }
 
+const indexServers = `-- name: IndexServers :many
+SELECT domain FROM peers
+WHERE NOT blocked AND (index_source OR software IN ('lemmy', 'piefed', ''))
+ORDER BY domain
+`
+
+// The servers the community index reads: every server an admin chose, and every
+// peer that runs Lemmy or PieFed or whose software notid has not read yet.
+func (q *Queries) IndexServers(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, indexServers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var domain string
+		if err := rows.Scan(&domain); err != nil {
+			return nil, err
+		}
+		items = append(items, domain)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertIndexEntry = `-- name: InsertIndexEntry :exec
+INSERT INTO community_index (ap_id, server, domain, name, title, description, active_month, software, nsfw)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (ap_id) DO UPDATE SET server = excluded.server, domain = excluded.domain, name = excluded.name,
+    title = excluded.title, description = excluded.description, active_month = excluded.active_month,
+    software = excluded.software, nsfw = excluded.nsfw, read_at = now()
+`
+
+type InsertIndexEntryParams struct {
+	ApID        string
+	Server      string
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	ActiveMonth int32
+	Software    string
+	Nsfw        bool
+}
+
+func (q *Queries) InsertIndexEntry(ctx context.Context, arg InsertIndexEntryParams) error {
+	_, err := q.db.Exec(ctx, insertIndexEntry,
+		arg.ApID,
+		arg.Server,
+		arg.Domain,
+		arg.Name,
+		arg.Title,
+		arg.Description,
+		arg.ActiveMonth,
+		arg.Software,
+		arg.Nsfw,
+	)
+	return err
+}
+
 const localActorByName = `-- name: LocalActorByName :one
-SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at FROM actors
+SELECT id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at, sensitive, nsfw_confirmed_at FROM actors
 WHERE local AND kind = $1 AND domain = $2 AND lower(name) = lower($3)
 `
 
@@ -367,6 +451,8 @@ func (q *Queries) LocalActorByName(ctx context.Context, arg LocalActorByNamePara
 		&i.DeletedAt,
 		&i.FetchedAt,
 		&i.CreatedAt,
+		&i.Sensitive,
+		&i.NsfwConfirmedAt,
 	)
 	return i, err
 }
@@ -465,7 +551,7 @@ func (q *Queries) ObjectKnown(ctx context.Context, apID string) (bool, error) {
 }
 
 const peerByDomain = `-- name: PeerByDomain :one
-SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at FROM peers WHERE domain = $1
+SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at, index_source, indexed_at FROM peers WHERE domain = $1
 `
 
 func (q *Queries) PeerByDomain(ctx context.Context, domain string) (Peer, error) {
@@ -480,6 +566,8 @@ func (q *Queries) PeerByDomain(ctx context.Context, domain string) (Peer, error)
 		&i.LastOkAt,
 		&i.FailingSince,
 		&i.CreatedAt,
+		&i.IndexSource,
+		&i.IndexedAt,
 	)
 	return i, err
 }
@@ -491,6 +579,40 @@ ON CONFLICT (domain) DO UPDATE SET failing_since = coalesce(peers.failing_since,
 
 func (q *Queries) PeerFailing(ctx context.Context, domain string) error {
 	_, err := q.db.Exec(ctx, peerFailing, domain)
+	return err
+}
+
+const peerForIndex = `-- name: PeerForIndex :one
+SELECT domain, software, blocked, index_source FROM peers WHERE domain = $1 FOR UPDATE
+`
+
+type PeerForIndexRow struct {
+	Domain      string
+	Software    string
+	Blocked     bool
+	IndexSource bool
+}
+
+// Inside the rewrite's transaction the lock makes a concurrent block wait, so
+// its delete of the server's rows runs after the rewrite.
+func (q *Queries) PeerForIndex(ctx context.Context, domain string) (PeerForIndexRow, error) {
+	row := q.db.QueryRow(ctx, peerForIndex, domain)
+	var i PeerForIndexRow
+	err := row.Scan(
+		&i.Domain,
+		&i.Software,
+		&i.Blocked,
+		&i.IndexSource,
+	)
+	return i, err
+}
+
+const peerIndexed = `-- name: PeerIndexed :exec
+UPDATE peers SET indexed_at = now() WHERE domain = $1
+`
+
+func (q *Queries) PeerIndexed(ctx context.Context, domain string) error {
+	_, err := q.db.Exec(ctx, peerIndexed, domain)
 	return err
 }
 
@@ -700,6 +822,21 @@ UPDATE memberships SET state = 'accepted' WHERE follow_ap_id = $1
 
 func (q *Queries) SetMembershipAccepted(ctx context.Context, followApID *string) error {
 	_, err := q.db.Exec(ctx, setMembershipAccepted, followApID)
+	return err
+}
+
+const setPeerSoftware = `-- name: SetPeerSoftware :exec
+UPDATE peers SET software = $1, version = $2 WHERE domain = $3
+`
+
+type SetPeerSoftwareParams struct {
+	Software string
+	Version  string
+	Domain   string
+}
+
+func (q *Queries) SetPeerSoftware(ctx context.Context, arg SetPeerSoftwareParams) error {
+	_, err := q.db.Exec(ctx, setPeerSoftware, arg.Software, arg.Version, arg.Domain)
 	return err
 }
 

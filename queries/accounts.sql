@@ -81,3 +81,10 @@ ORDER BY created_at DESC;
 
 -- name: LockActorWrites :exec
 SELECT pg_advisory_xact_lock(@actor_id::bigint);
+
+-- The NSFW setting is on while nsfw_confirmed_at is set: the time the person
+-- last confirmed they are 18 or older.
+-- name: SetNSFWSetting :one
+UPDATE actors SET nsfw_confirmed_at = CASE WHEN @show::boolean THEN now() END
+WHERE id = @id AND local AND kind = 'person'
+RETURNING nsfw_confirmed_at;

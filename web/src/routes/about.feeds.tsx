@@ -32,15 +32,20 @@ function Feeds() {
             Posts from the last week in every community this site receives: communities that live here, communities in
             the site's directory, and communities someone here joined. Each post gets a rank, log10(max(1, 3 + score))
             divided by (hours since it arrived + 2) to the power 1.8, and the highest rank comes first. The ranks are
-            fixed when you open the first page, so the order does not shift while you read. NSFW posts and posts in NSFW
-            communities stay out.
+            fixed when you open the first page, so the order does not shift while you read.
           </p>
         </section>
         <section className="flex flex-col gap-1 border-t border-rule pt-4">
           <h2 className={term}>All</h2>
           <p className={body}>
-            The same posts as Popular, from any time, newest first by the time the post arrived on this site. NSFW posts
-            and posts in NSFW communities stay out.
+            The same posts as Popular, from any time, newest first by the time the post arrived on this site.
+          </p>
+        </section>
+        <section className="flex flex-col gap-1 border-t border-rule pt-4">
+          <h2 className={term}>NSFW</h2>
+          <p className={body}>
+            Every feed and list leaves out NSFW posts and posts in NSFW communities, unless you turn on NSFW content in
+            Settings and confirm you are 18 or older.
           </p>
         </section>
         <section className="flex flex-col gap-1 border-t border-rule pt-4">

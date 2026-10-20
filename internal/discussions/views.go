@@ -384,6 +384,9 @@ func (s *Service) Thread(ctx context.Context, ref string, viewer *actors.Actor) 
 	if p.RemovedAt != nil && !s.maySeeRemoved(ctx, p.AuthorID, p.CommunityID, viewer) {
 		return ThreadView{}, ErrNoObject
 	}
+	if (p.Nsfw || p.CommunityNsfw) && (viewer == nil || viewer.NsfwConfirmedAt == nil) {
+		return ThreadView{}, ErrMarkedNSFW
+	}
 	limit := s.Tuning.ThreadMaxComments
 	rows, err := q.PostComments(ctx, discussionsdb.PostCommentsParams{PostID: p.ID, Viewer: viewerID(viewer), Lim: limit + 1})
 	if err != nil {

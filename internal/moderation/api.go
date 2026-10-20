@@ -82,6 +82,11 @@ type peerBody struct {
 	Reason  string `json:"reason,omitempty" maxLength:"500" doc:"Why it was blocked, shown to admins"`
 }
 
+type indexSourceBody struct {
+	Server string `json:"server" minLength:"1" maxLength:"300" doc:"The server's domain, with a port only when it needs one"`
+	On     bool   `json:"on" doc:"true reads its communities into the community index, false stops"`
+}
+
 type peersOut struct {
 	Peers []PeerView `json:"peers" nullable:"false"`
 }
@@ -353,6 +358,18 @@ func (s *Service) registerSiteAdmin(api huma.API) {
 			return nil, err
 		}
 		return nil, apiError(s.SetPeerBlock(ctx, a, in.Body.Domain, in.Body.Blocked, in.Body.Reason))
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "setIndexSource", Method: http.MethodPost, Path: "/api/admin/index-sources",
+		Summary: "Read a server's communities into the community index every day, or stop", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct{ Body indexSourceBody }) (*struct{}, error) {
+		a, err := signedIn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return nil, apiError(s.SetIndexSource(ctx, a, in.Body.Server, in.Body.On))
 	})
 }
 

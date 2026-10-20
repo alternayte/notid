@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AboutData, AboutErrors, AboutResponses, AddToDirectoryData, AddToDirectoryErrors, AddToDirectoryResponses, AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, AllFeedData, AllFeedErrors, AllFeedResponses, BanActorData, BanActorErrors, BanActorResponses, BlockPeerData, BlockPeerErrors, BlockPeerResponses, CommunityData, CommunityErrors, CommunityPostsData, CommunityPostsErrors, CommunityPostsResponses, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DeleteCommentData, DeleteCommentErrors, DeleteCommentResponses, DeleteMeData, DeleteMeErrors, DeleteMeResponses, DeletePostData, DeletePostErrors, DeletePostResponses, DirectoryData, DirectoryErrors, DirectoryResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, EditCommentData, EditCommentErrors, EditCommentResponses, EditPostData, EditPostErrors, EditPostResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, GitHubStartData, GitHubStartErrors, GitHubStartResponses, HeldPostsData, HeldPostsErrors, HeldPostsResponses, HomeFeedData, HomeFeedErrors, HomeFeedResponses, InvitesData, InvitesErrors, InvitesResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LockPostData, LockPostErrors, LockPostResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, ModerationLogData, ModerationLogErrors, ModerationLogResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, PersonCommentsData, PersonCommentsErrors, PersonCommentsResponses, PersonData, PersonErrors, PersonPostsData, PersonPostsErrors, PersonPostsResponses, PersonResponses, PopularFeedData, PopularFeedErrors, PopularFeedResponses, PreviewMarkdownData, PreviewMarkdownErrors, PreviewMarkdownResponses, PublishPostData, PublishPostErrors, PublishPostResponses, RemoveFromDirectoryData, RemoveFromDirectoryErrors, RemoveFromDirectoryResponses, RemoveObjectData, RemoveObjectErrors, RemoveObjectResponses, ReportObjectData, ReportObjectErrors, ReportObjectResponses, ReportQueueData, ReportQueueErrors, ReportQueueResponses, ResolveReportData, ResolveReportErrors, ResolveReportResponses, RestoreObjectData, RestoreObjectErrors, RestoreObjectResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveData, SavedData, SavedErrors, SavedResponses, SaveErrors, SaveResponses, SearchCommentsData, SearchCommentsErrors, SearchCommentsResponses, SearchCommunitiesData, SearchCommunitiesErrors, SearchCommunitiesResponses, SearchPostsData, SearchPostsErrors, SearchPostsResponses, SetModeratorData, SetModeratorErrors, SetModeratorResponses, SetTrustData, SetTrustErrors, SetTrustResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, SiteBanData, SiteBanErrors, SiteBanResponses, SiteBansData, SiteBansErrors, SiteBansResponses, SitePeersData, SitePeersErrors, SitePeersResponses, SiteReportsData, SiteReportsErrors, SiteReportsResponses, SiteUnbanData, SiteUnbanErrors, SiteUnbanResponses, ThreadData, ThreadErrors, ThreadResponses, UnbanActorData, UnbanActorErrors, UnbanActorResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
+import type { AboutData, AboutErrors, AboutResponses, AddToDirectoryData, AddToDirectoryErrors, AddToDirectoryResponses, AdminCreateUserData, AdminCreateUserErrors, AdminCreateUserResponses, AdminDisableUserData, AdminDisableUserErrors, AdminDisableUserResponses, AdminEnableUserData, AdminEnableUserErrors, AdminEnableUserResponses, AdminListUsersData, AdminListUsersErrors, AdminListUsersResponses, AdminResetUserPasswordData, AdminResetUserPasswordErrors, AdminResetUserPasswordResponses, AdminSetUserRoleData, AdminSetUserRoleErrors, AdminSetUserRoleResponses, AllFeedData, AllFeedErrors, AllFeedResponses, BanActorData, BanActorErrors, BanActorResponses, BlockPeerData, BlockPeerErrors, BlockPeerResponses, CommunityData, CommunityErrors, CommunityIndexData, CommunityIndexErrors, CommunityIndexResponses, CommunityPostsData, CommunityPostsErrors, CommunityPostsResponses, CommunityResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCommentData, CreateCommentErrors, CreateCommentResponses, CreateCommunityData, CreateCommunityErrors, CreateCommunityResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, CreatePostData, CreatePostErrors, CreatePostResponses, DeleteCommentData, DeleteCommentErrors, DeleteCommentResponses, DeleteMeData, DeleteMeErrors, DeleteMeResponses, DeletePostData, DeletePostErrors, DeletePostResponses, DirectoryData, DirectoryErrors, DirectoryResponses, DiscoverCommunitiesData, DiscoverCommunitiesErrors, DiscoverCommunitiesResponses, EditCommentData, EditCommentErrors, EditCommentResponses, EditPostData, EditPostErrors, EditPostResponses, FollowCommunityData, FollowCommunityErrors, FollowCommunityResponses, GetSessionData, GetSessionResponses, GitHubStartData, GitHubStartErrors, GitHubStartResponses, HeldPostsData, HeldPostsErrors, HeldPostsResponses, HomeFeedData, HomeFeedErrors, HomeFeedResponses, InvitesData, InvitesErrors, InvitesResponses, LeaveCommunityData, LeaveCommunityErrors, LeaveCommunityResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, LockPostData, LockPostErrors, LockPostResponses, LookupCommunityData, LookupCommunityErrors, LookupCommunityResponses, MagicLinkConfirmationData, MagicLinkConfirmationErrors, MagicLinkConfirmationResponses, MagicLinkSendData, MagicLinkSendErrors, MagicLinkSendResponses, MagicLinkVerifyData, MagicLinkVerifyErrors, MagicLinkVerifyResponses, MeData, MeErrors, MeResponses, ModerationLogData, ModerationLogErrors, ModerationLogResponses, MyCommunitiesData, MyCommunitiesErrors, MyCommunitiesResponses, PersonCommentsData, PersonCommentsErrors, PersonCommentsResponses, PersonData, PersonErrors, PersonPostsData, PersonPostsErrors, PersonPostsResponses, PersonResponses, PopularFeedData, PopularFeedErrors, PopularFeedResponses, PreviewMarkdownData, PreviewMarkdownErrors, PreviewMarkdownResponses, PublishPostData, PublishPostErrors, PublishPostResponses, RemoveFromDirectoryData, RemoveFromDirectoryErrors, RemoveFromDirectoryResponses, RemoveObjectData, RemoveObjectErrors, RemoveObjectResponses, ReportObjectData, ReportObjectErrors, ReportObjectResponses, ReportQueueData, ReportQueueErrors, ReportQueueResponses, ResolveReportData, ResolveReportErrors, ResolveReportResponses, RestoreObjectData, RestoreObjectErrors, RestoreObjectResponses, RevokeAllSessionsData, RevokeAllSessionsErrors, RevokeAllSessionsResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSessionData, RevokeSessionErrors, RevokeSessionResponses, SaveData, SavedData, SavedErrors, SavedResponses, SaveErrors, SaveResponses, SearchCommentsData, SearchCommentsErrors, SearchCommentsResponses, SearchCommunitiesData, SearchCommunitiesErrors, SearchCommunitiesResponses, SearchIndexData, SearchIndexErrors, SearchIndexResponses, SearchPostsData, SearchPostsErrors, SearchPostsResponses, SetIndexSourceData, SetIndexSourceErrors, SetIndexSourceResponses, SetModeratorData, SetModeratorErrors, SetModeratorResponses, SetNsfwData, SetNsfwErrors, SetNsfwResponses, SetTrustData, SetTrustErrors, SetTrustResponses, SignOutData, SignOutErrors, SignOutResponses, SignUpData, SignUpErrors, SignupModeData, SignupModeErrors, SignupModeResponses, SignUpResponses, SiteBanData, SiteBanErrors, SiteBanResponses, SiteBansData, SiteBansErrors, SiteBansResponses, SitePeersData, SitePeersErrors, SitePeersResponses, SiteReportsData, SiteReportsErrors, SiteReportsResponses, SiteUnbanData, SiteUnbanErrors, SiteUnbanResponses, ThreadData, ThreadErrors, ThreadResponses, UnbanActorData, UnbanActorErrors, UnbanActorResponses, UpdateCommunityData, UpdateCommunityErrors, UpdateCommunityResponses, UpdateProfileData, UpdateProfileErrors, UpdateProfileResponses, UploadImageData, UploadImageErrors, UploadImageResponses, VoteData, VoteErrors, VoteResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -74,6 +74,23 @@ export const addToDirectory = <ThrowOnError extends boolean = false>(options: Op
  */
 export const removeFromDirectory = <ThrowOnError extends boolean = false>(options: Options<RemoveFromDirectoryData, ThrowOnError>): RequestResult<RemoveFromDirectoryResponses, RemoveFromDirectoryErrors, ThrowOnError> => (options.client ?? client).post<RemoveFromDirectoryResponses, RemoveFromDirectoryErrors, ThrowOnError>({
     url: '/api/admin/directory/remove',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List the community index, most active first, to choose communities for the directory
+ */
+export const communityIndex = <ThrowOnError extends boolean = false>(options?: Options<CommunityIndexData, ThrowOnError>): RequestResult<CommunityIndexResponses, CommunityIndexErrors, ThrowOnError> => (options?.client ?? client).get<CommunityIndexResponses, CommunityIndexErrors, ThrowOnError>({ url: '/api/admin/index', ...options });
+
+/**
+ * Read a server's communities into the community index every day, or stop
+ */
+export const setIndexSource = <ThrowOnError extends boolean = false>(options: Options<SetIndexSourceData, ThrowOnError>): RequestResult<SetIndexSourceResponses, SetIndexSourceErrors, ThrowOnError> => (options.client ?? client).post<SetIndexSourceResponses, SetIndexSourceErrors, ThrowOnError>({
+    url: '/api/admin/index-sources',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -463,6 +480,18 @@ export const me = <ThrowOnError extends boolean = false>(options?: Options<MeDat
 export const myCommunities = <ThrowOnError extends boolean = false>(options?: Options<MyCommunitiesData, ThrowOnError>): RequestResult<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError> => (options?.client ?? client).get<MyCommunitiesResponses, MyCommunitiesErrors, ThrowOnError>({ url: '/api/me/communities', ...options });
 
 /**
+ * Turn the NSFW setting on, with a confirmation of age 18 or older, or off
+ */
+export const setNsfw = <ThrowOnError extends boolean = false>(options: Options<SetNsfwData, ThrowOnError>): RequestResult<SetNsfwResponses, SetNsfwErrors, ThrowOnError> => (options.client ?? client).put<SetNsfwResponses, SetNsfwErrors, ThrowOnError>({
+    url: '/api/me/nsfw',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Change my display name, bio and bot flag
  */
 export const updateProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateProfileData, ThrowOnError>): RequestResult<UpdateProfileResponses, UpdateProfileErrors, ThrowOnError> => (options.client ?? client).put<UpdateProfileResponses, UpdateProfileErrors, ThrowOnError>({
@@ -597,7 +626,7 @@ export const publishPost = <ThrowOnError extends boolean = false>(options: Optio
 export const deletePost = <ThrowOnError extends boolean = false>(options: Options<DeletePostData, ThrowOnError>): RequestResult<DeletePostResponses, DeletePostErrors, ThrowOnError> => (options.client ?? client).delete<DeletePostResponses, DeletePostErrors, ThrowOnError>({ url: '/api/posts/{ref}', ...options });
 
 /**
- * Read a post and its comments
+ * Read a post and its comments; an NSFW post needs the NSFW setting on
  */
 export const thread = <ThrowOnError extends boolean = false>(options: Options<ThreadData, ThrowOnError>): RequestResult<ThreadResponses, ThreadErrors, ThrowOnError> => (options.client ?? client).get<ThreadResponses, ThreadErrors, ThrowOnError>({ url: '/api/posts/{ref}', ...options });
 
@@ -646,6 +675,11 @@ export const searchComments = <ThrowOnError extends boolean = false>(options?: O
  * Search communities on this site, in the directory, or followed by someone here, largest first
  */
 export const searchCommunities = <ThrowOnError extends boolean = false>(options?: Options<SearchCommunitiesData, ThrowOnError>): RequestResult<SearchCommunitiesResponses, SearchCommunitiesErrors, ThrowOnError> => (options?.client ?? client).get<SearchCommunitiesResponses, SearchCommunitiesErrors, ThrowOnError>({ url: '/api/search/communities', ...options });
+
+/**
+ * Search communities on other servers that nobody here follows, most active first
+ */
+export const searchIndex = <ThrowOnError extends boolean = false>(options?: Options<SearchIndexData, ThrowOnError>): RequestResult<SearchIndexResponses, SearchIndexErrors, ThrowOnError> => (options?.client ?? client).get<SearchIndexResponses, SearchIndexErrors, ThrowOnError>({ url: '/api/search/index', ...options });
 
 /**
  * Search post titles and bodies, newest first

@@ -44,6 +44,15 @@ func (s *Server) queueBackfill(ctx context.Context, tx pgx.Tx, group actors.Acto
 	return nil
 }
 
+// Backfill queues a fetch of a remote community's newest posts, for a community
+// someone here opened.
+func (s *Server) Backfill(ctx context.Context, group actors.Actor) error {
+	if _, err := s.River.Insert(ctx, BackfillArgs{GroupApID: group.ApID}, nil); err != nil {
+		return fmt.Errorf("queue backfill of %s: %w", group.ApID, err)
+	}
+	return nil
+}
+
 type backfillWorker struct {
 	river.WorkerDefaults[BackfillArgs]
 	s *Server

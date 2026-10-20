@@ -122,6 +122,16 @@ func (q *Queries) DeleteBan(ctx context.Context, arg DeleteBanParams) error {
 	return err
 }
 
+const deleteIndexOfDomain = `-- name: DeleteIndexOfDomain :exec
+DELETE FROM community_index WHERE domain = $1 OR server = $1
+`
+
+// A blocked server's communities leave the community index at once.
+func (q *Queries) DeleteIndexOfDomain(ctx context.Context, domain string) error {
+	_, err := q.db.Exec(ctx, deleteIndexOfDomain, domain)
+	return err
+}
+
 const deleteMembershipForBan = `-- name: DeleteMembershipForBan :exec
 DELETE FROM memberships WHERE community_id = $1 AND actor_id = $2
 `
@@ -374,9 +384,11 @@ func (q *Queries) ModeratorOf(ctx context.Context, arg ModeratorOfParams) (strin
 }
 
 const peers = `-- name: Peers :many
-SELECT p.domain, p.software, p.version, p.blocked, p.reason, p.last_ok_at, p.failing_since
+SELECT p.domain, p.software, p.version, p.blocked, p.reason, p.last_ok_at, p.failing_since,
+    p.index_source, p.indexed_at,
+    (SELECT count(*) FROM community_index i WHERE i.server = p.domain)::bigint AS indexed
 FROM peers p
-ORDER BY p.blocked DESC, coalesce(p.last_ok_at, p.created_at) DESC, p.domain
+ORDER BY p.blocked DESC, p.index_source DESC, coalesce(p.last_ok_at, p.created_at) DESC, p.domain
 LIMIT $1
 `
 
@@ -388,6 +400,9 @@ type PeersRow struct {
 	Reason       string
 	LastOkAt     *time.Time
 	FailingSince *time.Time
+	IndexSource  bool
+	IndexedAt    *time.Time
+	Indexed      int64
 }
 
 // Peers are the servers this installation has exchanged activities with.
@@ -409,6 +424,9 @@ func (q *Queries) Peers(ctx context.Context, lim int32) ([]PeersRow, error) {
 			&i.Reason,
 			&i.LastOkAt,
 			&i.FailingSince,
+			&i.IndexSource,
+			&i.IndexedAt,
+			&i.Indexed,
 		); err != nil {
 			return nil, err
 		}
@@ -845,6 +863,21 @@ type SetPeerBlockedParams struct {
 
 func (q *Queries) SetPeerBlocked(ctx context.Context, arg SetPeerBlockedParams) error {
 	_, err := q.db.Exec(ctx, setPeerBlocked, arg.Domain, arg.Blocked, arg.Reason)
+	return err
+}
+
+const setPeerIndexSource = `-- name: SetPeerIndexSource :exec
+INSERT INTO peers (domain, index_source) VALUES ($1, $2)
+ON CONFLICT (domain) DO UPDATE SET index_source = excluded.index_source
+`
+
+type SetPeerIndexSourceParams struct {
+	Domain      string
+	IndexSource bool
+}
+
+func (q *Queries) SetPeerIndexSource(ctx context.Context, arg SetPeerIndexSourceParams) error {
+	_, err := q.db.Exec(ctx, setPeerIndexSource, arg.Domain, arg.IndexSource)
 	return err
 }
 

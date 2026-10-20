@@ -39,5 +39,7 @@ A community that owns its domain can move to another installation and keep its a
 - site follow: the follow that the site follower, a Service actor on the app domain, sends to each directory community; it is not a membership. Avoid: instance follow, subscription.
 - Popular: the front-page feed of posts from local, directory and joined communities, ranked by hot rank. Avoid: trending, hot feed, frontpage.
 - All: the front-page feed of the same posts, newest first. Avoid: everything, global feed.
+- community index: the list of remote communities notid reads each day from the community lists of Lemmy and PieFed servers, which Search shows. Avoid: catalog, registry, community cache.
+- NSFW setting: a person's choice to see NSFW posts and communities; off by default, on only after an 18+ confirmation. Avoid: adult mode, safe search, age gate.
 - departed: the state of a community on the installation it moved away from. Avoid: archived, moved, deleted.
 - moderation log: the append-only public record of moderator and admin actions. Avoid: audit log, mod log, journal.

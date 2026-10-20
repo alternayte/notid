@@ -33,6 +33,15 @@ type profileBody struct {
 	Bot         bool   `json:"bot" doc:"Mark the account as automated. Only bot accounts can create API keys"`
 }
 
+type nsfwBody struct {
+	Show  bool `json:"show" doc:"true shows NSFW posts and communities"`
+	Adult bool `json:"adult,omitempty" doc:"The person confirms they are 18 or older; required to turn the setting on"`
+}
+
+type nsfwOut struct {
+	Show bool `json:"show"`
+}
+
 var errNoPerson = errors.New("no person at that address")
 
 func (s *Service) profile(a accountsdb.Actor) Profile {
@@ -75,5 +84,23 @@ func (s *Service) registerProfiles(api huma.API) {
 			return nil, fmt.Errorf("update profile: %w", err)
 		}
 		return &struct{ Body Profile }{s.profile(a)}, nil
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "setNsfw", Method: http.MethodPut, Path: "/api/me/nsfw",
+		Summary: "Turn the NSFW setting on, with a confirmation of age 18 or older, or off", Tags: tags,
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *struct{ Body nsfwBody }) (*struct{ Body nsfwOut }, error) {
+		me := ActorFrom(ctx)
+		if me == nil {
+			return nil, huma.Error401Unauthorized("sign in first")
+		}
+		if in.Body.Show && !in.Body.Adult {
+			return nil, huma.Error422UnprocessableEntity("Confirm that you are 18 or older to show NSFW content.")
+		}
+		at, err := accountsdb.New(s.Pool).SetNSFWSetting(ctx, accountsdb.SetNSFWSettingParams{ID: me.ID, Show: in.Body.Show})
+		if err != nil {
+			return nil, fmt.Errorf("nsfw setting: %w", err)
+		}
+		return &struct{ Body nsfwOut }{nsfwOut{Show: at != nil}}, nil
 	})
 }

@@ -11,25 +11,27 @@ import (
 )
 
 type Actor struct {
-	ID            int64
-	ApID          string
-	Kind          string
-	Local         bool
-	UserID        *uuid.UUID
-	Domain        string
-	Name          string
-	DisplayName   string
-	Summary       string
-	Inbox         string
-	SharedInbox   string
-	PublicKeyPem  string
-	PrivateKeyEnc []byte
-	Bot           bool
-	Trust         *string
-	PromotedAt    *time.Time
-	DeletedAt     *time.Time
-	FetchedAt     *time.Time
-	CreatedAt     time.Time
+	ID              int64
+	ApID            string
+	Kind            string
+	Local           bool
+	UserID          *uuid.UUID
+	Domain          string
+	Name            string
+	DisplayName     string
+	Summary         string
+	Inbox           string
+	SharedInbox     string
+	PublicKeyPem    string
+	PrivateKeyEnc   []byte
+	Bot             bool
+	Trust           *string
+	PromotedAt      *time.Time
+	DeletedAt       *time.Time
+	FetchedAt       *time.Time
+	CreatedAt       time.Time
+	Sensitive       bool
+	NsfwConfirmedAt *time.Time
 }
 
 type AuthUser struct {
@@ -103,6 +105,20 @@ type CommunityDomain struct {
 	CreatedAt   time.Time
 }
 
+type CommunityIndex struct {
+	ApID        string
+	Server      string
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	ActiveMonth int32
+	Software    string
+	Nsfw        bool
+	ReadAt      time.Time
+	Search      interface{}
+}
+
 type Directory struct {
 	CommunityID int64
 	AddedBy     int64
@@ -167,6 +183,8 @@ type Peer struct {
 	LastOkAt     *time.Time
 	FailingSince *time.Time
 	CreatedAt    time.Time
+	IndexSource  bool
+	IndexedAt    *time.Time
 }
 
 type Post struct {

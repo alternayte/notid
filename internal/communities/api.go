@@ -35,7 +35,9 @@ type Service struct {
 	SendFollow func(ctx context.Context, tx pgx.Tx, person, group actors.Actor) (string, error)
 	// SendUnfollow queues an Undo of the Follow with the given AP ID.
 	SendUnfollow func(ctx context.Context, tx pgx.Tx, person actors.Actor, groupApID, followApID string) error
-	Tuning       platform.Tuning
+	// Backfill queues a fetch of a remote community's newest posts.
+	Backfill func(ctx context.Context, group actors.Actor) error
+	Tuning   platform.Tuning
 	// IsAdmin reports whether the person holds auth-all's admin role, for the directory.
 	IsAdmin func(ctx context.Context, a actors.Actor) (bool, error)
 }
@@ -128,6 +130,7 @@ type directoryOut struct {
 
 func (s *Service) Register(api huma.API) {
 	tags := []string{"communities"}
+	s.registerIndex(api)
 	huma.Register(api, huma.Operation{
 		OperationID: "createCommunity", Method: http.MethodPost, Path: "/api/communities",
 		Summary: "Create a community on this site", Tags: tags, DefaultStatus: http.StatusCreated,
@@ -491,13 +494,18 @@ func (s *Service) address(ref string) string {
 }
 
 // Lookup resolves an address to a community, and records a remote community
-// the first time someone here looks it up.
+// the first time someone here looks it up. It also fetches a remote
+// community's newest posts, so a community nobody here follows opens with posts.
 func (s *Service) Lookup(ctx context.Context, ref string) (Community, error) {
 	g, err := s.Resolve(ctx, s.address(ref))
 	if err != nil || g.Kind != "group" {
 		return Community{}, fmt.Errorf("%q: %w", ref, ErrNotACommunity)
 	}
-	return s.communityOf(ctx, communitiesdb.New(s.Pool), g)
+	c, err := s.communityOf(ctx, communitiesdb.New(s.Pool), g)
+	if err != nil || g.Local || s.Backfill == nil {
+		return c, err
+	}
+	return c, s.Backfill(ctx, g)
 }
 
 func (s *Service) communityOf(ctx context.Context, q *communitiesdb.Queries, g actors.Actor) (Community, error) {

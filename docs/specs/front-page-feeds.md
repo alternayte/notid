@@ -16,7 +16,7 @@ A join or a directory add fetches the community's newest posts and, for each, it
 - Popular and All draw from local communities, directory communities and communities with a local member, without blocked peers — the same set search already uses.
 - Popular uses Lemmy's hot rank, `log10(max(1, 3 + score)) / (hours + 2)^1.8`, computed at query time over the last 7 days — no stored column or job at this size.
 - The Popular cursor carries the time of the first page — the order does not shift while the reader pages.
-- Popular and All leave out NSFW posts and posts in NSFW communities, with no setting — they are the signed-out front page and notid has no age gate.
+- Popular and All leave out NSFW posts and posts in NSFW communities unless the reader's NSFW setting is on — they are the signed-out front page; see community-discovery.md.
 - The feed is a URL parameter, `/?feed=home|popular|all` — a link opens the same feed.
 - Backfill fetches up to 20 posts and, for each post, up to 50 of its newest comments from the post's `context` collection, or its `replies` collection, each read from its origin — older posts arrive with their discussion.
 - Lemmy 0.19 publishes neither collection, so for a post at `/post/{id}` notid lists its newest comments through Lemmy's `/api/v3/comment/list` and reads each from its origin — the API only names comments, so it cannot inject content; deleted and removed comments are skipped.
@@ -24,9 +24,8 @@ A join or a directory add fetches the community's newest posts and, for each, it
 
 ## Out
 - A bulk import of a peer's communities.
-- Any use of the Lemmy or PieFed client APIs beyond listing a Lemmy post's comments.
+- Any use of the Lemmy or PieFed client APIs beyond listing a Lemmy post's comments and, since community-discovery.md, community lists.
 - Remote scores for backfilled posts and comments; they start at 0.
-- An NSFW preference or age gate.
 - Per-person filters on Popular, such as hiding a community.
 
 ## How I know it works

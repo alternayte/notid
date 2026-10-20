@@ -187,11 +187,21 @@ WHERE community_id = @community_id AND actor_id = @actor_id;
 -- Peers are the servers this installation has exchanged activities with.
 -- Delivery health is the last answer and, when one failed, the start of the run.
 -- name: Peers :many
-SELECT p.domain, p.software, p.version, p.blocked, p.reason, p.last_ok_at, p.failing_since
+SELECT p.domain, p.software, p.version, p.blocked, p.reason, p.last_ok_at, p.failing_since,
+    p.index_source, p.indexed_at,
+    (SELECT count(*) FROM community_index i WHERE i.server = p.domain)::bigint AS indexed
 FROM peers p
-ORDER BY p.blocked DESC, coalesce(p.last_ok_at, p.created_at) DESC, p.domain
+ORDER BY p.blocked DESC, p.index_source DESC, coalesce(p.last_ok_at, p.created_at) DESC, p.domain
 LIMIT @lim;
 
 -- name: SetPeerBlocked :exec
 INSERT INTO peers (domain, blocked, reason) VALUES (@domain, @blocked, @reason)
 ON CONFLICT (domain) DO UPDATE SET blocked = excluded.blocked, reason = excluded.reason;
+
+-- A blocked server's communities leave the community index at once.
+-- name: DeleteIndexOfDomain :exec
+DELETE FROM community_index WHERE domain = @domain OR server = @domain;
+
+-- name: SetPeerIndexSource :exec
+INSERT INTO peers (domain, index_source) VALUES (@domain, @index_source)
+ON CONFLICT (domain) DO UPDATE SET index_source = excluded.index_source;

@@ -71,10 +71,10 @@ func CreateLocal(ctx context.Context, tx pgx.Tx, local actors.Local, person acto
 	return update(ctx, tx, c, person.ID, s)
 }
 
-// ApplyRemoteUpdate stores a remote group's new title and description.
-func ApplyRemoteUpdate(ctx context.Context, db communitiesdb.DBTX, apID, title, description string) (bool, error) {
+// ApplyRemoteUpdate stores a remote group's new title, description and NSFW flag.
+func ApplyRemoteUpdate(ctx context.Context, db communitiesdb.DBTX, apID, title, description string, nsfw bool) (bool, error) {
 	_, err := communitiesdb.New(db).UpdateRemoteCommunity(ctx, communitiesdb.UpdateRemoteCommunityParams{
-		ApID: apID, Title: title, Description: description,
+		ApID: apID, Title: title, Description: description, Nsfw: nsfw,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -187,4 +187,12 @@ func Leave(ctx context.Context, tx pgx.Tx, person actors.Actor, communityID int6
 		return "", nil
 	}
 	return *m.FollowApID, nil
+}
+
+// SyncRemoteNSFW copies a freshly fetched remote group's sensitive flag to its community.
+func SyncRemoteNSFW(ctx context.Context, db communitiesdb.DBTX, actorID int64) error {
+	if err := communitiesdb.New(db).SyncRemoteCommunityNSFW(ctx, actorID); err != nil {
+		return fmt.Errorf("nsfw of group %d: %w", actorID, err)
+	}
+	return nil
 }

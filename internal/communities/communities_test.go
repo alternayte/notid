@@ -319,3 +319,63 @@ func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
 		}
 	}
 }
+
+func TestSearchIndexShowsCommunitiesNobodyHereFollowsAndHidesNSFWUntilTheSettingIsOn(t *testing.T) {
+	ctx := context.Background()
+	tx := pgtest.Tx(t)
+	viewer := person(t, tx, "trusted")
+	word := name()
+	host := word + ".example"
+	entry := func(n string, nsfw bool) string {
+		apID := "https://" + host + "/c/" + n
+		if _, err := tx.Exec(ctx, `INSERT INTO community_index (ap_id, server, domain, name, title, active_month, software, nsfw)
+			VALUES ($1, $2, $2, $3, $4, 10, 'lemmy', $5)`, apID, host, n, word+" "+n, nsfw); err != nil {
+			t.Fatal(err)
+		}
+		return apID
+	}
+	open, adult, listed := entry("open", false), entry("adult", true), entry("listed", false)
+	// A directory community already shows in community search, so the index leaves it out.
+	g, err := actors.UpsertRemote(ctx, tx, actors.Remote{ApID: listed, Kind: "group", Domain: host, Name: "listed", Inbox: listed + "/inbox"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var listedID int64
+	if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, $2, 'listed') RETURNING id`, g.ID, host).Scan(&listedID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO directory (community_id, added_by) VALUES ($1, $2)`, listedID, viewer.ID); err != nil {
+		t.Fatal(err)
+	}
+	found := func(viewerID *int64) []string {
+		t.Helper()
+		rows, err := communitiesdb.New(tx).SearchIndex(ctx, communitiesdb.SearchIndexParams{ViewerID: viewerID, Query: word, Lim: 20})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, r := range rows {
+			out = append(out, r.ApID)
+		}
+		slices.Sort(out)
+		return out
+	}
+	if got := found(nil); !slices.Equal(got, []string{open}) {
+		t.Fatalf("signed out, the index shows %v", got)
+	}
+	if got := found(&viewer.ID); !slices.Equal(got, []string{open}) {
+		t.Fatalf("with the NSFW setting off, the index shows %v", got)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE actors SET nsfw_confirmed_at = now() WHERE id = $1`, viewer.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := found(&viewer.ID); !slices.Equal(got, []string{adult, open}) {
+		t.Fatalf("with the NSFW setting on, the index shows %v", got)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO peers (domain, blocked) VALUES ($1, true)`, host); err != nil {
+		t.Fatal(err)
+	}
+	if got := found(&viewer.ID); len(got) != 0 {
+		t.Fatalf("a blocked peer's communities show: %v", got)
+	}
+}

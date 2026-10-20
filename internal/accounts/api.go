@@ -27,6 +27,7 @@ type Me struct {
 	Bot         bool   `json:"bot"`
 	Trust       string `json:"trust" enum:"new,trusted"`
 	Admin       bool   `json:"admin" doc:"A site admin sees /admin and can act on any community's local content"`
+	ShowNSFW    bool   `json:"showNsfw" doc:"The NSFW setting: NSFW posts and communities show only while it is on"`
 }
 
 type SignupMode struct {
@@ -115,6 +116,7 @@ func (s *Service) Register(api huma.API) {
 			Bot:         a.Bot,
 			Trust:       trust,
 			Admin:       admin,
+			ShowNSFW:    a.NsfwConfirmedAt != nil,
 		}}, nil
 	})
 

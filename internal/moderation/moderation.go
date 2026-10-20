@@ -32,7 +32,9 @@ type Service struct {
 	// SendFlag federates a report on content in a remote community, as its
 	// reporter, and returns the Flag's activity ID.
 	SendFlag func(ctx context.Context, tx pgx.Tx, communityID int64, reporter actors.Actor, objectApID, reason string) (string, error)
-	Logger   *slog.Logger
+	// QueueIndex queues a read of a server's community list into the community index.
+	QueueIndex func(ctx context.Context, tx pgx.Tx, server string) error
+	Logger     *slog.Logger
 }
 
 var (

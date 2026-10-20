@@ -9,8 +9,10 @@ import {
   threadOptions,
   threadQueryKey,
 } from '~/api/gen/@tanstack/react-query.gen'
+import type { ThreadView } from '~/api/gen/types.gen'
 import { About } from '~/communities/About'
 import { accentAttr } from '~/communities/accents'
+import { MarkedNotice } from '~/communities/MarkedNotice'
 import { Age } from '~/discussions/Age'
 import { CommentAuthorActions, PostAuthorActions } from '~/discussions/AuthorActions'
 import { AuthorLink, splitHandle } from '~/discussions/AuthorLink'
@@ -28,19 +30,37 @@ import { Page } from './__root'
 
 export const Route = createFileRoute('/c/$handle_/p/$ref')({
   loader: async ({ context, params }) => {
-    const t = await context.queryClient.ensureQueryData(threadOptions({ path: { ref: params.ref } })).catch(() => {
+    let t: ThreadView
+    try {
+      t = await context.queryClient.ensureQueryData(threadOptions({ path: { ref: params.ref } }))
+    } catch (err) {
+      // The API refuses an NSFW post while the viewer's NSFW setting is off.
+      if ((err as { status?: number } | null)?.status === 403) return { marked: true, title: undefined }
       throw notFound()
-    })
+    }
     // A ref is global, so a link with another community's handle still finds the post; send it to its own address.
     if (t.post.community !== params.handle) {
       throw redirect({ to: '/c/$handle/p/$ref', params: { handle: t.post.community, ref: params.ref } })
     }
     await context.queryClient.ensureQueryData(communityOptions({ path: { handle: params.handle } }))
-    return t.post.title
+    return { marked: false, title: t.post.title }
   },
-  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData ?? 'Post'} · Open Communities` }] }),
-  component: ThreadPage,
+  head: ({ loaderData }) => ({ meta: [{ title: `${loaderData?.title ?? 'Post'} · Open Communities` }] }),
+  component: ThreadRoute,
 })
+
+function ThreadRoute() {
+  const { marked } = Route.useLoaderData()
+  const { data: me } = useQuery({ ...meOptions(), retry: false })
+  if (marked) {
+    return (
+      <Page>
+        <MarkedNotice signedIn={!!me} />
+      </Page>
+    )
+  }
+  return <ThreadPage />
+}
 
 function ThreadPage() {
   const { handle, ref } = Route.useParams()

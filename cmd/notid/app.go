@@ -140,7 +140,7 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 		maps.Copy(rcfg.Queues, accountsSvc.Queues())
 		maps.Copy(rcfg.Queues, mediaSvc.Queues())
 		maps.Copy(rcfg.Queues, discussionsSvc.Queues())
-		rcfg.PeriodicJobs = slices.Concat(probes.PeriodicJobs(), accountsSvc.PeriodicJobs(), mediaSvc.PeriodicJobs())
+		rcfg.PeriodicJobs = slices.Concat(fed.PeriodicJobs(), probes.PeriodicJobs(), accountsSvc.PeriodicJobs(), mediaSvc.PeriodicJobs())
 	}
 	rc, err := river.NewClient(riverpgxv5.New(pool), rcfg)
 	if err != nil {
@@ -153,11 +153,13 @@ func wire(cfg platform.Config, t platform.Tuning, log *slog.Logger, pool *pgxpoo
 	moderationSvc.SendBlock = fed.SendBlock
 	moderationSvc.SendRole = fed.SendRole
 	moderationSvc.SendFlag = fed.SendFlag
+	moderationSvc.QueueIndex = fed.QueueIndex
 	accountsSvc.SendPersonDelete = fed.SendPersonDelete
 	communitiesSvc.Resolve = fed.Resolve
 	communitiesSvc.SendGroupUpdate = fed.SendGroupUpdate
 	communitiesSvc.SendFollow = fed.SendFollow
 	communitiesSvc.SendUnfollow = fed.SendUnfollow
+	communitiesSvc.Backfill = fed.Backfill
 	discussionsSvc.SendPost = fed.SendPost
 	discussionsSvc.SendComment = fed.SendComment
 	discussionsSvc.SendVote = fed.SendVote

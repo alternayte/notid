@@ -153,3 +153,35 @@ ON CONFLICT (community_id, actor_id) DO UPDATE SET role = excluded.role;
 -- name: ObjectKnown :one
 SELECT (EXISTS (SELECT 1 FROM posts p WHERE p.ap_id = sqlc.arg(ap_id)::text)
     OR EXISTS (SELECT 1 FROM comments m WHERE m.ap_id = sqlc.arg(ap_id)::text))::boolean AS known;
+
+-- The servers the community index reads: every server an admin chose, and every
+-- peer that runs Lemmy or PieFed or whose software notid has not read yet.
+-- name: IndexServers :many
+SELECT domain FROM peers
+WHERE NOT blocked AND (index_source OR software IN ('lemmy', 'piefed', ''))
+ORDER BY domain;
+
+-- Inside the rewrite's transaction the lock makes a concurrent block wait, so
+-- its delete of the server's rows runs after the rewrite.
+-- name: PeerForIndex :one
+SELECT domain, software, blocked, index_source FROM peers WHERE domain = @domain FOR UPDATE;
+
+-- name: SetPeerSoftware :exec
+UPDATE peers SET software = @software, version = @version WHERE domain = @domain;
+
+-- name: DeleteIndexOfServer :exec
+DELETE FROM community_index WHERE server = @server;
+
+-- Rows of servers the index no longer reads.
+-- name: DeleteIndexOutside :exec
+DELETE FROM community_index WHERE NOT (server = ANY(@servers::text[]));
+
+-- name: InsertIndexEntry :exec
+INSERT INTO community_index (ap_id, server, domain, name, title, description, active_month, software, nsfw)
+VALUES (@ap_id, @server, @domain, @name, @title, @description, @active_month, @software, @nsfw)
+ON CONFLICT (ap_id) DO UPDATE SET server = excluded.server, domain = excluded.domain, name = excluded.name,
+    title = excluded.title, description = excluded.description, active_month = excluded.active_month,
+    software = excluded.software, nsfw = excluded.nsfw, read_at = now();
+
+-- name: PeerIndexed :exec
+UPDATE peers SET indexed_at = now() WHERE domain = @domain;

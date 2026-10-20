@@ -53,6 +53,7 @@ var (
 	ErrNoCommunity   = errors.New("no community at that address")
 	ErrNotActive     = errors.New("the community does not accept posts here now")
 	ErrNoObject      = errors.New("no post or comment at that address")
+	ErrMarkedNSFW    = errors.New("marked 18+; turn on NSFW in Settings to see it")
 	ErrURLAndImage   = errors.New("a post links to a URL or shows an image, not both")
 	ErrBanned        = errors.New("you are banned from this community")
 	ErrNotModerator  = errors.New("only the community's owners and moderators can do that")
@@ -156,7 +157,8 @@ func (s *Service) registerReads(api huma.API) {
 	tags := []string{"discussions"}
 	huma.Register(api, huma.Operation{
 		OperationID: "thread", Method: http.MethodGet, Path: "/api/posts/{ref}",
-		Summary: "Read a post and its comments", Tags: tags, Errors: []int{http.StatusNotFound},
+		Summary: "Read a post and its comments; an NSFW post needs the NSFW setting on", Tags: tags,
+		Errors: []int{http.StatusForbidden, http.StatusNotFound},
 	}, func(ctx context.Context, in *struct {
 		Ref string `path:"ref" pattern:"^[a-z2-7]{12}$"`
 	}) (*struct{ Body ThreadView }, error) {
@@ -389,6 +391,8 @@ func apiError(err error) error {
 		return huma.Error422UnprocessableEntity(err.Error())
 	case errors.Is(err, ErrNotActive):
 		return huma.Error409Conflict("This community is moving and is read-only for now.")
+	case errors.Is(err, ErrMarkedNSFW):
+		return huma.Error403Forbidden(err.Error())
 	}
 	return err
 }

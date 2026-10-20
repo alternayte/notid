@@ -26,6 +26,73 @@ func (q *Queries) AddToDirectory(ctx context.Context, arg AddToDirectoryParams) 
 	return err
 }
 
+const adminIndex = `-- name: AdminIndex :many
+SELECT i.ap_id, i.domain, i.name, i.title, i.description, i.active_month, i.software, i.nsfw,
+    EXISTS (SELECT 1 FROM actors ga JOIN communities c ON c.actor_id = ga.id
+            JOIN directory d ON d.community_id = c.id WHERE ga.ap_id = i.ap_id)::boolean AS in_directory
+FROM community_index i
+WHERE ($1::text = '' OR i.search @@ websearch_to_tsquery('simple', $1::text))
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = i.domain AND pe.blocked)
+  AND (NOT i.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $2 AND va.nsfw_confirmed_at IS NOT NULL))
+ORDER BY i.active_month DESC, i.ap_id
+LIMIT $4 OFFSET $3
+`
+
+type AdminIndexParams struct {
+	Query    string
+	ViewerID int64
+	Off      int32
+	Lim      int32
+}
+
+type AdminIndexRow struct {
+	ApID        string
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	ActiveMonth int32
+	Software    string
+	Nsfw        bool
+	InDirectory bool
+}
+
+// The admin's view of the index: most active first, optionally matching words.
+func (q *Queries) AdminIndex(ctx context.Context, arg AdminIndexParams) ([]AdminIndexRow, error) {
+	rows, err := q.db.Query(ctx, adminIndex,
+		arg.Query,
+		arg.ViewerID,
+		arg.Off,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminIndexRow
+	for rows.Next() {
+		var i AdminIndexRow
+		if err := rows.Scan(
+			&i.ApID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Description,
+			&i.ActiveMonth,
+			&i.Software,
+			&i.Nsfw,
+			&i.InDirectory,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const communityByActorID = `-- name: CommunityByActorID :one
 SELECT id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search FROM communities WHERE actor_id = $1
 `
@@ -259,6 +326,7 @@ LEFT JOIN memberships my ON my.community_id = c.id AND my.actor_id = $1::bigint
 WHERE c.state = 'active'
   AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND (a.local OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id))
+  AND (NOT c.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY members DESC, c.id
 LIMIT $3 OFFSET $2
 `
@@ -390,9 +458,9 @@ func (q *Queries) InsertOwner(ctx context.Context, arg InsertOwnerParams) error 
 }
 
 const insertRemoteCommunity = `-- name: InsertRemoteCommunity :one
-INSERT INTO communities (actor_id, domain, name, title, description)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description
+INSERT INTO communities (actor_id, domain, name, title, description, nsfw)
+VALUES ($1, $2, $3, $4, $5, (SELECT a.sensitive FROM actors a WHERE a.id = $1))
+ON CONFLICT (actor_id) DO UPDATE SET title = excluded.title, description = excluded.description, nsfw = excluded.nsfw
 RETURNING id, actor_id, domain, name, title, description, theme, appeals_contact, state, nsfw, hold_new_posts, created_at, search
 `
 
@@ -404,6 +472,7 @@ type InsertRemoteCommunityParams struct {
 	Description string
 }
 
+// A remote community takes its NSFW flag from its group's sensitive flag.
 func (q *Queries) InsertRemoteCommunity(ctx context.Context, arg InsertRemoteCommunityParams) (Community, error) {
 	row := q.db.QueryRow(ctx, insertRemoteCommunity,
 		arg.ActorID,
@@ -643,6 +712,7 @@ WHERE c.state = 'active'
     OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (NOT c.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY members DESC, c.id
 LIMIT $3
 `
@@ -703,6 +773,85 @@ func (q *Queries) SearchCommunities(ctx context.Context, arg SearchCommunitiesPa
 	return items, nil
 }
 
+const searchIndex = `-- name: SearchIndex :many
+SELECT i.ap_id, i.domain, i.name, i.title, i.description, i.active_month, i.software, i.nsfw,
+    EXISTS (SELECT 1 FROM actors ka JOIN communities kc ON kc.actor_id = ka.id WHERE ka.ap_id = i.ap_id)::boolean AS known
+FROM community_index i
+WHERE i.search @@ websearch_to_tsquery('simple', $1)
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = i.domain AND pe.blocked)
+  AND (NOT i.nsfw OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $2::bigint AND va.nsfw_confirmed_at IS NOT NULL))
+  AND NOT EXISTS (
+    SELECT 1 FROM actors ga JOIN communities c ON c.actor_id = ga.id
+    WHERE ga.ap_id = i.ap_id
+      AND (EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+        OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+                   WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted')))
+ORDER BY i.active_month DESC, i.ap_id
+LIMIT $3
+`
+
+type SearchIndexParams struct {
+	Query    string
+	ViewerID *int64
+	Lim      int32
+}
+
+type SearchIndexRow struct {
+	ApID        string
+	Domain      string
+	Name        string
+	Title       string
+	Description string
+	ActiveMonth int32
+	Software    string
+	Nsfw        bool
+	Known       bool
+}
+
+// The community index is what notid read from the community lists of Lemmy and
+// PieFed servers. Search shows the entries that the search above leaves out:
+// communities nobody here follows. known marks the ones this site has fetched.
+func (q *Queries) SearchIndex(ctx context.Context, arg SearchIndexParams) ([]SearchIndexRow, error) {
+	rows, err := q.db.Query(ctx, searchIndex, arg.Query, arg.ViewerID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchIndexRow
+	for rows.Next() {
+		var i SearchIndexRow
+		if err := rows.Scan(
+			&i.ApID,
+			&i.Domain,
+			&i.Name,
+			&i.Title,
+			&i.Description,
+			&i.ActiveMonth,
+			&i.Software,
+			&i.Nsfw,
+			&i.Known,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const syncRemoteCommunityNSFW = `-- name: SyncRemoteCommunityNSFW :exec
+UPDATE communities c SET nsfw = a.sensitive
+FROM actors a
+WHERE a.id = c.actor_id AND a.id = $1 AND NOT a.local
+`
+
+func (q *Queries) SyncRemoteCommunityNSFW(ctx context.Context, actorID int64) error {
+	_, err := q.db.Exec(ctx, syncRemoteCommunityNSFW, actorID)
+	return err
+}
+
 const updateCommunity = `-- name: UpdateCommunity :one
 UPDATE communities SET
     title = $1, description = $2, theme = $3,
@@ -751,20 +900,26 @@ func (q *Queries) UpdateCommunity(ctx context.Context, arg UpdateCommunityParams
 }
 
 const updateRemoteCommunity = `-- name: UpdateRemoteCommunity :one
-UPDATE communities c SET title = $1, description = $2
+UPDATE communities c SET title = $1, description = $2, nsfw = $3
 FROM actors a
-WHERE a.id = c.actor_id AND a.ap_id = $3 AND NOT a.local
+WHERE a.id = c.actor_id AND a.ap_id = $4 AND NOT a.local
 RETURNING c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, c.search
 `
 
 type UpdateRemoteCommunityParams struct {
 	Title       string
 	Description string
+	Nsfw        bool
 	ApID        string
 }
 
 func (q *Queries) UpdateRemoteCommunity(ctx context.Context, arg UpdateRemoteCommunityParams) (Community, error) {
-	row := q.db.QueryRow(ctx, updateRemoteCommunity, arg.Title, arg.Description, arg.ApID)
+	row := q.db.QueryRow(ctx, updateRemoteCommunity,
+		arg.Title,
+		arg.Description,
+		arg.Nsfw,
+		arg.ApID,
+	)
 	var i Community
 	err := row.Scan(
 		&i.ID,

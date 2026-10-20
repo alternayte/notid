@@ -20,6 +20,8 @@ type groupObject struct {
 	Type    string `json:"type"`
 	Name    string `json:"name"`
 	Summary string `json:"summary"`
+	// Sensitive is Lemmy's and PieFed's NSFW flag on a community.
+	Sensitive bool `json:"sensitive"`
 }
 
 // objectType reads the type of a linked or embedded object.
@@ -138,7 +140,7 @@ func (s *Server) planGroupUpdate(ctx context.Context, db federationdb.DBTX, act 
 	if p.community.ApID != doc.ID {
 		return p, reject(http.StatusForbidden, "%s does not describe %s", doc.ID, p.community.ApID)
 	}
-	p.groupName, p.groupSummary = doc.Name, doc.Summary
+	p.groupName, p.groupSummary, p.groupNSFW = doc.Name, doc.Summary, doc.Sensitive
 	return p, nil
 }
 
@@ -164,7 +166,7 @@ func (s *Server) applyRole(ctx context.Context, tx pgx.Tx, p contentPlan) (bool,
 	return true, nil
 }
 
-// applyGroupUpdate stores a remote group's new title and description.
+// applyGroupUpdate stores a remote group's new title, description and NSFW flag.
 func (s *Server) applyGroupUpdate(ctx context.Context, tx pgx.Tx, p contentPlan) (bool, error) {
-	return communities.ApplyRemoteUpdate(ctx, tx, p.community.ApID, p.groupName, p.groupSummary)
+	return communities.ApplyRemoteUpdate(ctx, tx, p.community.ApID, p.groupName, p.groupSummary, p.groupNSFW)
 }

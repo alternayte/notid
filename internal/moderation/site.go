@@ -166,6 +166,9 @@ type PeerView struct {
 	Reason       string     `json:"reason,omitempty" doc:"Why an admin blocked it"`
 	LastOKAt     *time.Time `json:"lastOkAt,omitempty"`
 	FailingSince *time.Time `json:"failingSince,omitempty" doc:"When the peer last failed; empty while it answers"`
+	IndexSource  bool       `json:"indexSource" doc:"An admin chose to index this server's communities"`
+	IndexedAt    *time.Time `json:"indexedAt,omitempty" doc:"The last successful read of its community list"`
+	Indexed      int64      `json:"indexed" doc:"Communities in the community index from this server"`
 }
 
 // Peers lists the servers this installation knows, with their delivery health.
@@ -182,6 +185,7 @@ func (s *Service) Peers(ctx context.Context, admin actors.Actor) ([]PeerView, er
 		out = append(out, PeerView{
 			Domain: r.Domain, Software: r.Software, Version: r.Version,
 			Blocked: r.Blocked, Reason: r.Reason, LastOKAt: r.LastOkAt, FailingSince: r.FailingSince,
+			IndexSource: r.IndexSource, IndexedAt: r.IndexedAt, Indexed: r.Indexed,
 		})
 	}
 	return out, nil
@@ -192,7 +196,7 @@ var ErrBadDomain = errors.New("that is not a domain this site can block")
 
 // SetPeerBlock stops or resumes federation with one server. A blocked peer's
 // activities are refused, nothing more is sent to it, and its communities
-// leave Discover and search.
+// leave Discover, search and the community index.
 func (s *Service) SetPeerBlock(ctx context.Context, admin actors.Actor, domain string, blocked bool, reason string) error {
 	if err := s.requireAdmin(ctx, admin); err != nil {
 		return err
@@ -201,10 +205,45 @@ func (s *Service) SetPeerBlock(ctx context.Context, admin actors.Actor, domain s
 	if domain == "" || len(domain) > 253 || domain == s.Local.AppDomain || strings.ContainsAny(domain, "/:@ \t") {
 		return ErrBadDomain
 	}
-	if err := moderationdb.New(s.Pool).SetPeerBlocked(ctx, moderationdb.SetPeerBlockedParams{
-		Domain: domain, Blocked: blocked, Reason: reason,
-	}); err != nil {
-		return fmt.Errorf("block peer %s: %w", domain, err)
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		q := moderationdb.New(tx)
+		if err := q.SetPeerBlocked(ctx, moderationdb.SetPeerBlockedParams{
+			Domain: domain, Blocked: blocked, Reason: reason,
+		}); err != nil {
+			return fmt.Errorf("block peer %s: %w", domain, err)
+		}
+		if !blocked {
+			return nil
+		}
+		if err := q.DeleteIndexOfDomain(ctx, domain); err != nil {
+			return fmt.Errorf("index of %s: %w", domain, err)
+		}
+		return nil
+	})
+}
+
+// SetIndexSource adds a server to the servers the community index reads, and
+// queues its first read, or takes it off that list. A server named with a port
+// is read on that port.
+func (s *Service) SetIndexSource(ctx context.Context, admin actors.Actor, server string, on bool) error {
+	if err := s.requireAdmin(ctx, admin); err != nil {
+		return err
 	}
-	return nil
+	server = strings.ToLower(strings.TrimSpace(server))
+	host, port, hasPort := strings.Cut(server, ":")
+	if host == "" || len(server) > 253 || host == s.Local.AppDomain || strings.ContainsAny(server, "/@ \t") ||
+		(hasPort && (port == "" || strings.Trim(port, "0123456789") != "")) {
+		return ErrBadDomain
+	}
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := moderationdb.New(tx).SetPeerIndexSource(ctx, moderationdb.SetPeerIndexSourceParams{
+			Domain: server, IndexSource: on,
+		}); err != nil {
+			return fmt.Errorf("index source %s: %w", server, err)
+		}
+		if !on || s.QueueIndex == nil {
+			return nil
+		}
+		return s.QueueIndex(ctx, tx, server)
+	})
 }

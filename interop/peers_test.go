@@ -285,6 +285,41 @@ func TestADirectoryAddFollowsLemmyAndPieFedCommunities(t *testing.T) {
 	}
 }
 
+// It runs on B: A's sign-up limit is spent by the other tests.
+func TestTheCommunityIndexReadsLemmyAndPieFedAndSearchFindsTheirCommunities(t *testing.T) {
+	admin := signUp(t, "http://b.notid.test:8080")
+	sql(t, "notid-b-db", fmt.Sprintf(`UPDATE auth_users SET role = 'admin'
+		WHERE id = (SELECT user_id FROM actors WHERE local AND name = '%s')`, admin.name))
+	for peerName, c := range map[string]struct {
+		peer   *api
+		server string
+	}{
+		"lemmy":  {lemmy(t), "lemmy.test:8536"},
+		"piefed": {piefed(t), "piefed.test:5000"},
+	} {
+		t.Run(peerName, func(t *testing.T) {
+			c.peer.t, admin.t = t, t
+			name := uniqueName("idx")
+			c.peer.createCommunity(name)
+			admin.post("/api/admin/index-sources", map[string]any{"server": c.server, "on": true}, nil)
+			// Search is public and reads only the stored index.
+			eventually(t, "Search on B finds "+name+" from the "+peerName+" index", func() bool {
+				var out struct {
+					Communities []struct{ Handle, Software string }
+				}
+				if err := getJSON("http://b.notid.test:8080/api/search/index?q="+name, &out); err != nil {
+					return false
+				}
+				return len(out.Communities) == 1 && out.Communities[0].Software == peerName &&
+					out.Communities[0].Handle == name+"@"+strings.Split(c.server, ":")[0]
+			})
+			if got := sql(t, "notid-b-db", fmt.Sprintf(`SELECT software FROM peers WHERE domain = '%s'`, c.server)); got != peerName {
+				t.Fatalf("software of %s: %q", c.server, got)
+			}
+		})
+	}
+}
+
 // trust promotes a notid user so its votes count and federate.
 func trust(t *testing.T, db string, u *user) {
 	t.Helper()

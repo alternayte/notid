@@ -6,6 +6,7 @@ import { About } from '~/communities/About'
 import { accentAttr } from '~/communities/accents'
 import { membersLabel } from '~/communities/CommunityCard'
 import { Join } from '~/communities/Join'
+import { MarkedNotice } from '~/communities/MarkedNotice'
 import { PostItem } from '~/discussions/PostItem'
 import { Kicker } from '~/ui/Kicker'
 import { Button } from '~/ui/primitives/button'
@@ -53,6 +54,7 @@ function CommunityPage() {
   const { data: c } = useSuspenseQuery(communityOptions({ path: { handle } }))
   const { data: me } = useQuery({ ...meOptions(), retry: false })
   const canManage = c.local && (c.membership?.role === 'owner' || c.membership?.role === 'moderator')
+  const hidden = c.nsfw && !me?.showNsfw
 
   return (
     <div data-accent={accentAttr(c.theme)}>
@@ -78,7 +80,7 @@ function CommunityPage() {
             {c.nsfw && ' · 18+'}
           </p>
           <div className="flex flex-wrap items-center gap-4 pt-1">
-            <Join community={c} signedIn={!!me} />
+            {!hidden && <Join community={c} signedIn={!!me} />}
             {canManage && (
               <>
                 <Link
@@ -106,43 +108,47 @@ function CommunityPage() {
             )}
           </div>
         </header>
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <section aria-labelledby="posts" className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-rule-strong pb-1">
-              <h2 id="posts" className="font-sans text-xs font-bold uppercase tracking-kicker">
-                Posts
-              </h2>
-              <nav aria-label="Sort posts" className="flex flex-wrap gap-x-4 gap-y-1">
-                {sorts.map((o) => (
-                  <Link
-                    key={o.value}
-                    to="/c/$handle"
-                    params={{ handle }}
-                    search={o.value === 'new' ? {} : { sort: o.value }}
-                    activeOptions={{ exact: true }}
-                    className="font-sans text-xs font-semibold text-ink-soft no-underline hover:text-ink data-[status=active]:text-ink data-[status=active]:underline data-[status=active]:decoration-mark data-[status=active]:decoration-2 data-[status=active]:underline-offset-[0.4em]"
-                  >
-                    {o.label}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-            {me && (c.state === 'active' || !c.local) && (
-              <Link
-                to="/submit"
-                search={{ community: handle }}
-                className="flex items-center gap-3 rounded-sm border border-rule bg-paper-raised px-4 py-3 font-serif text-lg text-ink-faint no-underline hover:text-ink-soft"
-              >
-                <span className="grid size-7 place-items-center rounded-pill bg-mark font-sans text-base text-mark-ink">
-                  +
-                </span>
-                Start a post in {c.title || c.name}
-              </Link>
-            )}
-            <Posts handle={handle} sort={sort} />
-          </section>
-          <About community={c} />
-        </div>
+        {hidden ? (
+          <MarkedNotice signedIn={!!me} />
+        ) : (
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <section aria-labelledby="posts" className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-rule-strong pb-1">
+                <h2 id="posts" className="font-sans text-xs font-bold uppercase tracking-kicker">
+                  Posts
+                </h2>
+                <nav aria-label="Sort posts" className="flex flex-wrap gap-x-4 gap-y-1">
+                  {sorts.map((o) => (
+                    <Link
+                      key={o.value}
+                      to="/c/$handle"
+                      params={{ handle }}
+                      search={o.value === 'new' ? {} : { sort: o.value }}
+                      activeOptions={{ exact: true }}
+                      className="font-sans text-xs font-semibold text-ink-soft no-underline hover:text-ink data-[status=active]:text-ink data-[status=active]:underline data-[status=active]:decoration-mark data-[status=active]:decoration-2 data-[status=active]:underline-offset-[0.4em]"
+                    >
+                      {o.label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+              {me && (c.state === 'active' || !c.local) && (
+                <Link
+                  to="/submit"
+                  search={{ community: handle }}
+                  className="flex items-center gap-3 rounded-sm border border-rule bg-paper-raised px-4 py-3 font-serif text-lg text-ink-faint no-underline hover:text-ink-soft"
+                >
+                  <span className="grid size-7 place-items-center rounded-pill bg-mark font-sans text-base text-mark-ink">
+                    +
+                  </span>
+                  Start a post in {c.title || c.name}
+                </Link>
+              )}
+              <Posts handle={handle} sort={sort} />
+            </section>
+            <About community={c} />
+          </div>
+        )}
       </Page>
     </div>
   )

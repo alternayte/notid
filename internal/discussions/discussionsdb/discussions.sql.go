@@ -53,7 +53,7 @@ JOIN communities c ON c.id = p.community_id
 JOIN actors ca ON ca.id = c.actor_id
 LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
-WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND c.state = 'active'
   AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND (ca.local
@@ -61,6 +61,7 @@ WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsf
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
   AND (p.sort_at, p.id) < ($2::timestamptz, $3::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT $4
 `
@@ -175,6 +176,7 @@ LEFT JOIN votes v ON v.comment_id = m.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.comment_id = m.id AND s.actor_id = $1::bigint
 WHERE m.author_id = $2 AND m.deleted_at IS NULL AND m.removed_at IS NULL AND NOT m.held AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (m.published, m.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY m.published DESC, m.id DESC
 LIMIT $5
 `
@@ -265,6 +267,7 @@ LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
 WHERE p.author_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT $5
 `
@@ -619,6 +622,7 @@ LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
 WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (p.active_at, p.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.active_at DESC, p.id DESC
 LIMIT $5
 `
@@ -735,6 +739,7 @@ LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
 WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT $5
 `
@@ -853,6 +858,7 @@ LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
 WHERE p.community_id = $2 AND p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND p.sort_at > $3::timestamptz
   AND (p.score, p.id) < ($4::int, $5::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.score DESC, p.id DESC
 LIMIT $6
 `
@@ -1257,6 +1263,7 @@ LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
 JOIN memberships m ON m.community_id = p.community_id AND m.actor_id = $2::bigint AND m.state = 'accepted'
 WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT $5
 `
@@ -1577,7 +1584,7 @@ JOIN actors ca ON ca.id = c.actor_id
 CROSS JOIN (SELECT $1::timestamptz AS at) w
 LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $2::bigint
 LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $2::bigint
-WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
   AND c.state = 'active'
   AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
   AND (ca.local
@@ -1585,6 +1592,7 @@ WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsf
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
   AND p.sort_at <= w.at AND p.sort_at > w.at - interval '7 days'
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $2::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY log(greatest(1, 3 + p.score)) / power(extract(epoch FROM w.at - p.sort_at) / 3600 + 2, 1.8) DESC, p.id DESC
 LIMIT $4 OFFSET $3
 `
@@ -1629,7 +1637,8 @@ type PopularFeedRow struct {
 }
 
 // Popular and All draw from communities that live here, are in the directory,
-// or have a local member, and leave out NSFW posts and NSFW communities.
+// or have a local member. Every post list leaves out NSFW posts and posts in
+// NSFW communities unless the viewer turned on the NSFW setting.
 // Popular: hot rank, log10(max(1, 3 + score)) / (hours since feed time + 2)^1.8,
 // over the week before the time of the first page.
 func (q *Queries) PopularFeed(ctx context.Context, arg PopularFeedParams) ([]PopularFeedRow, error) {
@@ -1807,7 +1816,7 @@ SELECT
     a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
     c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
     coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
-    (s.actor_id IS NOT NULL)::boolean AS saved, p.id, p.community_id, p.author_id
+    (s.actor_id IS NOT NULL)::boolean AS saved, p.id, p.community_id, p.author_id, c.nsfw AS community_nsfw
 FROM posts p
 JOIN actors a ON a.id = p.author_id
 JOIN communities c ON c.id = p.community_id
@@ -1854,6 +1863,7 @@ type PostByRefRow struct {
 	ID_2               int64
 	CommunityID        int64
 	AuthorID           int64
+	CommunityNsfw      bool
 }
 
 func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRefRow, error) {
@@ -1892,6 +1902,7 @@ func (q *Queries) PostByRef(ctx context.Context, arg PostByRefParams) (PostByRef
 		&i.ID_2,
 		&i.CommunityID,
 		&i.AuthorID,
+		&i.CommunityNsfw,
 	)
 	return i, err
 }
@@ -2141,6 +2152,7 @@ WHERE s.actor_id = $1
   AND p.deleted_at IS NULL AND p.removed_at IS NULL
   AND (m.id IS NULL OR (m.deleted_at IS NULL AND m.removed_at IS NULL))
   AND s.created_at < $2::timestamptz
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1 AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY s.created_at DESC
 LIMIT $3
 `
@@ -2281,6 +2293,7 @@ WHERE m.deleted_at IS NULL AND m.removed_at IS NULL AND NOT m.held AND p.deleted
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
   AND (m.published, m.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY m.published DESC, m.id DESC
 LIMIT $5
 `
@@ -2378,6 +2391,7 @@ WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
     OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
                WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
   AND (p.sort_at, p.id) < ($3::timestamptz, $4::bigint)
+  AND (NOT (p.nsfw OR c.nsfw) OR EXISTS (SELECT 1 FROM actors va WHERE va.id = $1::bigint AND va.nsfw_confirmed_at IS NOT NULL))
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT $5
 `

@@ -445,6 +445,58 @@ export type HeldOut = {
     posts: Array<PostView>;
 };
 
+export type IndexEntry = {
+    /**
+     * People active in it in the last month, as its server counts them
+     */
+    activeMonth: number;
+    apId: string;
+    /**
+     * Plain text, cut short
+     */
+    description: string;
+    domain: string;
+    /**
+     * name@domain
+     */
+    handle: string;
+    /**
+     * In the directory; admin listing only
+     */
+    inDirectory?: boolean;
+    /**
+     * This site has fetched it, so its page opens without a lookup
+     */
+    known?: boolean;
+    name: string;
+    nsfw: boolean;
+    software: 'lemmy' | 'piefed';
+    title: string;
+};
+
+export type IndexOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    communities: Array<IndexEntry>;
+};
+
+export type IndexSourceBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * true reads its communities into the community index, false stops
+     */
+    on: boolean;
+    /**
+     * The server's domain, with a port only when it needs one
+     */
+    server: string;
+};
+
 export type InviteList = {
     /**
      * A URL to the JSON Schema for this object.
@@ -539,6 +591,10 @@ export type Me = {
     email: string;
     handle: string;
     name: string;
+    /**
+     * The NSFW setting: NSFW posts and communities show only while it is on
+     */
+    showNsfw: boolean;
     trust: 'new' | 'trusted';
 };
 
@@ -576,6 +632,29 @@ export type ModeratorBody = {
 export type MyMembership = {
     role: 'member' | 'moderator' | 'owner';
     state: 'pending' | 'accepted';
+};
+
+export type NsfwBody = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    /**
+     * The person confirms they are 18 or older; required to turn the setting on
+     */
+    adult?: boolean;
+    /**
+     * true shows NSFW posts and communities
+     */
+    show: boolean;
+};
+
+export type NsfwOut = {
+    /**
+     * A URL to the JSON Schema for this object.
+     */
+    readonly $schema?: string;
+    show: boolean;
 };
 
 export type ObjectBody = {
@@ -619,6 +698,18 @@ export type PeerView = {
      * When the peer last failed; empty while it answers
      */
     failingSince?: string;
+    /**
+     * An admin chose to index this server's communities
+     */
+    indexSource: boolean;
+    /**
+     * Communities in the community index from this server
+     */
+    indexed: number;
+    /**
+     * The last successful read of its community list
+     */
+    indexedAt?: string;
     lastOkAt?: string;
     /**
      * Why an admin blocked it
@@ -1358,6 +1449,21 @@ export type HeldOutWritable = {
     posts: Array<PostView>;
 };
 
+export type IndexOutWritable = {
+    communities: Array<IndexEntry>;
+};
+
+export type IndexSourceBodyWritable = {
+    /**
+     * true reads its communities into the community index, false stops
+     */
+    on: boolean;
+    /**
+     * The server's domain, with a port only when it needs one
+     */
+    server: string;
+};
+
 export type InviteListWritable = {
     /**
      * When each unused code was made
@@ -1405,6 +1511,10 @@ export type MeWritable = {
     email: string;
     handle: string;
     name: string;
+    /**
+     * The NSFW setting: NSFW posts and communities show only while it is on
+     */
+    showNsfw: boolean;
     trust: 'new' | 'trusted';
 };
 
@@ -1425,6 +1535,21 @@ export type ModeratorBodyWritable = {
      */
     actor: string;
     role: 'moderator' | 'member';
+};
+
+export type NsfwBodyWritable = {
+    /**
+     * The person confirms they are 18 or older; required to turn the setting on
+     */
+    adult?: boolean;
+    /**
+     * true shows NSFW posts and communities
+     */
+    show: boolean;
+};
+
+export type NsfwOutWritable = {
+    show: boolean;
 };
 
 export type ObjectBodyWritable = {
@@ -1950,6 +2075,86 @@ export type RemoveFromDirectoryResponses = {
 };
 
 export type RemoveFromDirectoryResponse = RemoveFromDirectoryResponses[keyof RemoveFromDirectoryResponses];
+
+export type CommunityIndexData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Words to find; empty lists every community
+         */
+        q?: string;
+        offset?: number;
+    };
+    url: '/api/admin/index';
+};
+
+export type CommunityIndexErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type CommunityIndexError = CommunityIndexErrors[keyof CommunityIndexErrors];
+
+export type CommunityIndexResponses = {
+    /**
+     * OK
+     */
+    200: IndexOut;
+};
+
+export type CommunityIndexResponse = CommunityIndexResponses[keyof CommunityIndexResponses];
+
+export type SetIndexSourceData = {
+    body: IndexSourceBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/admin/index-sources';
+};
+
+export type SetIndexSourceErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SetIndexSourceError = SetIndexSourceErrors[keyof SetIndexSourceErrors];
+
+export type SetIndexSourceResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type SetIndexSourceResponse = SetIndexSourceResponses[keyof SetIndexSourceResponses];
 
 export type SitePeersData = {
     body?: never;
@@ -3660,6 +3865,39 @@ export type MyCommunitiesResponses = {
 
 export type MyCommunitiesResponse = MyCommunitiesResponses[keyof MyCommunitiesResponses];
 
+export type SetNsfwData = {
+    body: NsfwBodyWritable;
+    path?: never;
+    query?: never;
+    url: '/api/me/nsfw';
+};
+
+export type SetNsfwErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ErrorModel;
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type SetNsfwError = SetNsfwErrors[keyof SetNsfwErrors];
+
+export type SetNsfwResponses = {
+    /**
+     * OK
+     */
+    200: NsfwOut;
+};
+
+export type SetNsfwResponse = SetNsfwResponses[keyof SetNsfwResponses];
+
 export type UpdateProfileData = {
     body: ProfileBodyWritable;
     path?: never;
@@ -4247,6 +4485,10 @@ export type ThreadData = {
 
 export type ThreadErrors = {
     /**
+     * Forbidden
+     */
+    403: ErrorModel;
+    /**
      * Not Found
      */
     404: ErrorModel;
@@ -4459,6 +4701,36 @@ export type SearchCommunitiesResponses = {
 };
 
 export type SearchCommunitiesResponse = SearchCommunitiesResponses[keyof SearchCommunitiesResponses];
+
+export type SearchIndexData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Words to find; quotes match a phrase, a leading - excludes a word
+         */
+        q?: string;
+    };
+    url: '/api/search/index';
+};
+
+export type SearchIndexErrors = {
+    /**
+     * Error
+     */
+    default: ErrorModel;
+};
+
+export type SearchIndexError = SearchIndexErrors[keyof SearchIndexErrors];
+
+export type SearchIndexResponses = {
+    /**
+     * OK
+     */
+    200: IndexOut;
+};
+
+export type SearchIndexResponse = SearchIndexResponses[keyof SearchIndexResponses];
 
 export type SearchPostsData = {
     body?: never;

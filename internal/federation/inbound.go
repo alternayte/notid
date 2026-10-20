@@ -37,9 +37,10 @@ type contentPlan struct {
 	reason string
 	// targetActorID is the stored person a Block or a role change names.
 	targetActorID int64
-	// groupName and groupSummary carry an Update of a remote group's document.
+	// groupName, groupSummary and groupNSFW carry an Update of a remote group's document.
 	groupName    string
 	groupSummary string
+	groupNSFW    bool
 	// direct is true for an activity sent to a local group, which the group
 	// then announces to its followers.
 	direct bool

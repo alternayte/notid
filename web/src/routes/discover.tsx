@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { type FormEvent, useState } from 'react'
-import { errorMessage } from '~/api/errors'
-import { discoverCommunitiesOptions, lookupCommunityMutation, meOptions } from '~/api/gen/@tanstack/react-query.gen'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import type { FormEvent } from 'react'
+import { discoverCommunitiesOptions, meOptions } from '~/api/gen/@tanstack/react-query.gen'
 import { CommunityCard } from '~/communities/CommunityCard'
+import { AddressHint, useOpenCommunity } from '~/communities/OpenCommunity'
 import { Button } from '~/ui/primitives/button'
 import { Input } from '~/ui/primitives/input'
 import { Page } from './__root'
@@ -22,10 +22,14 @@ function Discover() {
       <div className="flex flex-col gap-2">
         <h1 className="font-display text-4xl tracking-tight">Discover</h1>
         <p className="max-w-(--container-measure) font-serif text-lg text-ink-soft">
-          Communities on this site, and communities elsewhere that our admins have reviewed. Largest first.
+          Communities on this site, and communities elsewhere that our admins have reviewed. Largest first. Search finds
+          more on Lemmy and PieFed servers.
         </p>
       </div>
-      <FindByAddress signedIn={!!me} />
+      <div className="flex flex-col gap-3">
+        <AddressHint />
+        <FindByAddress signedIn={!!me} />
+      </div>
       {data.communities.length === 0 ? (
         <section className="flex max-w-(--container-measure) flex-col gap-2 rounded-sm bg-paper-sunk p-4">
           <h2 className="font-display text-lg tracking-tight">No communities yet</h2>
@@ -47,20 +51,11 @@ function Discover() {
 
 // FindByAddress opens any community by its URL or handle, on this site or elsewhere.
 function FindByAddress({ signedIn }: { signedIn: boolean }) {
-  const navigate = useNavigate()
-  const lookup = useMutation(lookupCommunityMutation())
-  const [error, setError] = useState('')
+  const { open, error, busy } = useOpenCommunity()
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError('')
-    const address = String(new FormData(e.currentTarget).get('address') ?? '').trim()
-    try {
-      const c = await lookup.mutateAsync({ body: { community: address } })
-      await navigate({ to: '/c/$handle', params: { handle: c.handle } })
-    } catch (err) {
-      setError(errorMessage(err, 'That community could not be reached. Check the address and try again.'))
-    }
+    void open(String(new FormData(e.currentTarget).get('address') ?? '').trim())
   }
 
   if (!signedIn) {
@@ -89,8 +84,8 @@ function FindByAddress({ signedIn }: { signedIn: boolean }) {
           aria-invalid={error !== '' || undefined}
           aria-describedby={error ? 'address-error' : undefined}
         />
-        <Button type="submit" variant="outline" className="h-auto" disabled={lookup.isPending}>
-          {lookup.isPending ? 'Looking…' : 'Open'}
+        <Button type="submit" variant="outline" className="h-auto" disabled={busy}>
+          {busy ? 'Looking…' : 'Open'}
         </Button>
       </div>
       {error && (
