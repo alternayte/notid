@@ -1,6 +1,12 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { homeFeedInfiniteOptions, meOptions, myCommunitiesOptions } from '~/api/gen/@tanstack/react-query.gen'
+import { useEffect, useRef } from 'react'
+import {
+  homeFeedInfiniteOptions,
+  homeFeedInfiniteQueryKey,
+  meOptions,
+  myCommunitiesOptions,
+} from '~/api/gen/@tanstack/react-query.gen'
 import type { Summary } from '~/api/gen/types.gen'
 import { PostItem } from '~/discussions/PostItem'
 import { Kicker } from '~/ui/Kicker'
@@ -26,7 +32,13 @@ const feedOptions = () => ({
 
 function Home() {
   const { data: me } = useQuery({ ...meOptions(), retry: false })
-  const { data: mine } = useQuery({ ...myCommunitiesOptions(), retry: false, enabled: !!me })
+  const { data: mine } = useQuery({
+    ...myCommunitiesOptions(),
+    retry: false,
+    enabled: !!me,
+    // A join that another server has not accepted yet is read again until it is.
+    refetchInterval: (q) => (q.state.data?.communities.some((c) => c.membership?.state === 'pending') ? 4000 : false),
+  })
 
   if (!me) {
     return (
@@ -54,7 +66,8 @@ function Home() {
     )
   }
 
-  const communities = (mine?.communities ?? []).filter((c) => c.membership?.state === 'accepted')
+  const joined = (mine?.communities ?? []).filter((c) => !!c.membership)
+  const communities = joined.filter((c) => c.membership?.state === 'accepted')
   return (
     <Page>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -65,16 +78,24 @@ function Home() {
           >
             Home · New
           </h1>
-          <Feed hasCommunities={communities.length > 0} />
+          <Feed joined={communities.length} />
         </section>
-        <MyCommunities communities={communities} />
+        <MyCommunities communities={joined} />
       </div>
     </Page>
   )
 }
 
-function Feed({ hasCommunities }: { hasCommunities: boolean }) {
+function Feed({ joined }: { joined: number }) {
   const feed = useInfiniteQuery(feedOptions())
+  const hasCommunities = joined > 0
+  const queryClient = useQueryClient()
+  const seen = useRef(joined)
+  useEffect(() => {
+    // A join that was just accepted adds a community, so the feed is read again.
+    if (joined > seen.current) void queryClient.invalidateQueries({ queryKey: homeFeedInfiniteQueryKey() })
+    seen.current = joined
+  }, [joined, queryClient])
   if (feed.isError && !feed.data) {
     return (
       <p role="alert" className="font-sans text-sm text-danger">
@@ -137,6 +158,7 @@ function MyCommunities({ communities }: { communities: Summary[] }) {
                 {c.title || c.name}
               </Link>
               {!c.local && <span className="text-ink-faint"> · {c.domain}</span>}
+              {c.membership?.state === 'pending' && <span className="text-ink-faint"> · waiting to be accepted</span>}
             </li>
           ))}
         </ul>

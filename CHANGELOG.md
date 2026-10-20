@@ -4,6 +4,10 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.6] - 2026-10-20
+
+- A join to a Lemmy or PieFed community shows that it waits for the other server to accept, and changes to Joined without a reload when it does. Home lists the community as waiting to be accepted until then, and reads the feed again once it is.
+
 ## [0.1.0-beta.5] - 2026-10-20
 
 - No page scrolls sideways on a phone. Page titles scale with the screen; long words, URLs and handles wrap; code blocks and tables in posts scroll inside the column.
