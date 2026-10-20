@@ -204,6 +204,9 @@ func TestNotidUserFollowsLemmyAndPieFedCommunities(t *testing.T) {
 			c.peer.t, u.t = t, t
 			name := uniqueName("tools")
 			c.peer.createCommunity(name)
+			// A post from before the join reaches A only through the outbox.
+			before := "Before the join on " + peerName
+			c.peer.call(http.MethodPost, "/post", map[string]any{titleKey(peerName): before, "community_id": c.peer.resolveCommunity(c.url(name)), "body": "older"}, nil)
 			var m struct{ Community, State string }
 			u.post("/api/communities/follow", map[string]string{"community": c.url(name)}, &m)
 			if m.Community != c.url(name) || m.State != "pending" {
@@ -213,6 +216,11 @@ func TestNotidUserFollowsLemmyAndPieFedCommunities(t *testing.T) {
 				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT m.state FROM memberships m
 					JOIN actors p ON p.id = m.actor_id JOIN communities c ON c.id = m.community_id JOIN actors g ON g.id = c.actor_id
 					WHERE p.name = '%s' AND g.ap_id = '%s'`, u.name, c.url(name))) == "accepted"
+			})
+			eventually(t, "A fetches the older post from the "+peerName+" outbox", func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM posts p
+					JOIN communities c ON c.id = p.community_id JOIN actors g ON g.id = c.actor_id
+					WHERE g.ap_id = '%s' AND p.title = '%s'`, c.url(name), before)) == "1"
 			})
 		})
 	}

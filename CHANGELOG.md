@@ -4,6 +4,10 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.7] - 2026-10-20
+
+- Joining a Lemmy or PieFed community fetches its 20 newest posts, so the community and your feed do not start empty. Each post is read from its own server.
+
 ## [0.1.0-beta.6] - 2026-10-20
 
 - A join to a Lemmy or PieFed community shows that it waits for the other server to accept, and changes to Joined without a reload when it does. Home lists the community as waiting to be accepted until then, and reads the feed again once it is.

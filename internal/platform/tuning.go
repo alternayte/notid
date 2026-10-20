@@ -36,8 +36,11 @@ type Tuning struct {
 	// is sent again with a new id, up to FollowResends times, each wait twice
 	// the last. Lemmy drops the Accept of the first Follow from a peer it has
 	// not seen before.
-	FollowResendAfter  time.Duration
-	FollowResends      int
+	FollowResendAfter time.Duration
+	FollowResends     int
+	// JoinBackfillPosts is how many of a remote community's newest posts a
+	// join fetches from its outbox, so the feed does not start empty.
+	JoinBackfillPosts  int
 	PeerInboxPerMinute int
 	PeerInboxBurst     int
 	// KeyFetchesPerMinute caps, per client address, inbox requests signed by
@@ -132,6 +135,7 @@ func DefaultTuning() Tuning {
 		DeliveryBadRequestRetries: 5,
 		FollowResendAfter:         5 * time.Minute,
 		FollowResends:             3,
+		JoinBackfillPosts:         20,
 		PeerInboxPerMinute:        300,
 		PeerInboxBurst:            100,
 		KeyFetchesPerMinute:       120,

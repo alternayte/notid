@@ -98,6 +98,9 @@ func (s *Server) SendFollow(ctx context.Context, tx pgx.Tx, person, group actors
 	if err := s.queueFollowCheck(ctx, tx, id, 0); err != nil {
 		return "", err
 	}
+	if err := s.queueBackfill(ctx, tx, group); err != nil {
+		return "", err
+	}
 	return id, nil
 }
 

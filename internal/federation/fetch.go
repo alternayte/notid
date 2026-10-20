@@ -24,6 +24,7 @@ type remoteActorDoc struct {
 	Name              string     `json:"name"`
 	Summary           string     `json:"summary"`
 	Inbox             string     `json:"inbox"`
+	Outbox            string     `json:"outbox"`
 	Endpoints         *endpoints `json:"endpoints"`
 	PublicKey         publicKey  `json:"publicKey"`
 }

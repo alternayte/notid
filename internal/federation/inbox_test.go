@@ -37,6 +37,9 @@ type fakePeer struct {
 	srv    *httptest.Server
 	status int
 
+	// docs are more documents the peer serves, by path.
+	docs map[string]any
+
 	mu       sync.Mutex
 	received []*http.Request
 	bodies   [][]byte
@@ -67,9 +70,12 @@ func (p *fakePeer) serve(w http.ResponseWriter, r *http.Request) {
 		g := "http://" + p.host + "/c/wood"
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id": g, "type": "Group", "preferredUsername": "wood", "name": "Woodworking",
-			"inbox":     g + "/inbox",
+			"inbox": g + "/inbox", "outbox": g + "/outbox",
 			"publicKey": map[string]any{"id": g + "#main-key", "owner": g, "publicKeyPem": p.pub},
 		})
+	case r.Method == http.MethodGet && p.docs[r.URL.Path] != nil:
+		w.Header().Set("Content-Type", "application/activity+json")
+		_ = json.NewEncoder(w).Encode(p.docs[r.URL.Path])
 	case r.Method == http.MethodPost:
 		body, _ := io.ReadAll(r.Body)
 		p.mu.Lock()

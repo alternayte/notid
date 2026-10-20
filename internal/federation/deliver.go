@@ -199,11 +199,12 @@ func (s *Server) post(ctx context.Context, args DeliverArgs) error {
 	}
 }
 
-// AddWorkers registers the inbox, delivery and follow-check workers.
+// AddWorkers registers the inbox, delivery, follow-check and backfill workers.
 func (s *Server) AddWorkers(workers *river.Workers) {
 	river.AddWorker(workers, &inboxWorker{s: s})
 	river.AddWorker(workers, &deliverWorker{s: s})
 	river.AddWorker(workers, &followCheckWorker{s: s})
+	river.AddWorker(workers, &backfillWorker{s: s})
 }
 
 // Queues is the River queue config for the federation workers.
