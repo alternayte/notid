@@ -4,6 +4,10 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-10-20
+
+- No page scrolls sideways on a phone. Page titles scale with the screen; long words, URLs and handles wrap; code blocks and tables in posts scroll inside the column.
+
 ## [0.1.0-beta.4] - 2026-10-19
 
 - A fresh page load is styled from the first paint. The server named a stylesheet that the build never published.

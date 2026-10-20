@@ -171,10 +171,11 @@
   --text-xl--line-height: 2rem;
   --text-2xl: 2.075rem;
   --text-2xl--line-height: 2.35rem;
-  --text-3xl: 2.594rem;
-  --text-3xl--line-height: 2.8rem;
-  --text-4xl: 3.242rem;
-  --text-4xl--line-height: 3.3rem;
+  /* The two display sizes reach full size near 880px wide; a single word in a title still fits a folded phone. */
+  --text-3xl: clamp(1.875rem, 1.3rem + 2.4vw, 2.594rem);
+  --text-3xl--line-height: 1.08;
+  --text-4xl: clamp(2.125rem, 1.4rem + 3.4vw, 3.242rem);
+  --text-4xl--line-height: 1.02;
 
   --tracking-kicker: 0.08em;
   --tracking-tight: -0.02em;
@@ -207,6 +208,14 @@
     min-height: 100dvh;
     font-size: var(--text-base);
     line-height: var(--text-base--line-height);
+    /* A long URL, handle or word wraps instead of widening the page; anywhere, not break-word, so a flex item can
+       shrink past its longest word. */
+    overflow-wrap: anywhere;
+  }
+
+  h1,
+  h2 {
+    hyphens: auto;
   }
 
   ::selection {
@@ -253,6 +262,32 @@
     background: var(--paper-sunk);
     padding: 0 0.25em;
     border-radius: var(--radius-xs);
+  }
+  /* Code keeps its lines and a table keeps its columns; each scrolls inside the column instead of widening the page. */
+  .prose-news pre {
+    overflow-x: auto;
+    background: var(--paper-sunk);
+    padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4);
+    border-radius: var(--radius-xs);
+    overflow-wrap: normal;
+  }
+  .prose-news pre code {
+    padding: 0;
+    background: none;
+  }
+  .prose-news table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+  }
+  .prose-news :is(th, td) {
+    border-bottom: 1px solid var(--rule);
+    padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
+    text-align: left;
+    overflow-wrap: normal;
   }
 }
 

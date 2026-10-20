@@ -57,7 +57,7 @@ function Home() {
   const communities = (mine?.communities ?? []).filter((c) => c.membership?.state === 'accepted')
   return (
     <Page>
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <section aria-labelledby="feed" className="flex flex-col gap-4">
           <h1
             id="feed"

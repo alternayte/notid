@@ -86,7 +86,7 @@ function Results({ q }: { q: string }) {
         {communities.data.communities.length === 0 ? (
           <p className="font-serif text-sm text-ink-soft">No communities match.</p>
         ) : (
-          <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
             {communities.data.communities.map((c: Summary) => (
               <CommunityCard key={c.apId} community={c} signedIn={!!me} />
             ))}

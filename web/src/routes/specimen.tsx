@@ -56,7 +56,7 @@ function Specimen() {
       <Swatches />
       <TypeScale />
 
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="flex flex-col gap-10">
           <section aria-labelledby="feed" className="flex flex-col gap-4">
             <SectionTitle id="feed">Home feed · New</SectionTitle>

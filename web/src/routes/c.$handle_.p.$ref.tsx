@@ -87,7 +87,7 @@ function ThreadPage() {
             </p>
           </div>
         )}
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="flex flex-col gap-6">
             <article className="flex max-w-(--container-measure) flex-col gap-4 border-b border-rule pb-6">
               <Kicker>

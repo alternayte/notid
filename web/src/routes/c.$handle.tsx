@@ -106,7 +106,7 @@ function CommunityPage() {
             )}
           </div>
         </header>
-        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <section aria-labelledby="posts" className="flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-b border-rule-strong pb-1">
               <h2 id="posts" className="font-sans text-xs font-bold uppercase tracking-kicker">
