@@ -4,6 +4,12 @@ All notable changes to notid. Each release has a section here; its body becomes 
 
 ## [Unreleased]
 
+## [0.1.0-beta.8] - 2026-10-20
+
+- The front page has three feeds: Home, Popular and All. Popular ranks the last week's posts by score and age; All shows them newest first. Both draw from communities here, communities in the directory and communities someone here joined, and both leave out NSFW posts. A signed-out visitor, or a person who has not joined a community yet, lands on Popular. The formulas are on How the feeds work.
+- An admin who adds a remote community to the directory makes this site follow it, so its posts reach Popular and All before anyone here joins. Removing it ends the follow. The admin page shows whether the community's server accepted the follow.
+- A join or a directory add also fetches the newest comments of each older post, up to 50 per post. PieFed publishes each post's thread; for Lemmy, notid asks Lemmy's API which comments a post has. Every comment is read from its own server.
+
 ## [0.1.0-beta.7] - 2026-10-20
 
 - Joining a Lemmy or PieFed community fetches its 20 newest posts, so the community and your feed do not start empty. Each post is read from its own server.

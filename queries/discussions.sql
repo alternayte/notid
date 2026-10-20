@@ -154,6 +154,61 @@ WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held
 ORDER BY p.sort_at DESC, p.id DESC
 LIMIT @lim;
 
+-- Popular and All draw from communities that live here, are in the directory,
+-- or have a local member, and leave out NSFW posts and NSFW communities.
+
+-- Popular: hot rank, log10(max(1, 3 + score)) / (hours since feed time + 2)^1.8,
+-- over the week before the time of the first page.
+-- name: PopularFeed :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors ca ON ca.id = c.actor_id
+CROSS JOIN (SELECT @at::timestamptz AS at) w
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+  AND c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
+  AND (ca.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND p.sort_at <= w.at AND p.sort_at > w.at - interval '7 days'
+ORDER BY log(greatest(1, 3 + p.score)) / power(extract(epoch FROM w.at - p.sort_at) / 3600 + 2, 1.8) DESC, p.id DESC
+LIMIT @lim OFFSET @off;
+
+-- All: newest first by feed time.
+-- name: AllFeed :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors ca ON ca.id = c.actor_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = sqlc.narg(viewer)::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = sqlc.narg(viewer)::bigint
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+  AND c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
+  AND (ca.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (p.sort_at, p.id) < (@before_at::timestamptz, @before_id::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT @lim;
+
 -- name: PostByRef :one
 SELECT
     p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,

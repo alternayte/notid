@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { about, addToDirectory, adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, banActor, blockPeer, community, communityPosts, createApiKey, createComment, createCommunity, createInvite, createPost, deleteComment, deleteMe, deletePost, directory, discoverCommunities, editComment, editPost, followCommunity, getSession, gitHubStart, heldPosts, homeFeed, invites, leaveCommunity, listApiKeys, listSessions, lockPost, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, moderationLog, myCommunities, type Options, person, personComments, personPosts, previewMarkdown, publishPost, removeFromDirectory, removeObject, reportObject, reportQueue, resolveReport, restoreObject, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, setModerator, setTrust, signOut, signUp, signupMode, siteBan, siteBans, sitePeers, siteReports, siteUnban, thread, unbanActor, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
-import type { AboutData, AboutError, AboutResponse, AddToDirectoryData, AddToDirectoryError, AddToDirectoryResponse, AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, BanActorData, BanActorError, BanActorResponse, BlockPeerData, BlockPeerError, BlockPeerResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreatePostData, CreatePostError, CreatePostResponse, DeleteCommentData, DeleteCommentError, DeleteCommentResponse, DeleteMeData, DeleteMeError, DeleteMeResponse, DeletePostData, DeletePostError, DeletePostResponse, DirectoryData, DirectoryError, DirectoryResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, EditCommentData, EditCommentError, EditCommentResponse, EditPostData, EditPostError, EditPostResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, GitHubStartData, GitHubStartError, GitHubStartResponse, HeldPostsData, HeldPostsError, HeldPostsResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, InvitesData, InvitesError, InvitesResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LockPostData, LockPostError, LockPostResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, ModerationLogData, ModerationLogError, ModerationLogResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, PublishPostData, PublishPostError, PublishPostResponse, RemoveFromDirectoryData, RemoveFromDirectoryError, RemoveFromDirectoryResponse, RemoveObjectData, RemoveObjectError, RemoveObjectResponse, ReportObjectData, ReportObjectError, ReportObjectResponse, ReportQueueData, ReportQueueError, ReportQueueResponse, ResolveReportData, ResolveReportError, ResolveReportResponse, RestoreObjectData, RestoreObjectError, RestoreObjectResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SetModeratorData, SetModeratorError, SetModeratorResponse, SetTrustData, SetTrustError, SetTrustResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, SiteBanData, SiteBanError, SiteBanResponse, SiteBansData, SiteBansError, SiteBansResponse, SitePeersData, SitePeersError, SitePeersResponse, SiteReportsData, SiteReportsError, SiteReportsResponse, SiteUnbanData, SiteUnbanError, SiteUnbanResponse, ThreadData, ThreadError, ThreadResponse, UnbanActorData, UnbanActorError, UnbanActorResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
+import { about, addToDirectory, adminCreateUser, adminDisableUser, adminEnableUser, adminListUsers, adminResetUserPassword, adminSetUserRole, allFeed, banActor, blockPeer, community, communityPosts, createApiKey, createComment, createCommunity, createInvite, createPost, deleteComment, deleteMe, deletePost, directory, discoverCommunities, editComment, editPost, followCommunity, getSession, gitHubStart, heldPosts, homeFeed, invites, leaveCommunity, listApiKeys, listSessions, lockPost, lookupCommunity, magicLinkConfirmation, magicLinkSend, magicLinkVerify, me, moderationLog, myCommunities, type Options, person, personComments, personPosts, popularFeed, previewMarkdown, publishPost, removeFromDirectory, removeObject, reportObject, reportQueue, resolveReport, restoreObject, revokeAllSessions, revokeApiKey, revokeSession, save, saved, searchComments, searchCommunities, searchPosts, setModerator, setTrust, signOut, signUp, signupMode, siteBan, siteBans, sitePeers, siteReports, siteUnban, thread, unbanActor, updateCommunity, updateProfile, uploadImage, vote } from '../sdk.gen';
+import type { AboutData, AboutError, AboutResponse, AddToDirectoryData, AddToDirectoryError, AddToDirectoryResponse, AdminCreateUserData, AdminCreateUserError, AdminCreateUserResponse2, AdminDisableUserData, AdminDisableUserError, AdminDisableUserResponse, AdminEnableUserData, AdminEnableUserError, AdminEnableUserResponse, AdminListUsersData, AdminListUsersError, AdminListUsersResponse, AdminResetUserPasswordData, AdminResetUserPasswordError, AdminResetUserPasswordResponse, AdminSetUserRoleData, AdminSetUserRoleError, AdminSetUserRoleResponse, AllFeedData, AllFeedError, AllFeedResponse, BanActorData, BanActorError, BanActorResponse, BlockPeerData, BlockPeerError, BlockPeerResponse, CommunityData, CommunityError, CommunityPostsData, CommunityPostsError, CommunityPostsResponse, CommunityResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCommentData, CreateCommentError, CreateCommentResponse, CreateCommunityData, CreateCommunityError, CreateCommunityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, CreatePostData, CreatePostError, CreatePostResponse, DeleteCommentData, DeleteCommentError, DeleteCommentResponse, DeleteMeData, DeleteMeError, DeleteMeResponse, DeletePostData, DeletePostError, DeletePostResponse, DirectoryData, DirectoryError, DirectoryResponse, DiscoverCommunitiesData, DiscoverCommunitiesError, DiscoverCommunitiesResponse, EditCommentData, EditCommentError, EditCommentResponse, EditPostData, EditPostError, EditPostResponse, FollowCommunityData, FollowCommunityError, FollowCommunityResponse, GetSessionData, GetSessionResponse, GitHubStartData, GitHubStartError, GitHubStartResponse, HeldPostsData, HeldPostsError, HeldPostsResponse, HomeFeedData, HomeFeedError, HomeFeedResponse, InvitesData, InvitesError, InvitesResponse, LeaveCommunityData, LeaveCommunityError, LeaveCommunityResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, LockPostData, LockPostError, LockPostResponse, LookupCommunityData, LookupCommunityError, LookupCommunityResponse, MagicLinkConfirmationData, MagicLinkConfirmationError, MagicLinkSendData, MagicLinkSendError, MagicLinkSendResponse, MagicLinkVerifyData, MagicLinkVerifyError, MagicLinkVerifyResponse2, MeData, MeError, MeResponse, ModerationLogData, ModerationLogError, ModerationLogResponse, MyCommunitiesData, MyCommunitiesError, MyCommunitiesResponse, PersonCommentsData, PersonCommentsError, PersonCommentsResponse, PersonData, PersonError, PersonPostsData, PersonPostsError, PersonPostsResponse, PersonResponse, PopularFeedData, PopularFeedError, PopularFeedResponse, PreviewMarkdownData, PreviewMarkdownError, PreviewMarkdownResponse, PublishPostData, PublishPostError, PublishPostResponse, RemoveFromDirectoryData, RemoveFromDirectoryError, RemoveFromDirectoryResponse, RemoveObjectData, RemoveObjectError, RemoveObjectResponse, ReportObjectData, ReportObjectError, ReportObjectResponse, ReportQueueData, ReportQueueError, ReportQueueResponse, ResolveReportData, ResolveReportError, ResolveReportResponse, RestoreObjectData, RestoreObjectError, RestoreObjectResponse, RevokeAllSessionsData, RevokeAllSessionsError, RevokeAllSessionsResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeSessionData, RevokeSessionError, RevokeSessionResponse, SaveData, SavedData, SavedError, SavedResponse, SaveError, SaveResponse, SearchCommentsData, SearchCommentsError, SearchCommentsResponse, SearchCommunitiesData, SearchCommunitiesError, SearchCommunitiesResponse, SearchPostsData, SearchPostsError, SearchPostsResponse, SetModeratorData, SetModeratorError, SetModeratorResponse, SetTrustData, SetTrustError, SetTrustResponse, SignOutData, SignOutError, SignOutResponse, SignUpData, SignUpError, SignupModeData, SignupModeError, SignupModeResponse, SignUpResponse, SiteBanData, SiteBanError, SiteBanResponse, SiteBansData, SiteBansError, SiteBansResponse, SitePeersData, SitePeersError, SitePeersResponse, SiteReportsData, SiteReportsError, SiteReportsResponse, SiteUnbanData, SiteUnbanError, SiteUnbanResponse, ThreadData, ThreadError, ThreadResponse, UnbanActorData, UnbanActorError, UnbanActorResponse, UpdateCommunityData, UpdateCommunityError, UpdateCommunityResponse, UpdateProfileData, UpdateProfileError, UpdateProfileResponse, UploadImageData, UploadImageError, UploadImageResponse, VoteData, VoteError, VoteResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -942,6 +942,102 @@ export const homeFeedInfiniteOptions = (options?: Options<HomeFeedData>) => {
             return data;
         },
         queryKey: homeFeedInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const allFeedQueryKey = (options?: Options<AllFeedData>) => createQueryKey('allFeed', options);
+
+/**
+ * List posts from every community this site receives, newest first; NSFW posts stay out
+ */
+export const allFeedOptions = (options?: Options<AllFeedData>) => queryOptions<AllFeedResponse, AllFeedError, AllFeedResponse, ReturnType<typeof allFeedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await allFeed({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: allFeedQueryKey(options)
+});
+
+export const allFeedInfiniteQueryKey = (options?: Options<AllFeedData>): QueryKey<Options<AllFeedData>> => createQueryKey('allFeed', options, true);
+
+/**
+ * List posts from every community this site receives, newest first; NSFW posts stay out
+ */
+export const allFeedInfiniteOptions = (options?: Options<AllFeedData>) => {
+    const opts = infiniteQueryOptions<AllFeedResponse, AllFeedError, InfiniteData<AllFeedResponse>, QueryKey<Options<AllFeedData>>, string | Pick<QueryKey<Options<AllFeedData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<AllFeedData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await allFeed({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: allFeedInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const popularFeedQueryKey = (options?: Options<PopularFeedData>) => createQueryKey('popularFeed', options);
+
+/**
+ * List posts from every community this site receives, by hot rank; NSFW posts stay out
+ */
+export const popularFeedOptions = (options?: Options<PopularFeedData>) => queryOptions<PopularFeedResponse, PopularFeedError, PopularFeedResponse, ReturnType<typeof popularFeedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await popularFeed({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: popularFeedQueryKey(options)
+});
+
+export const popularFeedInfiniteQueryKey = (options?: Options<PopularFeedData>): QueryKey<Options<PopularFeedData>> => createQueryKey('popularFeed', options, true);
+
+/**
+ * List posts from every community this site receives, by hot rank; NSFW posts stay out
+ */
+export const popularFeedInfiniteOptions = (options?: Options<PopularFeedData>) => {
+    const opts = infiniteQueryOptions<PopularFeedResponse, PopularFeedError, InfiniteData<PopularFeedResponse>, QueryKey<Options<PopularFeedData>>, string | Pick<QueryKey<Options<PopularFeedData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<PopularFeedData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    before: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await popularFeed({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: popularFeedInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };

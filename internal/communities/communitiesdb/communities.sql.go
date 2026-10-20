@@ -54,7 +54,8 @@ func (q *Queries) CommunityByActorID(ctx context.Context, actorID int64) (Commun
 const communityByHandle = `-- name: CommunityByHandle :one
 SELECT
     c.id, c.actor_id, c.domain, c.name, c.title, c.description, c.theme, c.appeals_contact, c.state, c.nsfw, c.hold_new_posts, c.created_at, c.search, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE c.domain = $1 AND lower(c.name) = lower($2)
@@ -191,26 +192,34 @@ func (q *Queries) DeleteRules(ctx context.Context, communityID int64) error {
 
 const directory = `-- name: Directory :many
 SELECT c.id, c.domain, c.name, c.title, d.note, d.created_at,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+    coalesce((SELECT sf.state FROM memberships sf WHERE sf.community_id = c.id AND sf.actor_id = $1), 'none')::text AS site_follow,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members
 FROM directory d
 JOIN communities c ON c.id = d.community_id
 ORDER BY d.created_at DESC, c.id
-LIMIT $1
+LIMIT $2
 `
 
+type DirectoryParams struct {
+	FollowerID int64
+	Lim        int32
+}
+
 type DirectoryRow struct {
-	ID        int64
-	Domain    string
-	Name      string
-	Title     string
-	Note      string
-	CreatedAt time.Time
-	Members   int64
+	ID         int64
+	Domain     string
+	Name       string
+	Title      string
+	Note       string
+	CreatedAt  time.Time
+	SiteFollow string
+	Members    int64
 }
 
 // The directory is the admin-reviewed list of remote communities Discover shows.
-func (q *Queries) Directory(ctx context.Context, lim int32) ([]DirectoryRow, error) {
-	rows, err := q.db.Query(ctx, directory, lim)
+func (q *Queries) Directory(ctx context.Context, arg DirectoryParams) ([]DirectoryRow, error) {
+	rows, err := q.db.Query(ctx, directory, arg.FollowerID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +234,7 @@ func (q *Queries) Directory(ctx context.Context, lim int32) ([]DirectoryRow, err
 			&i.Title,
 			&i.Note,
 			&i.CreatedAt,
+			&i.SiteFollow,
 			&i.Members,
 		); err != nil {
 			return nil, err
@@ -240,7 +250,8 @@ func (q *Queries) Directory(ctx context.Context, lim int32) ([]DirectoryRow, err
 const discover = `-- name: Discover :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
@@ -460,7 +471,8 @@ func (q *Queries) InsertVerifiedDomain(ctx context.Context, arg InsertVerifiedDo
 const joined = `-- name: Joined :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM memberships my
 JOIN communities c ON c.id = my.community_id
@@ -618,7 +630,8 @@ func (q *Queries) Rules(ctx context.Context, communityID int64) ([]string, error
 const searchCommunities = `-- name: SearchCommunities :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM communities c
 JOIN actors a ON a.id = c.actor_id

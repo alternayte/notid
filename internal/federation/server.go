@@ -49,6 +49,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /.well-known/nodeinfo", s.nodeInfoIndex)
 	mux.HandleFunc("GET /nodeinfo/2.1", s.nodeInfo)
 	mux.HandleFunc("GET /actor", s.application)
+	mux.HandleFunc("GET /site", s.siteFollower)
+	mux.HandleFunc("GET /site/outbox", s.emptyCollection)
+	mux.HandleFunc("GET /site/followers", s.emptyCollection)
 	// Lemmy reads a site's inbox from the actor at its root, and sends an
 	// account deletion only to the sites it knows.
 	mux.HandleFunc("GET /{$}", s.application)

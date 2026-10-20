@@ -97,6 +97,34 @@ func (l Local) Application(ctx context.Context, db actorsdb.DBTX) (Actor, error)
 	return a, nil
 }
 
+// SiteFollowerURL is the AP ID of the app domain's site follower, the Service
+// actor that follows the directory communities.
+func (l Local) SiteFollowerURL() string { return l.AppOrigin + "/site" }
+
+// SiteFollower returns the app domain's site follower and creates it on first use.
+func (l Local) SiteFollower(ctx context.Context, db actorsdb.DBTX) (Actor, error) {
+	apID := l.SiteFollowerURL()
+	if a, err := ByApID(ctx, db, apID); !errors.Is(err, ErrNotFound) {
+		return a, err
+	}
+	pub, priv, err := NewKeyPair()
+	if err != nil {
+		return Actor{}, err
+	}
+	a, err := actorsdb.New(db).InsertSiteFollower(ctx, actorsdb.InsertSiteFollowerParams{
+		ApID: apID, Domain: l.AppDomain, Name: "site", DisplayName: l.AppDomain,
+		Inbox: l.AppOrigin + "/inbox", SharedInbox: l.AppOrigin + "/inbox",
+		PublicKeyPem: pub, PrivateKeyEnc: l.Sealer.Seal(priv, KeyPurpose),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ByApID(ctx, db, apID)
+	}
+	if err != nil {
+		return Actor{}, fmt.Errorf("insert site follower: %w", err)
+	}
+	return a, nil
+}
+
 // PrivateKey opens a local actor's sealed signing key.
 func (l Local) PrivateKey(a Actor) (*rsa.PrivateKey, error) {
 	if !a.Local || a.PrivateKeyEnc == nil {

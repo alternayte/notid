@@ -236,6 +236,75 @@ func TestInvariant11HomeFeedSortsByFeedTimeSoAFutureDatedRemotePostDoesNotLead(t
 	}
 }
 
+func TestPopularAndAllShowReceivedCommunitiesWithoutNSFW(t *testing.T) {
+	ctx := context.Background()
+	pool := pgtest.Pool(t)
+	svc := &discussions.Service{Pool: pool, Local: local(t), Markdown: platform.NewMarkdown(), Tuning: platform.DefaultTuning()}
+	var plain, liked, nsfw, unfollowed discussions.Post
+	committed(t, pool, func(tx pgx.Tx) {
+		owner := trustedPerson(t, tx)
+		c, err := communities.CreateLocal(ctx, tx, local(t), owner, "c"+uuid.NewString()[:8], communities.Settings{Title: "Front"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		post := func(title string, flagged bool) discussions.Post {
+			p, _, err := discussions.InsertPost(ctx, tx, discussions.NewPost{CommunityID: c.ID, Author: owner, Title: title, NSFW: flagged, Published: time.Now()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return p
+		}
+		plain, liked, nsfw = post("Plain", false), post("Liked", false), post("Flagged", true)
+		// hot: log10(53) / (1 + 2)^1.8 = 0.238 beats log10(3) / 2^1.8 = 0.137.
+		if _, err := tx.Exec(ctx, `UPDATE posts SET score = 50, sort_at = now() - interval '1 hour' WHERE id = $1`, liked.ID); err != nil {
+			t.Fatal(err)
+		}
+		// A remote community that is neither listed nor joined stays out.
+		g := remoteActor(t, tx, "group")
+		var otherID int64
+		if err := tx.QueryRow(ctx, `INSERT INTO communities (actor_id, domain, name) VALUES ($1, 'peer.example', $2) RETURNING id`, g.ID, g.Name).Scan(&otherID); err != nil {
+			t.Fatal(err)
+		}
+		if unfollowed, _, err = discussions.InsertPost(ctx, tx, discussions.NewPost{
+			ApID: "https://peer.example/post/" + uuid.NewString(), CommunityID: otherID, Author: remoteActor(t, tx, "person"),
+			Title: "Unfollowed", Published: time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// Other tests commit posts too, so read every page and compare positions.
+	all := func(feed func(before string) (discussions.PostPage, error)) []string {
+		var out []string
+		for before := ""; ; {
+			p, err := feed(before)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, refs(p)...)
+			if p.Next == "" || len(out) > 5000 {
+				return out
+			}
+			before = p.Next
+		}
+	}
+	for name, feed := range map[string]func(string) (discussions.PostPage, error){
+		"popular": func(b string) (discussions.PostPage, error) { return svc.PopularFeed(ctx, b, nil) },
+		"all":     func(b string) (discussions.PostPage, error) { return svc.AllFeed(ctx, b, nil) },
+	} {
+		got := all(feed)
+		if slices.Contains(got, nsfw.Ref) || slices.Contains(got, unfollowed.Ref) {
+			t.Fatalf("%s shows an NSFW post or an unreceived community: %v", name, got)
+		}
+		lp, pp := slices.Index(got, liked.Ref), slices.Index(got, plain.Ref)
+		if lp < 0 || pp < 0 {
+			t.Fatalf("%s misses a post: liked %d plain %d", name, lp, pp)
+		}
+		if name == "popular" && lp > pp || name == "all" && pp > lp {
+			t.Fatalf("%s order: liked %d plain %d", name, lp, pp)
+		}
+	}
+}
+
 func TestTopAndActiveSortsFollowTheirFormulas(t *testing.T) {
 	ctx := context.Background()
 	pool := pgtest.Pool(t)

@@ -59,6 +59,15 @@ INSERT INTO actors (
 ON CONFLICT (ap_id) DO NOTHING
 RETURNING *;
 
+-- name: InsertSiteFollower :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, display_name, inbox, shared_inbox, public_key_pem, private_key_enc, bot
+) VALUES (
+    @ap_id, 'service', true, @domain, @name, @display_name, @inbox, @shared_inbox, @public_key_pem, @private_key_enc, true
+)
+ON CONFLICT (ap_id) DO NOTHING
+RETURNING *;
+
 -- name: InsertLocalGroup :one
 INSERT INTO actors (
     ap_id, kind, local, domain, name, display_name, summary,

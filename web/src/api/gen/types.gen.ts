@@ -305,6 +305,10 @@ export type DirectoryView = {
      * Why it is listed; shown to admins
      */
     note?: string;
+    /**
+     * State of this installation's follow of the community
+     */
+    siteFollow: 'pending' | 'accepted' | 'none';
     title: string;
 };
 
@@ -3360,6 +3364,74 @@ export type HomeFeedResponses = {
 };
 
 export type HomeFeedResponse = HomeFeedResponses[keyof HomeFeedResponses];
+
+export type AllFeedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/feed/all';
+};
+
+export type AllFeedErrors = {
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type AllFeedError = AllFeedErrors[keyof AllFeedErrors];
+
+export type AllFeedResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type AllFeedResponse = AllFeedResponses[keyof AllFeedResponses];
+
+export type PopularFeedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Cursor from the previous page's next
+         */
+        before?: string;
+    };
+    url: '/api/feed/popular';
+};
+
+export type PopularFeedErrors = {
+    /**
+     * Unprocessable Entity
+     */
+    422: ErrorModel;
+    /**
+     * Internal Server Error
+     */
+    500: ErrorModel;
+};
+
+export type PopularFeedError = PopularFeedErrors[keyof PopularFeedErrors];
+
+export type PopularFeedResponses = {
+    /**
+     * OK
+     */
+    200: PostPage;
+};
+
+export type PopularFeedResponse = PopularFeedResponses[keyof PopularFeedResponses];
 
 export type GitHubStartData = {
     body: GitHubStartBodyWritable;

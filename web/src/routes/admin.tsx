@@ -180,8 +180,9 @@ function AdminBody() {
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-tight">Directory</h2>
         <p className="max-w-(--container-measure) font-serif text-sm text-ink-soft">
-          Discover shows the communities on this site and the ones listed here. Anything else a person reaches by
-          pasting its address.
+          Discover shows the communities on this site and the ones listed here. This site follows each listed community,
+          so its posts reach Popular and All before anyone here joins it. Anything else a person reaches by pasting its
+          address.
         </p>
         {dir.isPending ? (
           <p className="font-sans text-sm text-ink-faint">Loading…</p>
@@ -307,6 +308,12 @@ function ReportRow({
   )
 }
 
+const siteFollow: Record<DirectoryView['siteFollow'], string> = {
+  accepted: 'This site follows it. New posts arrive here.',
+  pending: 'Waiting for its server to accept the site follow.',
+  none: 'Not followed. Add it again to follow it.',
+}
+
 function DirectoryRow({ entry, onRemove }: { entry: DirectoryView; onRemove: () => Promise<void> }) {
   return (
     <li className="flex flex-wrap items-baseline justify-between gap-3 border-t border-rule pt-3">
@@ -317,6 +324,7 @@ function DirectoryRow({ entry, onRemove }: { entry: DirectoryView; onRemove: () 
           <Age iso={entry.addedAt} />
           {entry.note && ` · ${entry.note}`}
         </span>
+        <span className="font-sans text-xs text-ink-faint">{siteFollow[entry.siteFollow]}</span>
       </div>
       <Button variant="quiet" onClick={() => void onRemove()}>
         Remove

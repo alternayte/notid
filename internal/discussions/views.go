@@ -306,6 +306,57 @@ func (s *Service) HomeFeed(ctx context.Context, reader actors.Actor, before stri
 	return s.page(rows, limit, func(r discussionsdb.CommunityPostsNewRow) int64 { return r.SortAt.UnixMicro() }), nil
 }
 
+// PopularFeed ranks posts from every community this installation receives by
+// the published hot rank. The cursor holds the time of the first page and an
+// offset, so the order does not shift while the reader pages.
+func (s *Service) PopularFeed(ctx context.Context, before string, viewer *actors.Actor) (PostPage, error) {
+	at, off := time.Now(), int64(0)
+	if before != "" {
+		key, n, err := decodeCursor(before)
+		if err != nil || n < 0 || n > math.MaxInt32 {
+			return PostPage{}, ErrBadCursor
+		}
+		at, off = cursorTime(key), n
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).PopularFeed(ctx, discussionsdb.PopularFeedParams{
+		At: at, Viewer: viewerID(viewer), Off: int32(off), Lim: limit + 1,
+	})
+	if err != nil {
+		return PostPage{}, fmt.Errorf("popular feed: %w", err)
+	}
+	page := PostPage{Posts: make([]PostView, 0, min(len(rs), int(limit)))}
+	for i, r := range rs {
+		if int32(i) == limit {
+			page.Next = encodeCursor(at.UnixMicro(), off+int64(limit))
+			break
+		}
+		page.Posts = append(page.Posts, s.postView(listRow(discussionsdb.CommunityPostsNewRow(r))))
+	}
+	return page, nil
+}
+
+// AllFeed lists posts from every community this installation receives, newest
+// first by feed time.
+func (s *Service) AllFeed(ctx context.Context, before string, viewer *actors.Actor) (PostPage, error) {
+	key, id, err := decodeCursor(before)
+	if err != nil {
+		return PostPage{}, err
+	}
+	limit := s.Tuning.PostsPerPage
+	rs, err := discussionsdb.New(s.Pool).AllFeed(ctx, discussionsdb.AllFeedParams{
+		Viewer: viewerID(viewer), BeforeAt: cursorTime(key), BeforeID: id, Lim: limit + 1,
+	})
+	if err != nil {
+		return PostPage{}, fmt.Errorf("all feed: %w", err)
+	}
+	rows := make([]discussionsdb.CommunityPostsNewRow, 0, len(rs))
+	for _, r := range rs {
+		rows = append(rows, discussionsdb.CommunityPostsNewRow(r))
+	}
+	return s.page(rows, limit, func(r discussionsdb.CommunityPostsNewRow) int64 { return r.SortAt.UnixMicro() }), nil
+}
+
 // page keeps the first limit rows and makes the cursor of the last one when more follow.
 func (s *Service) page(rows []discussionsdb.CommunityPostsNewRow, limit int32, key func(discussionsdb.CommunityPostsNewRow) int64) PostPage {
 	page := PostPage{Posts: make([]PostView, 0, min(len(rows), int(limit)))}

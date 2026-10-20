@@ -452,6 +452,18 @@ func (q *Queries) MembershipRole(ctx context.Context, arg MembershipRoleParams) 
 	return role, err
 }
 
+const objectKnown = `-- name: ObjectKnown :one
+SELECT (EXISTS (SELECT 1 FROM posts p WHERE p.ap_id = $1::text)
+    OR EXISTS (SELECT 1 FROM comments m WHERE m.ap_id = $1::text))::boolean AS known
+`
+
+func (q *Queries) ObjectKnown(ctx context.Context, apID string) (bool, error) {
+	row := q.db.QueryRow(ctx, objectKnown, apID)
+	var known bool
+	err := row.Scan(&known)
+	return known, err
+}
+
 const peerByDomain = `-- name: PeerByDomain :one
 SELECT domain, software, version, blocked, reason, last_ok_at, failing_since, created_at FROM peers WHERE domain = $1
 `

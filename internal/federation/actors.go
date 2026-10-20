@@ -84,3 +84,31 @@ func (s *Server) application(w http.ResponseWriter, r *http.Request) {
 		Published:         &a.CreatedAt,
 	})
 }
+
+// siteFollower serves the Service actor that follows the directory communities.
+func (s *Server) siteFollower(w http.ResponseWriter, r *http.Request) {
+	if requestHost(r) != s.AppDomain {
+		http.NotFound(w, r)
+		return
+	}
+	a, err := s.Local.SiteFollower(r.Context(), s.Pool)
+	if err != nil {
+		s.Log.ErrorContext(r.Context(), "site follower", "err", err)
+		http.Error(w, "lookup failed", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, actorDoc{
+		Context:           activityStreams,
+		ID:                a.ApID,
+		Type:              typeService,
+		PreferredUsername: a.Name,
+		Name:              a.DisplayName,
+		Summary:           "Follows the communities in this site's directory, so their posts reach its Popular and All feeds.",
+		Inbox:             a.Inbox,
+		Outbox:            a.ApID + "/outbox",
+		Followers:         a.ApID + "/followers",
+		Endpoints:         &endpoints{SharedInbox: a.SharedInbox},
+		PublicKey:         publicKey{ID: a.ApID + "#main-key", Owner: a.ApID, PublicKeyPem: a.PublicKeyPem},
+		Published:         &a.CreatedAt,
+	})
+}

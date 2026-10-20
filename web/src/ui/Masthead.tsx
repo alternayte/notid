@@ -24,7 +24,7 @@ export function Masthead() {
           Open Communities
         </Link>
         <nav aria-label="Sections" className="order-3 flex w-full items-baseline gap-5 sm:order-none sm:w-auto">
-          <Link to="/" className={navLink} activeOptions={{ exact: true }}>
+          <Link to="/" className={navLink} activeOptions={{ exact: true, includeSearch: false }}>
             Home
           </Link>
           <Link to="/discover" className={navLink}>

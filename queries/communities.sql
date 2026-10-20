@@ -33,7 +33,8 @@ WHERE d.domain = @domain AND d.verified_at IS NOT NULL;
 -- name: CommunityByHandle :one
 SELECT
     c.*, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
 WHERE c.domain = @domain AND lower(c.name) = lower(@name);
@@ -81,7 +82,8 @@ RETURNING *;
 -- name: Discover :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
@@ -95,7 +97,8 @@ LIMIT @lim OFFSET @off;
 -- name: Joined :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM memberships my
 JOIN communities c ON c.id = my.community_id
@@ -114,7 +117,8 @@ SELECT a.local FROM communities c JOIN actors a ON a.id = c.actor_id WHERE c.id 
 -- name: SearchCommunities :many
 SELECT
     c.id, c.domain, c.name, c.title, c.description, c.theme, c.nsfw, a.ap_id, a.local,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members,
     my.state AS my_state, my.role AS my_role
 FROM communities c
 JOIN actors a ON a.id = c.actor_id
@@ -138,7 +142,9 @@ RETURNING c.*;
 -- The directory is the admin-reviewed list of remote communities Discover shows.
 -- name: Directory :many
 SELECT c.id, c.domain, c.name, c.title, d.note, d.created_at,
-    (SELECT count(*) FROM memberships m WHERE m.community_id = c.id AND m.state = 'accepted')::bigint AS members
+    coalesce((SELECT sf.state FROM memberships sf WHERE sf.community_id = c.id AND sf.actor_id = @follower_id), 'none')::text AS site_follow,
+    (SELECT count(*) FROM memberships m JOIN actors ma ON ma.id = m.actor_id
+     WHERE m.community_id = c.id AND m.state = 'accepted' AND ma.kind = 'person')::bigint AS members
 FROM directory d
 JOIN communities c ON c.id = d.community_id
 ORDER BY d.created_at DESC, c.id

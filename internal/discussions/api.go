@@ -224,6 +224,25 @@ func (s *Service) registerReads(api huma.API) {
 		p, err := s.HomeFeed(ctx, person, in.Before)
 		return &struct{ Body PostPage }{p}, apiError(err)
 	})
+	type feedPage struct {
+		Before string `query:"before" maxLength:"60" doc:"Cursor from the previous page's next"`
+	}
+	huma.Register(api, huma.Operation{
+		OperationID: "popularFeed", Method: http.MethodGet, Path: "/api/feed/popular",
+		Summary: "List posts from every community this site receives, by hot rank; NSFW posts stay out", Tags: tags,
+		Errors: []int{http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *feedPage) (*struct{ Body PostPage }, error) {
+		p, err := s.PopularFeed(ctx, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
+	huma.Register(api, huma.Operation{
+		OperationID: "allFeed", Method: http.MethodGet, Path: "/api/feed/all",
+		Summary: "List posts from every community this site receives, newest first; NSFW posts stay out", Tags: tags,
+		Errors: []int{http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *feedPage) (*struct{ Body PostPage }, error) {
+		p, err := s.AllFeed(ctx, in.Before, accounts.ActorFrom(ctx))
+		return &struct{ Body PostPage }{p}, apiError(err)
+	})
 	huma.Register(api, huma.Operation{
 		OperationID: "editPost", Method: http.MethodPut, Path: "/api/posts/{ref}",
 		Summary: "Change my post's title, text, link and NSFW flag", Tags: []string{"discussions"},

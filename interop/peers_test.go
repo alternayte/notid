@@ -226,6 +226,65 @@ func TestNotidUserFollowsLemmyAndPieFedCommunities(t *testing.T) {
 	}
 }
 
+func TestADirectoryAddFollowsLemmyAndPieFedCommunities(t *testing.T) {
+	admin := signUp(t, "http://a.notid.test:8080")
+	sql(t, "notid-a-db", fmt.Sprintf(`UPDATE auth_users SET role = 'admin'
+		WHERE id = (SELECT user_id FROM actors WHERE local AND name = '%s')`, admin.name))
+	for peerName, c := range map[string]struct {
+		peer *api
+		url  func(string) string
+	}{
+		"lemmy":  {lemmy(t), func(n string) string { return "http://lemmy.test:8536/c/" + n }},
+		"piefed": {piefed(t), func(n string) string { return "http://piefed.test:5000/c/" + n }},
+	} {
+		t.Run(peerName, func(t *testing.T) {
+			c.peer.t, admin.t = t, t
+			name := uniqueName("news")
+			c.peer.createCommunity(name)
+			id := c.peer.resolveCommunity(c.url(name))
+			before := "Listed before on " + peerName
+			var older postView
+			c.peer.call(http.MethodPost, "/post", map[string]any{titleKey(peerName): before, "community_id": id, "body": "older"}, &older)
+			c.peer.call(http.MethodPost, "/comment", map[string]any{bodyKey(peerName): "older reply on " + peerName, "post_id": older.PostView.Post.ID}, nil)
+
+			admin.post("/api/admin/directory", map[string]string{"community": c.url(name), "note": "interop"}, nil)
+			siteFollow := fmt.Sprintf(`SELECT coalesce((SELECT m.state FROM memberships m
+				JOIN actors p ON p.id = m.actor_id JOIN communities c ON c.id = m.community_id JOIN actors g ON g.id = c.actor_id
+				WHERE p.kind = 'service' AND g.ap_id = '%s'), 'none')`, c.url(name))
+			eventually(t, peerName+" accepts the site follow", func() bool { return sql(t, "notid-a-db", siteFollow) == "accepted" })
+			eventually(t, "A fetches the older post from the "+peerName+" outbox", func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM posts WHERE ap_id = '%s'`, older.PostView.Post.ApID)) == "1"
+			})
+			// PieFed publishes the post's thread; Lemmy's client API lists its comments.
+			eventually(t, "A fetches the older reply on "+peerName, func() bool {
+				return sql(t, "notid-a-db", fmt.Sprintf(`SELECT count(*) FROM comments m JOIN posts p ON p.id = m.post_id
+					WHERE p.ap_id = '%s' AND m.body = 'older reply on %s'`, older.PostView.Post.ApID, peerName)) == "1"
+			})
+
+			// A new post arrives through the site follow and shows in All for a signed-out visitor.
+			after := "Listed after on " + peerName + " " + uniqueName("")
+			c.peer.call(http.MethodPost, "/post", map[string]any{titleKey(peerName): after, "community_id": id, "body": "newer"}, nil)
+			eventually(t, "All on A shows the new "+peerName+" post", func() bool {
+				var page struct{ Posts []struct{ Title string } }
+				if err := getJSON("http://a.notid.test:8080/api/feed/all", &page); err != nil {
+					return false
+				}
+				for _, p := range page.Posts {
+					if p.Title == after {
+						return true
+					}
+				}
+				return false
+			})
+
+			admin.post("/api/admin/directory/remove", map[string]string{"community": c.url(name)}, nil)
+			if got := sql(t, "notid-a-db", siteFollow); got != "none" {
+				t.Fatalf("site follow after removal: %s", got)
+			}
+		})
+	}
+}
+
 // trust promotes a notid user so its votes count and federate.
 func trust(t *testing.T, db string, u *user) {
 	t.Helper()

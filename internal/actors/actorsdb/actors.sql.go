@@ -322,6 +322,63 @@ func (q *Queries) InsertLocalPerson(ctx context.Context, arg InsertLocalPersonPa
 	return i, err
 }
 
+const insertSiteFollower = `-- name: InsertSiteFollower :one
+INSERT INTO actors (
+    ap_id, kind, local, domain, name, display_name, inbox, shared_inbox, public_key_pem, private_key_enc, bot
+) VALUES (
+    $1, 'service', true, $2, $3, $4, $5, $6, $7, $8, true
+)
+ON CONFLICT (ap_id) DO NOTHING
+RETURNING id, ap_id, kind, local, user_id, domain, name, display_name, summary, inbox, shared_inbox, public_key_pem, private_key_enc, bot, trust, promoted_at, deleted_at, fetched_at, created_at
+`
+
+type InsertSiteFollowerParams struct {
+	ApID          string
+	Domain        string
+	Name          string
+	DisplayName   string
+	Inbox         string
+	SharedInbox   string
+	PublicKeyPem  string
+	PrivateKeyEnc []byte
+}
+
+func (q *Queries) InsertSiteFollower(ctx context.Context, arg InsertSiteFollowerParams) (Actor, error) {
+	row := q.db.QueryRow(ctx, insertSiteFollower,
+		arg.ApID,
+		arg.Domain,
+		arg.Name,
+		arg.DisplayName,
+		arg.Inbox,
+		arg.SharedInbox,
+		arg.PublicKeyPem,
+		arg.PrivateKeyEnc,
+	)
+	var i Actor
+	err := row.Scan(
+		&i.ID,
+		&i.ApID,
+		&i.Kind,
+		&i.Local,
+		&i.UserID,
+		&i.Domain,
+		&i.Name,
+		&i.DisplayName,
+		&i.Summary,
+		&i.Inbox,
+		&i.SharedInbox,
+		&i.PublicKeyPem,
+		&i.PrivateKeyEnc,
+		&i.Bot,
+		&i.Trust,
+		&i.PromotedAt,
+		&i.DeletedAt,
+		&i.FetchedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const localNameTaken = `-- name: LocalNameTaken :one
 SELECT EXISTS (
     SELECT 1 FROM actors

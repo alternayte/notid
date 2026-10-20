@@ -63,6 +63,29 @@ func (s *Server) fetch(ctx context.Context, rawURL string, into any) error {
 	return nil
 }
 
+// getJSON makes a plain GET for a peer's JSON API, unsigned, and decodes the answer.
+func (s *Server) getJSON(ctx context.Context, rawURL string, into any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("get %s: %w", rawURL, err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", s.userAgent())
+	resp, err := s.HTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("get %s: %w", rawURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return fmt.Errorf("get %s: status %d", rawURL, resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(into); err != nil {
+		return fmt.Errorf("get %s: decode: %w", rawURL, err)
+	}
+	return nil
+}
+
 func (s *Server) userAgent() string {
 	return "notid/" + s.Version + " (+" + s.AppOrigin + ")"
 }

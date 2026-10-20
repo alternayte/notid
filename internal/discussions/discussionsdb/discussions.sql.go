@@ -40,6 +40,126 @@ func (q *Queries) AdjustPostScore(ctx context.Context, arg AdjustPostScoreParams
 	return err
 }
 
+const allFeed = `-- name: AllFeed :many
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors ca ON ca.id = c.actor_id
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $1::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $1::bigint
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+  AND c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
+  AND (ca.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND (p.sort_at, p.id) < ($2::timestamptz, $3::bigint)
+ORDER BY p.sort_at DESC, p.id DESC
+LIMIT $4
+`
+
+type AllFeedParams struct {
+	Viewer   *int64
+	BeforeAt time.Time
+	BeforeID int64
+	Lim      int32
+}
+
+type AllFeedRow struct {
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
+}
+
+// All: newest first by feed time.
+func (q *Queries) AllFeed(ctx context.Context, arg AllFeedParams) ([]AllFeedRow, error) {
+	rows, err := q.db.Query(ctx, allFeed,
+		arg.Viewer,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AllFeedRow
+	for rows.Next() {
+		var i AllFeedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.ActiveAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.Locked,
+			&i.RemovedAt,
+			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const authorComments = `-- name: AuthorComments :many
 SELECT
     m.id, m.ap_id, m.ref, m.body, m.published, m.score,
@@ -1440,6 +1560,131 @@ func (q *Queries) PersonIDByHandle(ctx context.Context, arg PersonIDByHandlePara
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const popularFeed = `-- name: PopularFeed :many
+
+SELECT
+    p.id, p.ap_id, p.ref, p.title, p.body, p.url, p.nsfw, p.published, p.sort_at, p.active_at, p.score, p.comment_count, p.locked, p.removed_at, (p.media_id IS NOT NULL)::boolean AS has_image, p.url_image, p.preview_title, p.preview_description, p.preview_image,
+    a.name AS author_name, a.domain AS author_domain, a.display_name AS author_display_name, a.bot AS author_bot,
+    c.name AS community_name, c.domain AS community_domain, c.title AS community_title,
+    coalesce(v.value, 0)::smallint AS my_vote, coalesce(v.counted, false) AS my_vote_counted,
+    (s.actor_id IS NOT NULL)::boolean AS saved
+FROM posts p
+JOIN actors a ON a.id = p.author_id
+JOIN communities c ON c.id = p.community_id
+JOIN actors ca ON ca.id = c.actor_id
+CROSS JOIN (SELECT $1::timestamptz AS at) w
+LEFT JOIN votes v ON v.post_id = p.id AND v.actor_id = $2::bigint
+LEFT JOIN saves s ON s.post_id = p.id AND s.actor_id = $2::bigint
+WHERE p.deleted_at IS NULL AND p.removed_at IS NULL AND NOT p.held AND NOT p.nsfw AND NOT c.nsfw
+  AND c.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM peers pe WHERE pe.domain = c.domain AND pe.blocked)
+  AND (ca.local
+    OR EXISTS (SELECT 1 FROM directory d WHERE d.community_id = c.id)
+    OR EXISTS (SELECT 1 FROM memberships lm JOIN actors la ON la.id = lm.actor_id
+               WHERE lm.community_id = c.id AND la.local AND lm.state = 'accepted'))
+  AND p.sort_at <= w.at AND p.sort_at > w.at - interval '7 days'
+ORDER BY log(greatest(1, 3 + p.score)) / power(extract(epoch FROM w.at - p.sort_at) / 3600 + 2, 1.8) DESC, p.id DESC
+LIMIT $4 OFFSET $3
+`
+
+type PopularFeedParams struct {
+	At     time.Time
+	Viewer *int64
+	Off    int32
+	Lim    int32
+}
+
+type PopularFeedRow struct {
+	ID                 int64
+	ApID               string
+	Ref                string
+	Title              string
+	Body               string
+	Url                string
+	Nsfw               bool
+	Published          time.Time
+	SortAt             time.Time
+	ActiveAt           *time.Time
+	Score              int32
+	CommentCount       int32
+	Locked             bool
+	RemovedAt          *time.Time
+	HasImage           bool
+	UrlImage           bool
+	PreviewTitle       string
+	PreviewDescription string
+	PreviewImage       string
+	AuthorName         string
+	AuthorDomain       string
+	AuthorDisplayName  string
+	AuthorBot          bool
+	CommunityName      string
+	CommunityDomain    string
+	CommunityTitle     string
+	MyVote             int16
+	MyVoteCounted      bool
+	Saved              bool
+}
+
+// Popular and All draw from communities that live here, are in the directory,
+// or have a local member, and leave out NSFW posts and NSFW communities.
+// Popular: hot rank, log10(max(1, 3 + score)) / (hours since feed time + 2)^1.8,
+// over the week before the time of the first page.
+func (q *Queries) PopularFeed(ctx context.Context, arg PopularFeedParams) ([]PopularFeedRow, error) {
+	rows, err := q.db.Query(ctx, popularFeed,
+		arg.At,
+		arg.Viewer,
+		arg.Off,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PopularFeedRow
+	for rows.Next() {
+		var i PopularFeedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApID,
+			&i.Ref,
+			&i.Title,
+			&i.Body,
+			&i.Url,
+			&i.Nsfw,
+			&i.Published,
+			&i.SortAt,
+			&i.ActiveAt,
+			&i.Score,
+			&i.CommentCount,
+			&i.Locked,
+			&i.RemovedAt,
+			&i.HasImage,
+			&i.UrlImage,
+			&i.PreviewTitle,
+			&i.PreviewDescription,
+			&i.PreviewImage,
+			&i.AuthorName,
+			&i.AuthorDomain,
+			&i.AuthorDisplayName,
+			&i.AuthorBot,
+			&i.CommunityName,
+			&i.CommunityDomain,
+			&i.CommunityTitle,
+			&i.MyVote,
+			&i.MyVoteCounted,
+			&i.Saved,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const postAuthorAndCommunity = `-- name: PostAuthorAndCommunity :one

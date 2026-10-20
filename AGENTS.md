@@ -36,5 +36,8 @@ A community that owns its domain can move to another installation and keep its a
 - AP ID: the ActivityPub URL that identifies an actor, object or activity. Avoid: URI, remote ID, external ID.
 - ref: the 12-character permalink key derived from an AP ID. Avoid: slug, short ID, public ID.
 - directory: the admin-reviewed list of remote communities that feeds Discover. Avoid: verified list, allowlist.
+- site follow: the follow that the site follower, a Service actor on the app domain, sends to each directory community; it is not a membership. Avoid: instance follow, subscription.
+- Popular: the front-page feed of posts from local, directory and joined communities, ranked by hot rank. Avoid: trending, hot feed, frontpage.
+- All: the front-page feed of the same posts, newest first. Avoid: everything, global feed.
 - departed: the state of a community on the installation it moved away from. Avoid: archived, moved, deleted.
 - moderation log: the append-only public record of moderator and admin actions. Avoid: audit log, mod log, journal.

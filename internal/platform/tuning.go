@@ -40,9 +40,12 @@ type Tuning struct {
 	FollowResends     int
 	// JoinBackfillPosts is how many of a remote community's newest posts a
 	// join fetches from its outbox, so the feed does not start empty.
-	JoinBackfillPosts  int
-	PeerInboxPerMinute int
-	PeerInboxBurst     int
+	JoinBackfillPosts int
+	// JoinBackfillComments is how many of each backfilled post's newest
+	// comments are fetched, from the post's thread collection.
+	JoinBackfillComments int
+	PeerInboxPerMinute   int
+	PeerInboxBurst       int
 	// KeyFetchesPerMinute caps, per client address, inbox requests signed by
 	// keys notid must fetch first.
 	KeyFetchesPerMinute int
@@ -136,6 +139,7 @@ func DefaultTuning() Tuning {
 		FollowResendAfter:         5 * time.Minute,
 		FollowResends:             3,
 		JoinBackfillPosts:         20,
+		JoinBackfillComments:      50,
 		PeerInboxPerMinute:        300,
 		PeerInboxBurst:            100,
 		KeyFetchesPerMinute:       120,

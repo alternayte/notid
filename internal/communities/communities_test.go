@@ -266,6 +266,16 @@ func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
 		// A stored community is listed without reaching its peer.
 		Resolve: func(context.Context, string) (actors.Actor, error) { return actors.Actor{}, communities.ErrNotFound },
 	}
+	var followedBy, unfollowedBy, unfollowed string
+	svc.SendFollow = func(_ context.Context, _ pgx.Tx, a, _ actors.Actor) (string, error) {
+		followedBy = a.ApID
+		return "https://notid.test/activities/" + uuid.NewString(), nil
+	}
+	svc.SendUnfollow = func(_ context.Context, _ pgx.Tx, a actors.Actor, _, followApID string) error {
+		unfollowedBy, unfollowed = a.ApID, followApID
+		return nil
+	}
+	app := svc.Local.SiteFollowerURL()
 	if err := svc.AddToDirectory(ctx, member, "checked@peer.example", "checked by hand"); !errors.Is(err, communities.ErrNotAdmin) {
 		t.Fatalf("a member listed a community: %v", err)
 	}
@@ -289,8 +299,15 @@ func TestOnlyAnAdminListsACommunityAndDiscoverShowsIt(t *testing.T) {
 	if err != nil || len(entries) == 0 || entries[0].Note != "checked by hand" {
 		t.Fatalf("directory %+v: %v", entries, err)
 	}
+	// The site follows the listed community, and the follow is not a member.
+	if followedBy != app || entries[0].SiteFollow != "pending" || entries[0].Members != 0 {
+		t.Fatalf("site follow by %q: %+v", followedBy, entries[0])
+	}
 	if err := svc.RemoveFromDirectory(ctx, owner, "checked@peer.example"); err != nil {
 		t.Fatal(err)
+	}
+	if unfollowedBy != app || unfollowed == "" {
+		t.Fatalf("removal undid no site follow: %q %q", unfollowedBy, unfollowed)
 	}
 	rows, err = communitiesdb.New(pool).Discover(ctx, communitiesdb.DiscoverParams{ViewerID: &owner.ID, Lim: math.MaxInt32})
 	if err != nil {

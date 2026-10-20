@@ -149,3 +149,7 @@ WHERE c.id = @id;
 INSERT INTO memberships (community_id, actor_id, role, state)
 VALUES (@community_id, @actor_id, @role, 'accepted')
 ON CONFLICT (community_id, actor_id) DO UPDATE SET role = excluded.role;
+
+-- name: ObjectKnown :one
+SELECT (EXISTS (SELECT 1 FROM posts p WHERE p.ap_id = sqlc.arg(ap_id)::text)
+    OR EXISTS (SELECT 1 FROM comments m WHERE m.ap_id = sqlc.arg(ap_id)::text))::boolean AS known;
